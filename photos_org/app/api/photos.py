@@ -68,7 +68,7 @@ class PhotoStatistics(BaseModel):
 @router.get("/", response_model=Dict[str, Any])
 async def get_photos(
     skip: int = Query(0, ge=0, description="跳过的记录数"),
-    limit: int = Query(50, ge=1, le=100, description="返回的记录数"),
+    limit: int = Query(50, ge=1, le=1000, description="返回的记录数"),
     search: Optional[str] = Query(None, description="搜索关键词"),
     sort_by: str = Query("created_at", description="排序字段"),
     sort_order: str = Query("desc", description="排序顺序"),
@@ -362,13 +362,14 @@ async def batch_process_photos(
     try:
         photo_service = PhotoService()
 
-        # 获取所有照片
-        photos, total = photo_service.get_photos(db, skip=0, limit=1000)
+        # 获取状态为imported和error的照片
+        photos = db.query(Photo).filter(Photo.status.in_(['imported', 'error'])).all()
+        total = len(photos)
 
         if not photos:
             return {
                 "success": True,
-                "message": "没有找到需要处理的照片",
+                "message": "没有找到需要处理的照片（只有imported和error状态的照片才会被处理）",
                 "data": {
                     "total_photos": 0,
                     "processed": 0
@@ -453,7 +454,7 @@ async def get_photo_statistics(db: Session = Depends(get_db)):
 async def get_photos_by_category(
     category_id: int,
     skip: int = Query(0, ge=0, description="跳过的记录数"),
-    limit: int = Query(50, ge=1, le=100, description="返回的记录数"),
+    limit: int = Query(50, ge=1, le=1000, description="返回的记录数"),
     db: Session = Depends(get_db)
 ):
     """
@@ -503,7 +504,7 @@ async def get_photos_by_category(
 async def get_photos_by_tag(
     tag_name: str,
     skip: int = Query(0, ge=0, description="跳过的记录数"),
-    limit: int = Query(50, ge=1, le=100, description="返回的记录数"),
+    limit: int = Query(50, ge=1, le=1000, description="返回的记录数"),
     db: Session = Depends(get_db)
 ):
     """
@@ -562,6 +563,7 @@ async def process_photos_background(photos, enable_ai, enable_quality, enable_cl
     from app.services.analysis_service import AnalysisService
     from app.services.photo_quality_service import PhotoQualityService
     from app.services.classification_service import ClassificationService
+    from app.db.session import get_db
 
     processed_count = 0
 
@@ -569,29 +571,49 @@ async def process_photos_background(photos, enable_ai, enable_quality, enable_cl
         analysis_service = AnalysisService()
         quality_service = PhotoQualityService()
         classification_service = ClassificationService()
+        
+        # 重新获取数据库会话，避免会话过期问题
+        fresh_db = next(get_db())
 
         for photo in photos:
             try:
                 logger.info(f"正在处理照片: {photo.filename}")
 
-                # AI分析
-                if enable_ai:
-                    await analysis_service.analyze_photo(photo.id)
-
-                # 质量评估 - 暂时跳过，方法不存在
-                # if enable_quality:
-                #     quality_service.assess_photo_quality_async(db, photo.id)
-
-                # 智能分类
-                if enable_classification:
-                    classification_service.classify_photo(photo.id, db)
-
+                # 重新查询照片，使用新的数据库会话
+                current_photo = fresh_db.query(Photo).filter(Photo.id == photo.id).first()
+                if not current_photo:
+                    logger.warning(f"照片不存在: {photo.id}")
+                    continue
+                
+                # 更新照片状态为分析中
+                current_photo.status = 'analyzing'
+                fresh_db.commit()
+                
+                # 执行智能分析
+                try:
+                    # AI内容分析（包含分类服务调用）
+                    if enable_ai:
+                        await analysis_service.analyze_photo(current_photo.id)
+                    
+                    # 质量评估
+                    if enable_quality:
+                        quality_service.assess_quality(current_photo.original_path)
+                    
+                    # 如果只启用分类而不启用AI分析，单独调用分类服务
+                    if enable_classification and not enable_ai:
+                        classification_service.classify_photo(current_photo.id, fresh_db)
+                    
+                    # 分析完成后更新状态
+                    current_photo.status = 'completed'
+                    fresh_db.commit()
+                    
+                except Exception as analysis_error:
+                    logger.error(f"照片 {current_photo.filename} 智能分析失败: {str(analysis_error)}")
+                    current_photo.status = 'error'
+                    fresh_db.commit()
+                    continue
+                
                 processed_count += 1
-                
-                # 更新照片状态为已完成
-                photo.status = 'completed'
-                db.commit()
-                
                 logger.info(f"照片 {photo.filename} 处理完成")
 
             except Exception as e:

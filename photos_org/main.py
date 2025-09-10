@@ -43,6 +43,28 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# 配置JSON响应，确保中文字符正确显示
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
+import json
+
+# 重写FastAPI的默认JSON响应
+from fastapi.responses import Response
+
+class ChineseJSONResponse(Response):
+    media_type = "application/json"
+    
+    def render(self, content) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=str
+        ).encode("utf-8")
+
+# 替换默认的JSONResponse
+app.default_response_class = ChineseJSONResponse
+
 # 配置CORS
 app.add_middleware(
     CORSMiddleware,
@@ -57,6 +79,7 @@ app.include_router(api_router, prefix="/api/v1")
 
 # 挂载静态文件
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/photos_storage", StaticFiles(directory="photos_storage"), name="photos_storage")
 
 # 健康检查接口
 @app.get("/health")

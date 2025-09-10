@@ -10,7 +10,7 @@
 import shutil
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 from fastapi.responses import JSONResponse
@@ -75,7 +75,7 @@ async def scan_folder(
             )
 
         # 小批量直接处理
-        imported_count = await process_photos_batch(photo_files, db)
+        imported_count, failed_files = await process_photos_batch(photo_files, db)
 
         return JSONResponse(
             status_code=200,
@@ -84,7 +84,8 @@ async def scan_folder(
                 "message": f"成功导入{imported_count}张照片",
                 "data": {
                     "scanned_files": len(photo_files),
-                    "imported_photos": imported_count
+                    "imported_photos": imported_count,
+                    "failed_files": failed_files
                 }
             }
         )
@@ -116,10 +117,12 @@ async def upload_photos(
         import_service = ImportService()
         photo_service = PhotoService()
         imported_count = 0
+        failed_files = []
 
         for file in files:
             # 验证文件类型
             if not file.content_type or not file.content_type.startswith('image/'):
+                failed_files.append(f"{file.filename}: 不支持的文件类型")
                 continue
 
             # 保存临时文件
@@ -129,16 +132,30 @@ async def upload_photos(
 
             try:
                 # 处理照片
-                success, message, photo_data = import_service.process_single_photo(temp_path)
+                success, message, photo_data, duplicate_info = import_service.process_single_photo(temp_path, db_session=db)
 
                 if success and photo_data:
                     # 保存到数据库
                     photo = photo_service.create_photo(db, photo_data)
                     if photo:
                         imported_count += 1
+                    else:
+                        failed_files.append(f"{file.filename}: 数据库保存失败")
+                elif duplicate_info:
+                    # 处理重复文件
+                    existing_photo = duplicate_info['existing_photo']
+                    status_text = f"文件已存在（重复）"
+                    
+                    # 检查是否需要智能处理
+                    if existing_photo.status == 'imported' and not hasattr(existing_photo, 'has_analysis'):
+                        status_text += " - 建议进行批量处理"
+                    
+                    failed_files.append(f"{file.filename}: {status_text}")
                 else:
-                    print(f"文件 {file.filename} 处理失败: {message}")
+                    failed_files.append(f"{file.filename}: {message}")
 
+            except Exception as e:
+                failed_files.append(f"{file.filename}: 处理异常 - {str(e)}")
             finally:
                 # 清理临时文件
                 Path(temp_path).unlink(missing_ok=True)
@@ -150,7 +167,8 @@ async def upload_photos(
                 "message": f"成功导入{imported_count}/{len(files)}个文件",
                 "data": {
                     "total_files": len(files),
-                    "imported_photos": imported_count
+                    "imported_photos": imported_count,
+                    "failed_files": failed_files
                 }
             }
         )
@@ -175,11 +193,11 @@ async def process_single_file(
         photo_service = PhotoService()
 
         # 处理照片
-        success, message, photo_data = import_service.process_single_photo(file_path)
+        success, message, photo_data, duplicate_info = import_service.process_single_photo(file_path, db_session=db)
 
         if success and photo_data:
             # 保存到数据库
-            photo = photo_service.create_photo(photo_data)
+            photo = photo_service.create_photo(db, photo_data)
 
             return JSONResponse(
                 status_code=200,
@@ -195,6 +213,24 @@ async def process_single_file(
                     }
                 }
             )
+        elif duplicate_info:
+            # 处理重复文件
+            duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
+            message = duplicate_info.get('message', '文件重复')
+            
+            # 根据重复类型生成更详细的提示
+            if duplicate_type == 'full_duplicate_completed':
+                status_text = f"文件已存在且已完成智能处理"
+            elif duplicate_type == 'full_duplicate_incomplete':
+                status_text = f"文件已存在但未完成智能处理 - 将重新处理"
+            elif duplicate_type == 'physical_only':
+                status_text = f"文件已存在（物理重复）"
+            elif duplicate_type == 'orphan_cleaned':
+                status_text = f"孤儿记录已清理，继续处理"
+            else:
+                status_text = message
+            
+            raise HTTPException(status_code=400, detail=status_text)
         else:
             raise HTTPException(status_code=400, detail=message)
 
@@ -241,33 +277,72 @@ async def get_import_status():
     )
 
 
-async def process_photos_batch(photo_files: List[str], db) -> int:
+async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, List[str]]:
     """
     批量处理照片文件
 
     :param photo_files: 照片文件路径列表
     :param db: 数据库会话
-    :return: 成功导入的数量
+    :return: (成功导入的数量, 失败文件列表)
     """
     import_service = ImportService()
     photo_service = PhotoService()
     imported_count = 0
+    failed_files = []
 
     for file_path in photo_files:
         try:
             # 处理单个照片（文件夹扫描时复制文件，不移动）
-            success, message, photo_data = import_service.process_single_photo(file_path, move_file=False)
+            success, message, photo_data, duplicate_info = import_service.process_single_photo(file_path, move_file=False, db_session=db)
 
             if success and photo_data:
                 # 保存到数据库
                 photo = photo_service.create_photo(db, photo_data)
-                imported_count += 1
-                print(f"成功导入: {file_path}")
+                if photo:
+                    imported_count += 1
+                    print(f"成功导入: {file_path}")
+                else:
+                    failed_files.append(f"{file_path}: 数据库保存失败")
+                    print(f"数据库保存失败: {file_path}")
+            elif duplicate_info:
+                # 处理重复文件
+                duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
+                message = duplicate_info.get('message', '文件重复')
+                
+                # 根据重复类型生成更详细的提示
+                if duplicate_type == 'full_duplicate_completed':
+                    status_text = f"文件已存在且已完成智能处理"
+                elif duplicate_type == 'full_duplicate_incomplete':
+                    status_text = f"文件已存在但未完成智能处理 - 将重新处理"
+                elif duplicate_type == 'physical_only':
+                    status_text = f"文件已存在（物理重复）"
+                elif duplicate_type == 'orphan_cleaned':
+                    status_text = f"孤儿记录已清理，继续处理"
+                else:
+                    status_text = message
+                
+                failed_files.append(f"{file_path}: {status_text}")
+                print(f"跳过重复文件: {file_path} - {status_text}")
             else:
+                failed_files.append(f"{file_path}: {message}")
                 print(f"导入失败 {file_path}: {message}")
 
         except Exception as e:
-            print(f"处理文件 {file_path} 时发生错误: {str(e)}")
+            error_msg = f"处理文件 {file_path} 时发生错误: {str(e)}"
+            failed_files.append(error_msg)
+            print(error_msg)
             continue
 
-    return imported_count
+    # 如果有失败的文件，打印详细信息
+    if failed_files:
+        print(f"\n导入失败的文件详情:")
+        for failed in failed_files:
+            print(f"  - {failed}")
+    
+    print(f"\n导入完成: 成功 {imported_count}/{len(photo_files)} 张照片")
+    
+    # 导入完成，通知用户手动点击批量处理
+    if imported_count > 0:
+        print(f"导入完成: {imported_count} 张照片已导入，请手动点击批量处理按钮进行智能分析")
+    
+    return imported_count, failed_files

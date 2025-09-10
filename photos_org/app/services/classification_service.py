@@ -367,7 +367,7 @@ class ClassificationService:
         if not analysis_result:
             return tags
 
-        # 优先使用AI分析结果中已经存在的标签
+        # 使用AI分析结果中已经存在的标签
         ai_tags = analysis_result.get('tags', [])
         if ai_tags:
             for tag_name in ai_tags:
@@ -377,36 +377,50 @@ class ClassificationService:
                     'confidence': 0.95
                 })
 
-        # 如果没有AI标签，则从其他字段生成
-        if not tags:
-            # 物体标签
-            objects = analysis_result.get('objects', [])
-            for obj in objects:
-                chinese_name = self.chinese_tag_mapping.get(obj.lower(), obj)
+        # 从其他字段生成额外标签（无论是否有AI标签都执行）
+        # 物体标签
+        objects = analysis_result.get('objects', [])
+        for obj in objects:
+            chinese_name = self.chinese_tag_mapping.get(obj.lower(), obj)
+            # 避免重复添加相同的标签
+            if not any(tag['name'] == chinese_name for tag in tags):
                 tags.append({
                     'name': chinese_name,
                     'type': 'object',
                     'confidence': 0.8
                 })
 
-            # 场景标签
-            scene_type = analysis_result.get('scene_type', '')
-            if scene_type:
-                chinese_scene = self.chinese_tag_mapping.get(scene_type.lower(), scene_type)
+        # 场景标签
+        scene_type = analysis_result.get('scene_type', '')
+        if scene_type:
+            chinese_scene = self.chinese_tag_mapping.get(scene_type.lower(), scene_type)
+            if not any(tag['name'] == chinese_scene for tag in tags):
                 tags.append({
                     'name': chinese_scene,
                     'type': 'scene',
                     'confidence': 0.9
                 })
 
-            # 活动标签
-            activity = analysis_result.get('activity', '')
-            if activity:
-                chinese_activity = self.chinese_tag_mapping.get(activity.lower(), activity)
+        # 活动标签
+        activity = analysis_result.get('activity', '')
+        if activity:
+            chinese_activity = self.chinese_tag_mapping.get(activity.lower(), activity)
+            if not any(tag['name'] == chinese_activity for tag in tags):
                 tags.append({
                     'name': chinese_activity,
                     'type': 'activity',
                     'confidence': 0.8
+                })
+
+        # 情感标签
+        emotion = analysis_result.get('emotion', '')
+        if emotion:
+            chinese_emotion = self.chinese_tag_mapping.get(emotion.lower(), emotion)
+            if not any(tag['name'] == chinese_emotion for tag in tags):
+                tags.append({
+                    'name': chinese_emotion,
+                    'type': 'emotion',
+                    'confidence': 0.85
                 })
 
         return tags
@@ -523,6 +537,9 @@ class ClassificationService:
                 source='auto'
             )
             db.add(photo_tag)
+            
+            # 更新标签使用次数
+            tag.usage_count = (tag.usage_count or 0) + 1
 
             saved_tags.append(tag_data['name'])
 

@@ -11,7 +11,7 @@ from sqlalchemy import and_, or_, desc, asc, func
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.models.photo import Photo, PhotoTag, PhotoCategory, Tag, Category, PhotoAnalysis
+from app.models.photo import Photo, PhotoTag, PhotoCategory, Tag, Category, PhotoAnalysis, PhotoQuality
 from app.models.photo import DuplicateGroup, DuplicateGroupPhoto
 from app.schemas.photo import PhotoCreate
 
@@ -100,6 +100,12 @@ class PhotoService:
             创建的照片对象或None
         """
         try:
+            # 检查是否已存在相同哈希的照片
+            existing_photo = db.query(Photo).filter(Photo.file_hash == photo_data.file_hash).first()
+            if existing_photo:
+                self.logger.warning(f"照片已存在，跳过创建: {photo_data.filename}")
+                return existing_photo
+            
             # 将Pydantic模型转换为字典
             photo_dict = photo_data.dict()
             
@@ -533,7 +539,7 @@ class PhotoService:
 
             # 质量筛选
             if "min_quality" in filters:
-                query = query.join(PhotoAnalysis).filter(PhotoAnalysis.overall_score >= filters["min_quality"])
+                query = query.join(PhotoQuality).filter(PhotoQuality.quality_score >= filters["min_quality"])
 
             # 标签筛选
             if "tags" in filters and filters["tags"]:

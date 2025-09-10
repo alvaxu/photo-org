@@ -69,7 +69,7 @@ class SearchService:
         """
         try:
             # 构建基础查询 - 只搜索已完成的照片
-            query = db.query(Photo).filter(Photo.status == 'completed')
+            query = db.query(Photo).filter(Photo.status.in_(['imported', 'completed']))
 
             # 关键词搜索
             if keyword:
@@ -382,14 +382,14 @@ class SearchService:
 
         try:
             # 基本统计
-            stats["total_photos"] = db.query(Photo).filter(Photo.status == 'completed').count()
+            stats["total_photos"] = db.query(Photo).filter(Photo.status.in_(['imported', 'completed'])).count()
             stats["total_tags"] = db.query(Tag).count()
             stats["total_categories"] = db.query(Category).count()
 
             # 质量分布
             quality_stats = db.query(
                 PhotoQuality.quality_level,
-                db.func.count(PhotoQuality.id)
+                func.count(PhotoQuality.id)
             ).group_by(PhotoQuality.quality_level).all()
 
             stats["quality_distribution"] = {
@@ -398,12 +398,12 @@ class SearchService:
 
             # 时间分布（按年份）
             year_stats = db.query(
-                db.func.strftime('%Y', Photo.taken_at),
-                db.func.count(Photo.id)
+                func.strftime('%Y', Photo.taken_at),
+                func.count(Photo.id)
             ).filter(
-                Photo.status == 'completed',
+                Photo.status.in_(['imported', 'completed']),
                 Photo.taken_at.isnot(None)
-            ).group_by(db.func.strftime('%Y', Photo.taken_at)).all()
+            ).group_by(func.strftime('%Y', Photo.taken_at)).all()
 
             stats["year_distribution"] = {
                 year: count for year, count in year_stats
@@ -412,9 +412,9 @@ class SearchService:
             # 相机统计
             camera_stats = db.query(
                 Photo.camera_make,
-                db.func.count(Photo.id)
+                func.count(Photo.id)
             ).filter(
-                Photo.status == 'completed',
+                Photo.status.in_(['imported', 'completed']),
                 Photo.camera_make.isnot(None)
             ).group_by(Photo.camera_make).all()
 

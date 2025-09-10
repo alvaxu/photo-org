@@ -106,13 +106,7 @@ class PhotoQualityService:
                 "color_score": round(color_score, 2),
                 "composition_score": round(composition_score, 2),
                 "quality_level": quality_level,
-                "technical_issues": technical_issues,
-                # 附加技术指标
-                "brightness": self._get_average_brightness(image),
-                "contrast": self._get_contrast_ratio(image),
-                "saturation": self._get_average_saturation(image),
-                "noise_level": self._assess_noise(image),
-                "dynamic_range": self._assess_dynamic_range(image)
+                "technical_issues": technical_issues
             }
 
         except Exception as e:

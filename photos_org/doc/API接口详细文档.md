@@ -94,45 +94,64 @@
 **请求参数**：
 | 参数名 | 类型 | 必需 | 描述 |
 |--------|------|------|------|
-| page | integer | 否 | 页码，默认1 |
-| page_size | integer | 否 | 每页数量，默认20 |
-| q | string | 否 | 关键词搜索 |
-| category | string | 否 | 分类筛选 |
-| tag | string | 否 | 标签筛选 |
-| date_from | string | 否 | 开始日期 (YYYY-MM-DD) |
-| date_to | string | 否 | 结束日期 (YYYY-MM-DD) |
-| quality_min | integer | 否 | 最低质量评分 |
-| sort_by | string | 否 | 排序字段 (time/quality/name/relevance) |
-| sort_order | string | 否 | 排序方向 (asc/desc) |
+| skip | integer | 否 | 跳过的记录数，默认0 |
+| limit | integer | 否 | 返回的记录数，默认50，最大100 |
+| search | string | 否 | 搜索关键词 |
+| sort_by | string | 否 | 排序字段，默认created_at |
+| sort_order | string | 否 | 排序顺序，默认desc (asc/desc) |
+| filters | string | 否 | 筛选条件JSON字符串 |
 
 **响应示例**：
 ```json
 {
-  "success": true,
-  "data": {
-    "items": [
-      {
-        "id": 1,
-        "filename": "IMG_001.jpg",
-        "taken_at": "2023-12-19T14:30:25Z",
-        "file_size": 2621440,
-        "width": 4032,
-        "height": 3024,
-        "quality_score": 85,
-        "thumbnail_url": "/api/v1/photos/1/thumbnail",
-        "categories": ["家庭", "聚会"],
-        "tags": ["生日", "蛋糕"]
+  "photos": [
+    {
+      "id": 1,
+      "filename": "IMG_001.jpg",
+      "file_path": "/storage/photos/photo1.jpg",
+      "thumbnail_path": "/storage/thumbnails/photo1.jpg",
+      "file_size": 2621440,
+      "width": 4032,
+      "height": 3024,
+      "format": "JPG",
+      "status": "completed",
+      "description": "照片描述",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z",
+      "tags": ["生日", "蛋糕"],
+      "categories": ["家庭", "聚会"],
+      "analysis": {
+        "description": "一位年轻女性坐在室内，面前是一个装饰有绿色水果和点燃蜡烛的生日蛋糕",
+        "scene_type": "室内",
+        "objects": ["生日蛋糕", "蜡烛", "眼镜"],
+        "people_count": 1,
+        "emotion": "欢乐",
+        "tags": ["生日", "庆祝", "室内", "蛋糕", "许愿"],
+        "confidence": 0.95,
+        "type": "content"
+      },
+      "quality": {
+        "quality_score": 73.48,
+        "quality_level": "良好",
+        "sharpness_score": 34.03,
+        "brightness_score": 100.0,
+        "contrast_score": 92.46,
+        "color_score": 91.36,
+        "composition_score": 73.85,
+        "technical_issues": {
+          "issues": [],
+          "count": 0,
+          "has_issues": false
+        },
+        "assessed_at": "2025-09-10T08:35:54"
       }
-    ],
-    "pagination": {
-      "page": 1,
-      "page_size": 20,
-      "total": 150,
-      "total_pages": 8,
-      "has_next": true,
-      "has_prev": false
     }
-  }
+  ],
+  "total": 7,
+  "skip": 0,
+  "limit": 50,
+  "has_more": false
+}
 }
 ```
 
@@ -172,9 +191,64 @@
 }
 ```
 
-### 3.2 照片操作接口
+### 3.2 照片导入接口
 
-#### 3.2.1 上传照片
+#### 3.2.1 扫描文件夹导入照片
+**接口路径**：`POST /api/v1/import/scan-folder`
+**功能描述**：扫描指定文件夹，导入其中的照片文件
+
+**请求参数**：
+| 参数名 | 类型 | 必需 | 描述 |
+|--------|------|------|------|
+| folder_path | string | 是 | 要扫描的文件夹路径 |
+
+**请求示例**：
+```bash
+curl -X POST "http://localhost:8000/api/v1/import/scan-folder?folder_path=1.prepare/photo"
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "message": "成功导入7张照片",
+  "data": {
+    "scanned_files": 7,
+    "imported_photos": 7
+  }
+}
+```
+
+#### 3.2.2 上传单张照片
+**接口路径**：`POST /api/v1/import/upload`
+**功能描述**：上传单张照片文件
+
+**请求参数**：
+- Content-Type: multipart/form-data
+- 文件字段名：`file`
+
+**请求示例**：
+```bash
+curl -X POST "http://localhost:8000/api/v1/import/upload" \
+  -F "file=@photo.jpg"
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "message": "照片上传成功",
+  "data": {
+    "photo_id": 1,
+    "filename": "photo.jpg",
+    "file_path": "/storage/photos/photo.jpg"
+  }
+}
+```
+
+### 3.3 照片操作接口
+
+#### 3.3.1 更新照片信息
 **接口路径**：`POST /api/v1/photos/upload`
 **功能描述**：上传单张或多张照片
 
@@ -246,34 +320,36 @@
 ### 4.1 分析控制接口
 
 #### 4.1.1 触发照片分析
-**接口路径**：`POST /api/v1/photos/{photo_id}/analyze`
+**接口路径**：`POST /api/v1/analysis/analyze`
 **功能描述**：触发指定照片的智能分析
 
-**路径参数**：
-| 参数名 | 类型 | 描述 |
-|--------|------|------|
-| photo_id | integer | 照片ID |
+**请求体**：
+```json
+{
+  "photo_ids": [1, 2, 3],
+  "analysis_types": ["content", "quality", "duplicate"]
+}
+```
 
-**请求参数**：
+**参数说明**：
 | 参数名 | 类型 | 必需 | 描述 |
 |--------|------|------|------|
-| analysis_type | string | 否 | 分析类型 (full/quick/ai_only)，默认full |
+| photo_ids | array | 是 | 要分析的照片ID列表 |
+| analysis_types | array | 否 | 分析类型，默认["content", "quality", "duplicate"] |
 
 **响应示例**：
 ```json
 {
-  "success": true,
-  "data": {
-    "photo_id": 1,
-    "analysis_status": "processing",
-    "estimated_time": 3
-  }
+  "photo_id": 1,
+  "status": "processing",
+  "message": "分析任务已提交",
+  "estimated_time": 30
 }
 ```
 
 #### 4.1.2 获取分析状态
-**接口路径**：`GET /api/v1/photos/{photo_id}/analysis`
-**功能描述**：获取照片分析状态和结果
+**接口路径**：`GET /api/v1/analysis/status/{photo_id}`
+**功能描述**：获取照片分析状态
 
 **路径参数**：
 | 参数名 | 类型 | 描述 |
@@ -283,23 +359,50 @@
 **响应示例**：
 ```json
 {
-  "success": true,
-  "data": {
-    "photo_id": 1,
-    "analysis_status": "completed",
-    "quality_score": 85,
-    "scene_type": "室内聚会",
-    "description": "家庭成员在客厅庆祝生日",
-    "objects": ["人物", "蛋糕", "蜡烛"],
-    "categories": ["家庭", "生日"],
-    "tags": ["生日", "蛋糕", "蜡烛"],
-    "analyzed_at": "2023-12-19T14:40:00Z"
+  "photo_id": 1,
+  "status": "completed",
+  "message": "分析完成",
+  "progress": 100
+}
+```
+
+#### 4.1.3 获取分析结果
+**接口路径**：`GET /api/v1/analysis/results/{photo_id}`
+**功能描述**：获取照片分析结果
+
+**路径参数**：
+| 参数名 | 类型 | 描述 |
+|--------|------|------|
+| photo_id | integer | 照片ID |
+
+**响应示例**：
+```json
+{
+  "photo_id": 1,
+  "analysis_type": "content",
+  "result": {
+    "description": "一位年轻女性坐在室内，面前是一个装饰有绿色水果和点燃蜡烛的生日蛋糕",
+    "scene_type": "室内",
+    "objects": ["生日蛋糕", "蜡烛", "眼镜"],
+    "people_count": 1,
+    "emotion": "欢乐",
+    "tags": ["生日", "庆祝", "室内", "蛋糕", "许愿"],
+    "confidence": 0.95
+  },
+  "quality": {
+    "quality_score": 73.48,
+    "quality_level": "良好",
+    "sharpness_score": 34.03,
+    "brightness_score": 100.0,
+    "contrast_score": 92.46,
+    "color_score": 91.36,
+    "composition_score": 73.85
   }
 }
 ```
 
-#### 4.1.3 批量分析照片
-**接口路径**：`POST /api/v1/photos/batch-analyze`
+#### 4.1.4 批量分析照片
+**接口路径**：`POST /api/v1/analysis/batch-analyze`
 **功能描述**：批量分析多张照片
 
 **请求体**：
@@ -504,59 +607,131 @@
 
 ### 6.1 搜索接口
 
-#### 6.1.1 全局搜索
-**接口路径**：`GET /api/v1/search`
-**功能描述**：全局搜索照片
+#### 6.1.1 综合搜索
+**接口路径**：`GET /api/v1/search/photos`
+**功能描述**：综合搜索照片，支持多种搜索条件组合
 
 **请求参数**：
 | 参数名 | 类型 | 必需 | 描述 |
 |--------|------|------|------|
-| q | string | 是 | 搜索关键词 |
-| type | string | 否 | 搜索类型 (photos/tags/categories)，默认photos |
-| page | integer | 否 | 页码，默认1 |
-| page_size | integer | 否 | 每页数量，默认20 |
+| keyword | string | 否 | 关键词搜索 |
+| camera_make | string | 否 | 相机品牌 |
+| camera_model | string | 否 | 相机型号 |
+| date_from | date | 否 | 开始日期 |
+| date_to | date | 否 | 结束日期 |
+| quality_min | float | 否 | 最低质量分数 (0-100) |
+| quality_level | string | 否 | 质量等级 |
+| tags | array | 否 | 标签列表 |
+| categories | array | 否 | 分类列表 |
+| location_lat | float | 否 | 纬度 |
+| location_lng | float | 否 | 经度 |
+| location_radius | float | 否 | 搜索半径(公里) |
+| sort_by | string | 否 | 排序字段，默认taken_at |
+| sort_order | string | 否 | 排序顺序，默认desc |
+| limit | integer | 否 | 返回数量，默认50，最大200 |
+| offset | integer | 否 | 偏移量，默认0 |
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 2,
+      "filename": "184dae88f85397feddac19c9f628ea93.JPG",
+      "file_path": "/storage/photos/photo2.jpg",
+      "thumbnail_path": "/storage/thumbnails/photo2.jpg",
+      "file_size": 2488864,
+      "width": 4032,
+      "height": 3024,
+      "format": "JPG",
+      "status": "completed",
+      "description": "室内场景中，一位老年女性和一位中年男性坐在桌子前，面前摆放着一个生日蛋糕",
+      "created_at": "2025-09-10T08:35:52Z",
+      "tags": ["生日", "家庭", "庆祝", "室内", "老人"],
+      "categories": ["家庭", "庆祝"],
+      "analysis": {
+        "description": "室内场景中，一位老年女性和一位中年男性坐在桌子前，面前摆放着一个生日蛋糕",
+        "scene_type": "室内",
+        "objects": ["生日蛋糕", "蜡烛", "书法作品", "餐桌"],
+        "people_count": 2,
+        "emotion": "欢乐",
+        "tags": ["生日", "家庭", "庆祝", "室内", "老人", "中年男性", "蛋糕"],
+        "confidence": 0.95,
+        "type": "content"
+      },
+      "quality": {
+        "quality_score": 78.2,
+        "quality_level": "良好",
+        "sharpness_score": 45.8,
+        "brightness_score": 95.2,
+        "contrast_score": 88.9,
+        "color_score": 87.6,
+        "composition_score": 79.3,
+        "technical_issues": {
+          "issues": [],
+          "count": 0,
+          "has_issues": false
+        },
+        "assessed_at": "2025-09-10T08:35:54"
+      }
+    }
+  ],
+  "total": 5,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+### 6.2 搜索辅助接口
+
+#### 6.2.1 搜索建议
+**接口路径**：`GET /api/v1/search/suggestions`
+**功能描述**：获取搜索建议
+
+**请求参数**：
+| 参数名 | 类型 | 必需 | 描述 |
+|--------|------|------|------|
+| prefix | string | 是 | 搜索前缀 |
+| limit | integer | 否 | 建议数量限制，默认10 |
 
 **响应示例**：
 ```json
 {
   "success": true,
   "data": {
-    "items": [
-      {
-        "id": 1,
-        "filename": "IMG_001.jpg",
-        "type": "photo",
-        "relevance_score": 0.95,
-        "matched_fields": ["filename", "tags"],
-        "thumbnail_url": "/api/v1/photos/1/thumbnail"
-      }
-    ],
-    "total": 15,
-    "search_time": 0.12
+    "tags": ["生日", "家庭", "庆祝", "室内"],
+    "categories": ["家庭", "庆祝", "聚会"],
+    "camera_makes": ["Canon", "Nikon", "Sony"],
+    "camera_models": ["EOS 80D", "D750", "A7R"]
   }
 }
 ```
 
-#### 6.1.2 高级搜索
-**接口路径**：`POST /api/v1/search/advanced`
-**功能描述**：高级条件搜索
+### 6.3 搜索统计
+**接口路径**：`GET /api/v1/search/stats`
+**功能描述**：获取搜索统计信息
 
-**请求体**：
+**响应示例**：
 ```json
 {
-  "keywords": "生日",
-  "date_range": {
-    "from": "2023-01-01",
-    "to": "2023-12-31"
-  },
-  "quality_range": {
-    "min": 70,
-    "max": 100
-  },
-  "categories": ["家庭"],
-  "tags": ["蛋糕", "蜡烛"],
-  "page": 1,
-  "page_size": 20
+  "success": true,
+  "data": {
+    "total_photos": 150,
+    "total_tags": 45,
+    "total_categories": 12,
+    "photos_by_quality": {
+      "优秀": 25,
+      "良好": 85,
+      "一般": 35,
+      "较差": 5
+    },
+    "photos_by_date": {
+      "2023": 120,
+      "2024": 25,
+      "2025": 5
+    }
+  }
 }
 ```
 

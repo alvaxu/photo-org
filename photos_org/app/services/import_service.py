@@ -311,12 +311,13 @@ class ImportService:
         except (TypeError, ValueError, ZeroDivisionError):
             return None
 
-    def generate_thumbnail(self, source_path: str, max_size: int = None) -> Optional[str]:
+    def generate_thumbnail(self, source_path: str, max_size: int = None, file_hash: str = None) -> Optional[str]:
         """
         生成缩略图
 
         :param source_path: 源文件路径
         :param max_size: 缩略图最大尺寸
+        :param file_hash: 文件哈希值（用于生成基于哈希的文件名）
         :return: 缩略图路径
         """
         if max_size is None:
@@ -328,8 +329,12 @@ class ImportService:
                 img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
 
                 # 生成缩略图文件名
-                source_name = Path(source_path).stem
-                thumbnail_filename = f"{source_name}_thumb.jpg"
+                if file_hash:
+                    thumbnail_filename = f"{file_hash}_thumb.jpg"
+                else:
+                    source_name = Path(source_path).stem
+                    thumbnail_filename = f"{source_name}_thumb.jpg"
+                
                 thumbnail_path = self.thumbnails_path / thumbnail_filename
 
                 # 保存缩略图
@@ -405,6 +410,239 @@ class ImportService:
         shutil.copy2(source_path, target_path)
 
         return str(target_path)
+
+    def _check_duplicate_file(self, file_hash: str, db_session) -> Dict:
+        """
+        检查文件是否重复的完整逻辑
+        
+        :param file_hash: 文件哈希值
+        :param db_session: 数据库会话
+        :return: 重复检查结果
+        """
+        from app.models.photo import Photo
+        
+        # 情况1：数据库有记录 + 物理文件存在 = 完全重复
+        existing_photo = db_session.query(Photo).filter(Photo.file_hash == file_hash).first()
+        if existing_photo and existing_photo.original_path and Path(existing_photo.original_path).exists():
+            # 检查智能处理状态
+            if existing_photo.status == 'completed':
+                return {
+                    "is_duplicate": True,
+                    "message": "文件已存在且已完成智能处理",
+                    "duplicate_type": "full_duplicate_completed",
+                    "existing_photo": existing_photo
+                }
+            elif existing_photo.status in ['imported', 'analyzing', 'error']:
+                return {
+                    "is_duplicate": True,
+                    "message": "文件已存在但未完成智能处理",
+                    "duplicate_type": "full_duplicate_incomplete",
+                    "existing_photo": existing_photo
+                }
+        
+        # 情况2：数据库有记录 + 物理文件不存在 = 孤儿记录
+        if existing_photo:
+            db_session.delete(existing_photo)
+            db_session.commit()
+            return {
+                "is_duplicate": False,
+                "message": "孤儿记录已清理",
+                "duplicate_type": "orphan_cleaned"
+            }
+        
+        # 情况3：数据库无记录 + 物理文件存在 = 物理重复
+        existing_file_path = self._find_existing_file_by_hash(file_hash)
+        if existing_file_path:
+            return {
+                "is_duplicate": True,
+                "message": "文件已存在（重复）",
+                "existing_path": existing_file_path,
+                "duplicate_type": "physical_only"
+            }
+        
+        # 情况4：数据库无记录 + 物理文件不存在 = 全新文件
+        return {
+            "is_duplicate": False,
+            "message": "全新文件",
+            "duplicate_type": "new_file"
+        }
+
+    def _find_existing_file_by_hash(self, file_hash: str) -> Optional[str]:
+        """
+        在物理存储中查找具有相同哈希值的文件
+        
+        :param file_hash: 文件哈希值
+        :return: 已存在文件的路径，如果不存在返回None
+        """
+        try:
+            # 遍历存储目录查找相同哈希的文件
+            for year_dir in self.originals_path.iterdir():
+                if not year_dir.is_dir():
+                    continue
+                    
+                for month_dir in year_dir.iterdir():
+                    if not month_dir.is_dir():
+                        continue
+                        
+                    for file_path in month_dir.iterdir():
+                        if file_path.is_file():
+                            try:
+                                existing_hash = self.calculate_file_hash(str(file_path))
+                                if existing_hash == file_hash:
+                                    return str(file_path)
+                            except Exception:
+                                # 跳过无法读取的文件
+                                continue
+                                
+        except Exception as e:
+            print(f"查找已存在文件失败: {str(e)}")
+            
+        return None
+
+    def _check_thumbnail_by_hash(self, file_hash: str) -> Optional[str]:
+        """基于哈希值检查缩略图是否存在"""
+        thumbnail_path = self.thumbnails_path / f"{file_hash}_thumb.jpg"
+        if thumbnail_path.exists():
+            return str(thumbnail_path)
+        return None
+
+    def _get_thumbnail_path_by_hash(self, file_hash: str) -> str:
+        """根据文件哈希值生成缩略图路径"""
+        return str(self.thumbnails_path / f"{file_hash}_thumb.jpg")
+
+    def _handle_full_duplicate_completed(self, duplicate_result: Dict) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
+        """处理已完成智能处理的完全重复文件"""
+        return False, duplicate_result['message'], None, None
+
+    def _handle_full_duplicate_incomplete(self, duplicate_result: Dict) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
+        """处理未完成智能处理的完全重复文件"""
+        existing_photo = duplicate_result['existing_photo']
+        
+        if existing_photo.status == 'error':
+            # 错误状态，重新开始处理
+            existing_photo.status = 'imported'
+            # 注意：这里需要db_session，但方法签名中没有，需要在调用时处理
+            return True, "文件已存在，重新开始智能处理", None, None
+        elif existing_photo.status == 'imported':
+            # 已导入但未处理，继续处理
+            return True, "文件已存在，继续智能处理", None, None
+        elif existing_photo.status == 'analyzing':
+            # 正在处理中，提供选项
+            return False, "文件正在处理中，请稍候或选择强制重新处理", None, {
+                'force_retry': True,
+                'current_status': 'analyzing'
+            }
+        
+        return False, "未知状态", None, None
+
+    def _handle_orphan_cleaned(self, duplicate_result: Dict, file_path: str, file_hash: str, db_session=None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
+        """处理孤儿记录清理后的文件"""
+        print(f"孤儿记录已清理: {duplicate_result['message']}")
+        
+        # 检查是否有对应的缩略图需要清理
+        thumbnail_path = self._get_thumbnail_path_by_hash(file_hash)
+        if thumbnail_path and Path(thumbnail_path).exists():
+            Path(thumbnail_path).unlink()
+            print(f"清理孤儿缩略图: {thumbnail_path}")
+        
+        # 清理孤儿记录的分析结果
+        if db_session:
+            self._cleanup_orphan_analysis_results(file_hash, db_session)
+        
+        # 继续正常处理流程
+        return self._handle_new_file(file_path, file_hash, move_file=True, db_session=db_session)
+
+    def _cleanup_orphan_analysis_results(self, file_hash: str, db_session=None):
+        """清理孤儿记录的分析结果"""
+        if not db_session:
+            print(f"清理孤儿分析结果需要数据库会话: {file_hash}")
+            return
+            
+        try:
+            from app.models.photo import Photo, PhotoAnalysis, PhotoQuality, PhotoClassification
+            
+            # 清理AI分析结果
+            analysis_results = db_session.query(PhotoAnalysis).filter(
+                PhotoAnalysis.photo_id.in_(
+                    db_session.query(Photo.id).filter(Photo.file_hash == file_hash)
+                )
+            ).all()
+            for result in analysis_results:
+                db_session.delete(result)
+            
+            # 清理质量评估结果
+            quality_results = db_session.query(PhotoQuality).filter(
+                PhotoQuality.photo_id.in_(
+                    db_session.query(Photo.id).filter(Photo.file_hash == file_hash)
+                )
+            ).all()
+            for result in quality_results:
+                db_session.delete(result)
+            
+            # 清理分类结果
+            classification_results = db_session.query(PhotoClassification).filter(
+                PhotoClassification.photo_id.in_(
+                    db_session.query(Photo.id).filter(Photo.file_hash == file_hash)
+                )
+            ).all()
+            for result in classification_results:
+                db_session.delete(result)
+            
+            db_session.commit()
+            print(f"清理孤儿分析结果完成: {file_hash}")
+            
+        except Exception as e:
+            print(f"清理孤儿分析结果失败: {e}")
+            db_session.rollback()
+
+    def _handle_physical_duplicate(self, duplicate_result: Dict, file_path: str, file_hash: str) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
+        """处理物理重复的文件"""
+        existing_path = duplicate_result['existing_path']
+        
+        # 检查缩略图是否已存在
+        existing_thumbnail = self._check_thumbnail_by_hash(file_hash)
+        if existing_thumbnail:
+            thumbnail_path = existing_thumbnail
+        else:
+            thumbnail_path = self.generate_thumbnail(existing_path, file_hash=file_hash)
+        
+        # 提取元数据
+        exif_data = self.extract_exif_metadata(existing_path)
+        
+        # 创建数据库记录
+        photo_data = self.create_photo_record(existing_path, {
+            'thumbnail_path': thumbnail_path,
+            **exif_data
+        })
+        
+        return True, "文件已存在，使用现有文件", photo_data, None
+
+    def _handle_new_file(self, file_path: str, file_hash: str, move_file: bool, db_session=None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
+        """处理全新文件"""
+        try:
+            # 存储文件
+            if move_file:
+                storage_path = self.move_to_storage(file_path, Path(file_path).name)
+            else:
+                storage_path = self.copy_to_storage(file_path, Path(file_path).name)
+            
+            # 生成缩略图
+            thumbnail_path = self.generate_thumbnail(storage_path, file_hash=file_hash)
+            
+            # 提取元数据
+            exif_data = self.extract_exif_metadata(storage_path)
+            
+            # 创建数据库记录
+            photo_data = self.create_photo_record(storage_path, {
+                'thumbnail_path': thumbnail_path,
+                **exif_data
+            })
+            
+            return True, "文件导入成功", photo_data, None
+            
+        except Exception as e:
+            print(f"处理全新文件失败: {e}")
+            return False, f"文件处理失败: {str(e)}", None, None
 
     def create_photo_record(self, file_path: str, metadata: Dict[str, Any]) -> PhotoCreate:
         """
@@ -484,39 +722,69 @@ class ImportService:
 
         return photo_files
 
-    def process_single_photo(self, file_path: str, move_file: bool = True) -> Tuple[bool, str, Optional[PhotoCreate]]:
+    def process_single_photo(self, file_path: str, move_file: bool = True, db_session=None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
         """
-        处理单个照片文件
+        处理单个照片文件的完整流程
 
         :param file_path: 文件路径
-        :return: (是否成功, 消息, 照片数据)
+        :param move_file: 是否移动文件
+        :param db_session: 数据库会话（用于重复检查）
+        :return: (是否成功, 消息, 照片数据, 重复信息)
         """
         try:
-            # 验证文件
+            # 1. 文件验证
             is_valid, error_msg, file_info = self.validate_photo_file(file_path)
             if not is_valid:
-                return False, error_msg, None
+                return False, error_msg, None, None
 
-            # 提取元数据
-            metadata = self.extract_exif_metadata(file_path)
-
-            # 生成缩略图
-            thumbnail_path = self.generate_thumbnail(file_path)
-            if thumbnail_path:
-                metadata['thumbnail_path'] = thumbnail_path
-
-            # 移动或复制原图到存储目录
-            filename = Path(file_path).name
-            if move_file:
-                storage_path = self.move_to_storage(file_path, filename)
-            else:
-                storage_path = self.copy_to_storage(file_path, filename)
-            metadata['original_path'] = storage_path
-
-            # 创建照片记录
-            photo_data = self.create_photo_record(storage_path, metadata)
-
-            return True, "照片处理成功", photo_data
-
+            # 2. 计算文件哈希
+            file_hash = self.calculate_file_hash(file_path)
+            
+            # 3. 重复检查
+            if db_session:
+                duplicate_result = self._check_duplicate_file(file_hash, db_session)
+                
+                # 情况1.1：完全重复且已完成智能处理 - 跳过所有处理
+                if duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'full_duplicate_completed':
+                    return False, duplicate_result['message'], None, duplicate_result
+                
+                # 情况1.2：完全重复但未完成智能处理 - 继续智能处理
+                elif duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'full_duplicate_incomplete':
+                    # 需要更新数据库状态
+                    existing_photo = duplicate_result['existing_photo']
+                    if existing_photo.status == 'error':
+                        existing_photo.status = 'imported'
+                        db_session.commit()
+                    return True, "文件已存在，继续智能处理", None, duplicate_result
+                
+                # 情况2：孤儿记录 - 清理后继续正常处理
+                elif not duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'orphan_cleaned':
+                    return self._handle_orphan_cleaned(duplicate_result, file_path, file_hash, db_session)
+                
+                # 情况3：物理重复 - 使用现有文件，继续处理
+                elif duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'physical_only':
+                    return self._handle_physical_duplicate(duplicate_result, file_path, file_hash)
+                
+                # 情况4：全新文件 - 正常处理
+                elif not duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'new_file':
+                    pass  # 继续正常处理流程
+            
+            # 4. 正常处理流程（适用于情况2和情况4）
+            success, message, photo_data, duplicate_info = self._handle_new_file(file_path, file_hash, move_file, db_session)
+            
+            # 如果有数据库会话且处理成功，保存到数据库
+            if success and photo_data and db_session:
+                try:
+                    from app.services.photo_service import PhotoService
+                    photo_service = PhotoService()
+                    saved_photo = photo_service.create_photo(db_session, photo_data)
+                    print(f"照片已保存到数据库: {saved_photo.filename}")
+                except Exception as e:
+                    print(f"保存照片到数据库失败: {e}")
+                    return False, f"保存照片失败: {str(e)}", None, None
+            
+            return success, message, photo_data, duplicate_info
+            
         except Exception as e:
-            return False, f"照片处理失败: {str(e)}", None
+            print(f"处理照片时发生错误: {e}")
+            return False, f"处理失败: {str(e)}", None, None

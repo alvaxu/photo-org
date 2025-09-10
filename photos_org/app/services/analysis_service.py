@@ -175,11 +175,23 @@ class AnalysisService:
                 )
                 db.add(quality_record)
 
-            # 更新照片的哈希值
-            if hash_result:
-                photo = db.query(Photo).filter(Photo.id == photo_id).first()
-                if photo:
+            # 更新照片的哈希值和状态
+            photo = db.query(Photo).filter(Photo.id == photo_id).first()
+            if photo:
+                if hash_result:
                     photo.perceptual_hash = hash_result
+                # 更新照片状态为已完成
+                photo.status = 'completed'
+                photo.updated_at = datetime.now()
+
+            # 调用分类服务生成完整的标签和分类
+            try:
+                from app.services.classification_service import ClassificationService
+                classification_service = ClassificationService()
+                classification_result = classification_service.classify_photo(photo_id, db)
+                self.logger.info(f"分类服务完成: {classification_result.get('message', '')}")
+            except Exception as e:
+                self.logger.error(f"分类服务失败: {str(e)}")
 
             db.commit()
 
@@ -196,6 +208,7 @@ class AnalysisService:
             db.rollback()
             self.logger.error(f"保存分析结果失败 {photo_id}: {str(e)}")
             raise Exception(f"保存分析结果失败: {str(e)}")
+
 
     async def batch_analyze_photos(self, photo_ids: List[int]) -> Dict[str, Any]:
         """

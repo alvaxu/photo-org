@@ -118,22 +118,41 @@ async def batch_analyze_photos(
     - **analysis_types**: 分析类型列表
     """
     try:
-        # 验证照片存在
-        existing_photos = db.query(Photo.id).filter(Photo.id.in_(request.photo_ids)).all()
+        # 验证照片存在并过滤状态
+        existing_photos = db.query(Photo).filter(Photo.id.in_(request.photo_ids)).all()
         existing_ids = {photo.id for photo in existing_photos}
 
         if len(existing_ids) != len(request.photo_ids):
             missing_ids = set(request.photo_ids) - existing_ids
             raise HTTPException(status_code=404, detail=f"照片不存在: {list(missing_ids)}")
 
+        # 只处理imported和error状态的照片
+        photos_to_process = [photo for photo in existing_photos if photo.status in ['imported', 'error']]
+        
+        logger.info(f"批量分析请求: 总照片数={len(existing_photos)}, 需要处理的照片数={len(photos_to_process)}")
+        for photo in existing_photos:
+            logger.info(f"照片ID={photo.id}, 状态={photo.status}")
+        
+        if not photos_to_process:
+            logger.info("没有需要处理的照片，返回空结果")
+            return BatchAnalysisResponse(
+                total_photos=0,
+                successful_analyses=0,
+                failed_analyses=0,
+                results=[],
+                errors=[],
+                completed_at=datetime.now().isoformat()
+            )
+
         # 创建分析服务
         analysis_service = AnalysisService()
 
         # 添加后台批量分析任务
-        background_tasks.add_task(perform_batch_analysis, request.photo_ids)
+        photo_ids_to_process = [photo.id for photo in photos_to_process]
+        background_tasks.add_task(perform_batch_analysis, photo_ids_to_process)
 
         return BatchAnalysisResponse(
-            total_photos=len(request.photo_ids),
+            total_photos=len(photo_ids_to_process),
             successful_analyses=0,
             failed_analyses=0,
             results=[],
