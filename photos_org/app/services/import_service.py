@@ -181,36 +181,52 @@ class ImportService:
                     # 创建EXIF标签映射
                     exif_tags = {v: k for k, v in ExifTags.TAGS.items()}
 
-                    for tag, value in exif_data.items():
-                        tag_name = exif_tags.get(tag, tag)
+                for tag, value in exif_data.items():
+                    tag_name = exif_tags.get(tag, tag)
 
-                        # 处理常见标签
-                        if tag_name == 'DateTimeOriginal':
-                            metadata['taken_at'] = self._parse_exif_datetime(value)
-                        elif tag_name == 'Make':
-                            metadata['camera_make'] = value
-                        elif tag_name == 'Model':
-                            metadata['camera_model'] = value
-                        elif tag_name == 'LensModel':
-                            metadata['lens_model'] = value
-                        elif tag_name == 'FocalLength':
-                            metadata['focal_length'] = float(value) if isinstance(value, (int, float)) else None
-                        elif tag_name == 'FNumber':
-                            metadata['aperture'] = float(value) if isinstance(value, (int, float)) else None
-                        elif tag_name == 'ExposureTime':
-                            metadata['shutter_speed'] = str(value)
-                        elif tag_name == 'ISOSpeedRatings':
-                            metadata['iso'] = value if isinstance(value, int) else None
-                        elif tag_name == 'Flash':
-                            metadata['flash'] = str(value)
-                        elif tag_name == 'WhiteBalance':
-                            metadata['white_balance'] = str(value)
-                        elif tag_name == 'ExposureMode':
-                            metadata['exposure_mode'] = str(value)
-                        elif tag_name == 'MeteringMode':
-                            metadata['metering_mode'] = str(value)
-                        elif tag_name == 'Orientation':
-                            metadata['orientation'] = value if isinstance(value, int) else None
+                    # 处理常见标签（使用标准名称）
+                    if tag_name == 'DateTimeOriginal':
+                        metadata['taken_at'] = self._parse_exif_datetime(value)
+                    elif tag_name == 'Make':
+                        metadata['camera_make'] = value
+                    elif tag_name == 'Model':
+                        metadata['camera_model'] = value
+                    elif tag_name == 'LensModel':
+                        metadata['lens_model'] = value
+                    elif tag_name == 'FocalLength':
+                        metadata['focal_length'] = float(value) if isinstance(value, (int, float)) else None
+                    elif tag_name == 'FNumber':
+                        metadata['aperture'] = float(value) if isinstance(value, (int, float)) else None
+                    elif tag_name == 'ExposureTime':
+                        metadata['shutter_speed'] = str(value)
+                    elif tag_name == 'ISOSpeedRatings':
+                        metadata['iso'] = value if isinstance(value, int) else None
+                    elif tag_name == 'Flash':
+                        metadata['flash'] = str(value)
+                    elif tag_name == 'WhiteBalance':
+                        metadata['white_balance'] = str(value)
+                    elif tag_name == 'ExposureMode':
+                        metadata['exposure_mode'] = str(value)
+                    elif tag_name == 'MeteringMode':
+                        metadata['metering_mode'] = str(value)
+                    elif tag_name == 'Orientation':
+                        metadata['orientation'] = value if isinstance(value, int) else None
+
+                    # 处理实际标签ID（针对不同相机厂商的特殊情况）
+                    elif tag == 271:  # 相机品牌
+                        metadata['camera_make'] = value
+                    elif tag == 272:  # 相机型号
+                        metadata['camera_model'] = value
+                    elif tag == 306:  # 拍摄时间
+                        metadata['taken_at'] = self._parse_exif_datetime(value)
+                    elif tag == 36867:  # 另一种拍摄时间格式
+                        metadata['taken_at'] = self._parse_exif_datetime(value)
+                    elif tag == 37377:  # 光圈
+                        metadata['aperture'] = float(value) if isinstance(value, (int, float)) else None
+                    elif tag == 37378:  # 快门速度
+                        metadata['shutter_speed'] = str(value)
+                    elif tag == 33437:  # ISO
+                        metadata['iso'] = int(value) if isinstance(value, (int, float)) else None
 
                     # 处理GPS信息
                     gps_info = self._extract_gps_info(exif_data)
@@ -359,6 +375,37 @@ class ImportService:
 
         return str(target_path)
 
+    def copy_to_storage(self, source_path: str, filename: str) -> str:
+        """
+        将文件复制到存储目录
+
+        :param source_path: 源文件路径
+        :param filename: 目标文件名
+        :return: 存储路径
+        """
+        # 构造存储路径（按日期组织）
+        now = datetime.now()
+        date_path = self.originals_path / f"{now.year}" / f"{now.month:02d}"
+
+        # 确保日期目录存在
+        date_path.mkdir(parents=True, exist_ok=True)
+
+        # 构造目标路径
+        target_path = date_path / filename
+
+        # 如果文件已存在，添加时间戳避免冲突
+        if target_path.exists():
+            timestamp = int(now.timestamp())
+            stem = target_path.stem
+            suffix = target_path.suffix
+            target_path = date_path / f"{stem}_{timestamp}{suffix}"
+
+        # 复制文件
+        import shutil
+        shutil.copy2(source_path, target_path)
+
+        return str(target_path)
+
     def create_photo_record(self, file_path: str, metadata: Dict[str, Any]) -> PhotoCreate:
         """
         创建照片记录
@@ -437,7 +484,7 @@ class ImportService:
 
         return photo_files
 
-    def process_single_photo(self, file_path: str) -> Tuple[bool, str, Optional[PhotoCreate]]:
+    def process_single_photo(self, file_path: str, move_file: bool = True) -> Tuple[bool, str, Optional[PhotoCreate]]:
         """
         处理单个照片文件
 
@@ -458,8 +505,16 @@ class ImportService:
             if thumbnail_path:
                 metadata['thumbnail_path'] = thumbnail_path
 
+            # 移动或复制原图到存储目录
+            filename = Path(file_path).name
+            if move_file:
+                storage_path = self.move_to_storage(file_path, filename)
+            else:
+                storage_path = self.copy_to_storage(file_path, filename)
+            metadata['original_path'] = storage_path
+
             # 创建照片记录
-            photo_data = self.create_photo_record(file_path, metadata)
+            photo_data = self.create_photo_record(storage_path, metadata)
 
             return True, "照片处理成功", photo_data
 

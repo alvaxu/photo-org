@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.photo import Photo, PhotoTag, PhotoCategory, Tag, Category, PhotoAnalysis
 from app.models.photo import DuplicateGroup, DuplicateGroupPhoto
+from app.schemas.photo import PhotoCreate
 
 
 class PhotoService:
@@ -87,6 +88,37 @@ class PhotoService:
             self.logger.error(f"获取照片失败 photo_id={photo_id}: {str(e)}")
             return None
 
+    def create_photo(self, db: Session, photo_data: PhotoCreate) -> Optional[Photo]:
+        """
+        创建照片记录
+
+        Args:
+            db: 数据库会话
+            photo_data: 照片数据
+
+        Returns:
+            创建的照片对象或None
+        """
+        try:
+            # 将Pydantic模型转换为字典
+            photo_dict = photo_data.dict()
+            
+            # 创建Photo对象
+            photo = Photo(**photo_dict)
+            
+            # 保存到数据库
+            db.add(photo)
+            db.commit()
+            db.refresh(photo)
+            
+            self.logger.info(f"照片创建成功: {photo.filename}")
+            return photo
+            
+        except Exception as e:
+            db.rollback()
+            self.logger.error(f"创建照片失败: {str(e)}")
+            return None
+
     def update_photo(self, db: Session, photo_id: int, update_data: Dict[str, Any]) -> bool:
         """
         更新照片信息
@@ -140,8 +172,8 @@ class PhotoService:
             # 删除物理文件
             if delete_file:
                 try:
-                    if Path(photo.file_path).exists():
-                        os.remove(photo.file_path)
+                    if Path(photo.original_path).exists():
+                        os.remove(photo.original_path)
 
                     # 删除缩略图
                     if photo.thumbnail_path and Path(photo.thumbnail_path).exists():

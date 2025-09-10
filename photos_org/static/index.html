@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家庭单机版智能照片整理系统</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- 自定义样式 -->
+    <link href="css/style.css" rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-images me-2"></i>
+                智能照片整理系统
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#photos" id="navPhotos">
+                            <i class="bi bi-grid-3x3-gap"></i> 照片库
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#albums" id="navAlbums">
+                            <i class="bi bi-collection"></i> 相册
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#search" id="navSearch">
+                            <i class="bi bi-search"></i> 搜索
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#settings" id="navSettings">
+                            <i class="bi bi-gear"></i> 设置
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="d-flex">
+                    <button class="btn btn-outline-light me-2" id="importBtn">
+                        <i class="bi bi-upload"></i> 导入照片
+                    </button>
+                    <button class="btn btn-outline-light" id="batchBtn">
+                        <i class="bi bi-play-fill"></i> 批量处理
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <div class="container-fluid mt-4">
+        <!-- 搜索和筛选栏 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <!-- 搜索框 -->
+                            <div class="col-md-4">
+                                <label class="form-label">关键词搜索</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="searchInput" placeholder="搜索照片、标签、描述...">
+                                    <button class="btn btn-outline-secondary" type="button" id="searchBtn">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 日期筛选 -->
+                            <div class="col-md-2">
+                                <label class="form-label">拍摄日期</label>
+                                <select class="form-select" id="dateFilter">
+                                    <option value="">全部时间</option>
+                                    <option value="today">今天</option>
+                                    <option value="week">本周</option>
+                                    <option value="month">本月</option>
+                                    <option value="year">今年</option>
+                                    <option value="custom">自定义</option>
+                                </select>
+                            </div>
+
+                            <!-- 质量筛选 -->
+                            <div class="col-md-2">
+                                <label class="form-label">质量等级</label>
+                                <select class="form-select" id="qualityFilter">
+                                    <option value="">全部质量</option>
+                                    <option value="excellent">优秀</option>
+                                    <option value="good">良好</option>
+                                    <option value="average">一般</option>
+                                    <option value="poor">较差</option>
+                                    <option value="bad">很差</option>
+                                </select>
+                            </div>
+
+                            <!-- 排序方式 -->
+                            <div class="col-md-2">
+                                <label class="form-label">排序方式</label>
+                                <select class="form-select" id="sortBy">
+                                    <option value="taken_at">拍摄时间</option>
+                                    <option value="created_at">导入时间</option>
+                                    <option value="filename">文件名</option>
+                                    <option value="quality_score">质量分数</option>
+                                </select>
+                            </div>
+
+                            <!-- 视图切换 -->
+                            <div class="col-md-2">
+                                <div class="btn-group" role="group">
+                                    <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off" checked>
+                                    <label class="btn btn-outline-secondary" for="gridView">
+                                        <i class="bi bi-grid"></i>
+                                    </label>
+
+                                    <input type="radio" class="btn-check" name="viewMode" id="listView" autocomplete="off">
+                                    <label class="btn btn-outline-secondary" for="listView">
+                                        <i class="bi bi-list"></i>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计信息栏 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="row g-3" id="statsRow">
+                    <!-- 统计卡片将通过JavaScript动态生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 照片网格区域 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-images me-2"></i>
+                            <span id="photoCount">0</span> 张照片
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-secondary" id="selectAllBtn">全选</button>
+                            <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn">取消选择</button>
+                            <button class="btn btn-sm btn-outline-danger" id="deleteSelectedBtn" disabled>
+                                <i class="bi bi-trash"></i> 删除选中
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- 加载状态 -->
+                        <div id="loadingIndicator" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-3 text-muted">正在加载照片...</p>
+                        </div>
+
+                        <!-- 空状态 -->
+                        <div id="emptyState" class="text-center py-5 d-none">
+                            <i class="bi bi-images display-1 text-muted"></i>
+                            <h4 class="mt-3 text-muted">暂无照片</h4>
+                            <p class="text-muted">请先导入一些照片开始使用</p>
+                            <button class="btn btn-primary" id="importFirstBtn">
+                                <i class="bi bi-upload me-2"></i>导入第一张照片
+                            </button>
+                        </div>
+
+                        <!-- 照片网格容器 -->
+                        <div id="photosGrid" class="row g-3">
+                            <!-- 照片卡片将通过JavaScript动态生成 -->
+                        </div>
+
+                        <!-- 分页 -->
+                        <div id="paginationContainer" class="mt-4 d-none">
+                            <nav aria-label="照片分页">
+                                <ul class="pagination justify-content-center" id="pagination">
+                                    <!-- 分页按钮将通过JavaScript动态生成 -->
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 照片详情模态框 -->
+    <div class="modal fade" id="photoModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="photoModalTitle">照片详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <img id="photoModalImage" src="" class="img-fluid rounded" alt="照片">
+                        </div>
+                        <div class="col-md-4">
+                            <div id="photoModalInfo">
+                                <!-- 照片信息将通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入照片模态框 -->
+    <div class="modal fade" id="importModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">导入照片</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">选择照片文件</label>
+                        <input type="file" class="form-control" id="photoFiles" multiple accept="image/*">
+                        <div class="form-text">支持 JPG、PNG、GIF 等常见图片格式</div>
+                    </div>
+                    <div id="importProgress" class="d-none">
+                        <div class="progress mb-2">
+                            <div class="progress-bar" id="importProgressBar" style="width: 0%"></div>
+                        </div>
+                        <p class="text-center" id="importStatus">正在导入...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="startImportBtn" disabled>开始导入</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量处理模态框 -->
+    <div class="modal fade" id="batchModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">批量处理</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        批量处理将对所有照片进行AI分析、质量评估和智能分类
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="enableAIAnalysis" checked>
+                                <label class="form-check-label" for="enableAIAnalysis">
+                                    AI内容分析
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="enableQualityAssessment" checked>
+                                <label class="form-check-label" for="enableQualityAssessment">
+                                    质量评估
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="enableClassification" checked>
+                                <label class="form-check-label" for="enableClassification">
+                                    智能分类
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="batchProgress" class="d-none mt-3">
+                        <div class="progress mb-2">
+                            <div class="progress-bar" id="batchProgressBar" style="width: 0%"></div>
+                        </div>
+                        <p class="text-center" id="batchStatus">正在处理...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="startBatchBtn">开始处理</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- 自定义JavaScript -->
+    <script src="js/app.js"></script>
+    <script src="js/photo-manager.js"></script>
+    <script src="js/ui-components.js"></script>
+</body>
+</html>

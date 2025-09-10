@@ -42,7 +42,7 @@ class DashScopeService:
             self.logger.error(f"图片编码失败 {image_path}: {str(e)}")
             raise Exception(f"图片编码失败: {str(e)}")
 
-    def _call_qwen_vl_api(self, image_base64: str, prompt: str, model: str = "qwen-vl-chat") -> Dict[str, Any]:
+    def _call_qwen_vl_api(self, image_base64: str, prompt: str, model: str = "qwen-vl-plus-latest") -> Dict[str, Any]:
         """
         调用Qwen-VL API
 
@@ -69,7 +69,11 @@ class DashScopeService:
                             "role": "user",
                             "content": [
                                 {
-                                    "image": f"data:image/jpeg;base64,{image_base64}",
+                                    "type": "image",
+                                    "image": f"data:image/jpeg;base64,{image_base64}"
+                                },
+                                {
+                                    "type": "text",
                                     "text": prompt
                                 }
                             ]
@@ -140,10 +144,14 @@ class DashScopeService:
             result = self._call_qwen_vl_api(image_base64, prompt)
 
             # 解析响应
+            self.logger.info(f"API响应: {json.dumps(result, indent=2, ensure_ascii=False)}")
+
             if "output" in result and "text" in result["output"]:
                 try:
                     # 尝试解析JSON响应
                     text_content = result["output"]["text"]
+                    self.logger.info(f"AI原始响应: {text_content}")
+
                     # 清理可能的markdown格式
                     if text_content.startswith("```json"):
                         text_content = text_content[7:]
@@ -174,7 +182,54 @@ class DashScopeService:
                     self.logger.error(f"解析AI响应失败: {text_content}")
                     raise Exception(f"AI响应格式错误: {str(e)}")
 
+            elif "output" in result and "choices" in result["output"]:
+                # 处理choices格式的响应
+                choice = result["output"]["choices"][0]
+                if "message" in choice and "content" in choice["message"]:
+                    content = choice["message"]["content"]
+
+                    # 处理content数组格式
+                    if isinstance(content, list) and len(content) > 0:
+                        text_content = content[0].get("text", "")
+                    else:
+                        text_content = str(content)
+
+                    self.logger.info(f"AI响应内容: {text_content}")
+
+                    # 清理可能的markdown格式
+                    if text_content.startswith("```json"):
+                        text_content = text_content[7:]
+                    if text_content.endswith("```"):
+                        text_content = text_content[:-3]
+
+                    # 解析JSON
+                    try:
+                        analysis_result = json.loads(text_content.strip())
+
+                        # 验证必需字段
+                        required_fields = ["description", "scene_type", "objects", "people_count",
+                                         "emotion", "activity", "time_period", "location_type",
+                                         "confidence", "tags"]
+
+                        for field in required_fields:
+                            if field not in analysis_result:
+                                raise ValueError(f"缺少必需字段: {field}")
+
+                        # 确保tags是列表
+                        if not isinstance(analysis_result["tags"], list):
+                            analysis_result["tags"] = [analysis_result["tags"]]
+
+                        # 确保confidence是浮点数
+                        analysis_result["confidence"] = float(analysis_result["confidence"])
+
+                        return analysis_result
+
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"解析AI响应JSON失败: {text_content}")
+                        raise Exception(f"AI响应JSON格式错误: {str(e)}")
+
             else:
+                self.logger.error(f"未知的API响应格式: {json.dumps(result, indent=2)}")
                 raise Exception("API响应格式异常")
 
         except Exception as e:
@@ -207,6 +262,19 @@ class DashScopeService:
 
             if "output" in result and "text" in result["output"]:
                 return result["output"]["text"].strip()
+            elif "output" in result and "choices" in result["output"]:
+                # 处理choices格式的响应
+                choice = result["output"]["choices"][0]
+                if "message" in choice and "content" in choice["message"]:
+                    content = choice["message"]["content"]
+
+                    # 处理content数组格式
+                    if isinstance(content, list) and len(content) > 0:
+                        text_content = content[0].get("text", "")
+                    else:
+                        text_content = str(content)
+
+                    return text_content.strip()
             else:
                 return "美丽的照片"
 

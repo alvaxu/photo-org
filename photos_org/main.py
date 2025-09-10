@@ -23,12 +23,16 @@ from app.core.config import settings
 from app.core.logging import setup_logging
 from app.db.session import engine
 from app.models import base
+from app.services.storage_service import StorageService
 
 # 创建数据库表
 base.Base.metadata.create_all(bind=engine)
 
 # 设置日志
 setup_logging()
+
+# 初始化存储服务（自动创建目录）
+storage_service = StorageService()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -48,11 +52,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 挂载静态文件
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 # 注册API路由
 app.include_router(api_router, prefix="/api/v1")
+
+# 挂载静态文件
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 健康检查接口
 @app.get("/health")
@@ -60,13 +64,14 @@ async def health_check():
     """健康检查接口"""
     return {"status": "healthy", "message": "系统运行正常"}
 
-# 根路径
+# 根路径重定向到前端界面
 @app.get("/")
 async def root():
-    """根路径"""
+    """根路径 - 重定向到前端界面"""
     return {
         "message": "欢迎使用家庭单机版智能照片整理系统",
         "version": "1.0.0",
+        "frontend": "/static/index.html",
         "docs": "/docs"
     }
 

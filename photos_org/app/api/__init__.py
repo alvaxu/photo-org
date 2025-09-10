@@ -16,6 +16,8 @@ from .analysis import router as analysis_router
 from .tags import router as tags_router
 from .categories import router as categories_router
 from .storage import router as storage_router
+from .classification import router as classification_router
+from .search import router as search_router
 
 # 创建主API路由
 router = APIRouter()
@@ -28,5 +30,7 @@ router.include_router(analysis_router, prefix="/analysis", tags=["analysis"])
 router.include_router(tags_router, prefix="/tags", tags=["tags"])
 router.include_router(categories_router, prefix="/categories", tags=["categories"])
 router.include_router(storage_router, prefix="/storage", tags=["storage"])
+router.include_router(classification_router, prefix="/classification", tags=["classification"])
+router.include_router(search_router, prefix="/search", tags=["search"])
 
 __all__ = ["router"]

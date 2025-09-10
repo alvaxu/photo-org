@@ -98,7 +98,11 @@ class Settings(BaseSettings):
 
     def _load_config_from_json(self) -> Dict[str, Any]:
         """从JSON配置文件加载配置"""
-        config_path = Path("config.json")
+        # 获取项目根目录路径
+        current_path = Path(__file__).resolve()
+        project_root = current_path.parent.parent.parent  # app/core/config.py -> app -> project_root
+        config_path = project_root / "config.json"
+
         if config_path.exists():
             try:
                 with open(config_path, 'r', encoding='utf-8') as f:

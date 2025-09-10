@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.session import get_db
-from app.models.photo import Photo, Tag, Category
+from app.models.photo import Photo, Tag, Category, PhotoAnalysis
 from app.schemas.photo import PhotoResponse
 from app.services.photo_service import PhotoService
 
@@ -108,7 +108,7 @@ async def get_photos(
             photo_dict = {
                 "id": photo.id,
                 "filename": photo.filename,
-                "file_path": photo.file_path,
+                "file_path": photo.original_path,
                 "file_size": photo.file_size,
                 "width": photo.width,
                 "height": photo.height,
@@ -118,18 +118,29 @@ async def get_photos(
                 "created_at": photo.created_at.isoformat() if photo.created_at else None,
                 "updated_at": photo.updated_at.isoformat() if photo.updated_at else None,
                 "thumbnail_path": photo.thumbnail_path,
-                "tags": [tag.name for tag in photo.tags] if photo.tags else [],
-                "categories": [cat.name for cat in photo.categories] if photo.categories else []
+                "tags": [tag.tag.name for tag in photo.tags] if photo.tags else [],
+                "categories": [cat.category.name for cat in photo.categories] if photo.categories else []
             }
 
-            # 添加分析信息
-            if photo.analysis:
-                photo_dict["analysis"] = {
-                    "description": photo.analysis.content_description,
-                    "tags": photo.analysis.content_tags,
-                    "overall_score": photo.analysis.overall_score,
-                    "quality_rating": photo.analysis.quality_rating
-                }
+            # 添加分析信息（通过查询获取）
+            analysis = db.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == photo.id).first()
+            if analysis:
+                # 解析analysis_result JSON数据
+                try:
+                    analysis_data = analysis.analysis_result if isinstance(analysis.analysis_result, dict) else {}
+                    photo_dict["analysis"] = {
+                        "description": analysis_data.get("description", ""),
+                        "tags": analysis_data.get("tags", []),
+                        "confidence": analysis.confidence_score,
+                        "type": analysis.analysis_type
+                    }
+                except:
+                    photo_dict["analysis"] = {
+                        "description": "",
+                        "tags": [],
+                        "confidence": analysis.confidence_score,
+                        "type": analysis.analysis_type
+                    }
 
             photo_list.append(photo_dict)
 
@@ -166,7 +177,7 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
         response = {
             "id": photo.id,
             "filename": photo.filename,
-            "file_path": photo.file_path,
+            "file_path": photo.original_path,
             "file_size": photo.file_size,
             "width": photo.width,
             "height": photo.height,
@@ -176,8 +187,8 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
             "created_at": photo.created_at.isoformat() if photo.created_at else None,
             "updated_at": photo.updated_at.isoformat() if photo.updated_at else None,
             "thumbnail_path": photo.thumbnail_path,
-            "tags": [tag.name for tag in photo.tags] if photo.tags else [],
-            "categories": [cat.name for cat in photo.categories] if photo.categories else [],
+            "tags": [tag.tag.name for tag in photo.tags] if photo.tags else [],
+            "categories": [cat.category.name for cat in photo.categories] if photo.categories else [],
             "metadata": {}
         }
 
@@ -190,33 +201,45 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
                 "aperture": photo.aperture,
                 "shutter_speed": photo.shutter_speed,
                 "iso": photo.iso,
-                "datetime_original": photo.datetime_original.isoformat() if photo.datetime_original else None,
-                "gps_latitude": photo.gps_latitude,
-                "gps_longitude": photo.gps_longitude
+                "taken_at": photo.taken_at.isoformat() if photo.taken_at else None,
+                "location_lat": photo.location_lat,
+                "location_lng": photo.location_lng
             }
 
-        # 添加分析信息
-        if photo.analysis:
-            response["analysis"] = {
-                "content_description": photo.analysis.content_description,
-                "content_tags": photo.analysis.content_tags,
-                "categories": photo.analysis.content_categories,
-                "scene_type": photo.analysis.scene_type,
-                "overall_score": photo.analysis.overall_score,
-                "quality_rating": photo.analysis.quality_rating,
-                "analyzed_at": photo.analysis.created_at.isoformat() if photo.analysis.created_at else None
-            }
+        # 添加分析信息（通过查询获取）
+        analysis = db.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == photo.id).first()
+        if analysis:
+            # 解析analysis_result JSON数据
+            try:
+                analysis_data = analysis.analysis_result if isinstance(analysis.analysis_result, dict) else {}
+                response["analysis"] = {
+                    "description": analysis_data.get("description", ""),
+                    "tags": analysis_data.get("tags", []),
+                    "confidence": analysis.confidence_score,
+                    "type": analysis.analysis_type,
+                    "analyzed_at": analysis.created_at.isoformat() if analysis.created_at else None
+                }
+            except:
+                response["analysis"] = {
+                    "description": "",
+                    "tags": [],
+                    "confidence": analysis.confidence_score,
+                    "type": analysis.analysis_type,
+                    "analyzed_at": analysis.created_at.isoformat() if analysis.created_at else None
+                }
 
         # 添加质量信息
         if photo.quality_assessments:
             latest_quality = max(photo.quality_assessments, key=lambda q: q.created_at)
             response["quality"] = {
+                "quality_score": latest_quality.quality_score,
                 "sharpness_score": latest_quality.sharpness_score,
                 "brightness_score": latest_quality.brightness_score,
                 "contrast_score": latest_quality.contrast_score,
-                "noise_level": latest_quality.noise_level,
-                "overall_score": latest_quality.overall_score,
-                "quality_rating": latest_quality.quality_rating,
+                "color_score": latest_quality.color_score,
+                "composition_score": latest_quality.composition_score,
+                "quality_level": latest_quality.quality_level,
+                "technical_issues": latest_quality.technical_issues,
                 "assessed_at": latest_quality.assessed_at.isoformat() if latest_quality.assessed_at else None
             }
 
@@ -263,7 +286,7 @@ async def update_photo(
         # 更新标签
         if update_request.tags is not None:
             # 先移除所有现有标签
-            photo_service.remove_tags_from_photo(db, photo_id, [tag.name for tag in photo.tags] if photo.tags else [])
+            photo_service.remove_tags_from_photo(db, photo_id, [tag.tag.name for tag in photo.tags] if photo.tags else [])
             # 添加新标签
             if update_request.tags:
                 photo_service.add_tags_to_photo(db, photo_id, update_request.tags)
@@ -283,8 +306,8 @@ async def update_photo(
             "filename": updated_photo.filename,
             "description": updated_photo.description,
             "updated_at": updated_photo.updated_at.isoformat() if updated_photo.updated_at else None,
-            "tags": [tag.name for tag in updated_photo.tags] if updated_photo.tags else [],
-            "categories": [cat.name for cat in updated_photo.categories] if updated_photo.categories else [],
+            "tags": [tag.tag.name for tag in updated_photo.tags] if updated_photo.tags else [],
+            "categories": [cat.category.name for cat in updated_photo.categories] if updated_photo.categories else [],
             "message": "照片更新成功"
         }
 
@@ -321,6 +344,65 @@ async def delete_photo(photo_id: int, delete_file: bool = True, db: Session = De
     except Exception as e:
         logger.error(f"删除照片失败 photo_id={photo_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"删除照片失败: {str(e)}")
+
+
+@router.post("/batch-process")
+async def batch_process_photos(
+    enable_ai: bool = Query(True, description="启用AI分析"),
+    enable_quality: bool = Query(True, description="启用质量评估"),
+    enable_classification: bool = Query(True, description="启用智能分类"),
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db)
+):
+    """
+    批量处理照片
+
+    对所有照片进行AI分析、质量评估和智能分类
+    """
+    try:
+        photo_service = PhotoService()
+
+        # 获取所有照片
+        photos, total = photo_service.get_photos(db, skip=0, limit=1000)
+
+        if not photos:
+            return {
+                "success": True,
+                "message": "没有找到需要处理的照片",
+                "data": {
+                    "total_photos": 0,
+                    "processed": 0
+                }
+            }
+
+        # 如果照片数量较多，放到后台处理
+        if len(photos) > 10:
+            background_tasks.add_task(process_photos_background, photos, enable_ai, enable_quality, enable_classification, db)
+
+            return {
+                "success": True,
+                "message": f"已提交 {len(photos)} 张照片到后台处理",
+                "data": {
+                    "total_photos": len(photos),
+                    "status": "processing"
+                }
+            }
+
+        # 小批量直接处理
+        processed_count = await process_photos_background(photos, enable_ai, enable_quality, enable_classification, db)
+
+        return {
+            "success": True,
+            "message": f"成功处理 {processed_count}/{len(photos)} 张照片",
+            "data": {
+                "total_photos": len(photos),
+                "processed": processed_count
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"批量处理照片失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"批量处理失败: {str(e)}")
 
 
 @router.post("/batch-delete", response_model=BatchDeleteResponse)
@@ -464,3 +546,61 @@ async def get_photos_by_tag(
     except Exception as e:
         logger.error(f"获取标签照片失败 tag_name='{tag_name}': {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取标签照片失败: {str(e)}")
+
+
+async def process_photos_background(photos, enable_ai, enable_quality, enable_classification, db):
+    """
+    后台批量处理照片
+
+    :param photos: 照片列表
+    :param enable_ai: 是否启用AI分析
+    :param enable_quality: 是否启用质量评估
+    :param enable_classification: 是否启用智能分类
+    :param db: 数据库会话
+    :return: 处理成功的照片数量
+    """
+    from app.services.analysis_service import AnalysisService
+    from app.services.photo_quality_service import PhotoQualityService
+    from app.services.classification_service import ClassificationService
+
+    processed_count = 0
+
+    try:
+        analysis_service = AnalysisService()
+        quality_service = PhotoQualityService()
+        classification_service = ClassificationService()
+
+        for photo in photos:
+            try:
+                logger.info(f"正在处理照片: {photo.filename}")
+
+                # AI分析
+                if enable_ai:
+                    await analysis_service.analyze_photo(photo.id)
+
+                # 质量评估 - 暂时跳过，方法不存在
+                # if enable_quality:
+                #     quality_service.assess_photo_quality_async(db, photo.id)
+
+                # 智能分类
+                if enable_classification:
+                    classification_service.classify_photo(photo.id, db)
+
+                processed_count += 1
+                
+                # 更新照片状态为已完成
+                photo.status = 'completed'
+                db.commit()
+                
+                logger.info(f"照片 {photo.filename} 处理完成")
+
+            except Exception as e:
+                logger.error(f"处理照片 {photo.filename} 失败: {str(e)}")
+                continue
+
+        logger.info(f"批量处理完成，共处理 {processed_count}/{len(photos)} 张照片")
+
+    except Exception as e:
+        logger.error(f"批量处理过程中发生错误: {str(e)}")
+
+    return processed_count

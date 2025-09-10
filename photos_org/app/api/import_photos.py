@@ -11,7 +11,8 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends
+from sqlalchemy.orm import Session
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
@@ -28,7 +29,7 @@ async def scan_folder(
     folder_path: str,
     recursive: bool = True,
     background_tasks: BackgroundTasks = None,
-    db: get_db = None
+    db: Session = Depends(get_db)
 ):
     """
     扫描文件夹导入照片
@@ -96,7 +97,7 @@ async def scan_folder(
 async def upload_photos(
     files: List[UploadFile] = File(...),
     background_tasks: BackgroundTasks = None,
-    db: get_db = None
+    db: Session = Depends(get_db)
 ):
     """
     上传照片文件
@@ -113,7 +114,7 @@ async def upload_photos(
 
     try:
         import_service = ImportService()
-        photo_service = PhotoService(db)
+        photo_service = PhotoService()
         imported_count = 0
 
         for file in files:
@@ -132,8 +133,9 @@ async def upload_photos(
 
                 if success and photo_data:
                     # 保存到数据库
-                    photo = photo_service.create_photo(photo_data)
-                    imported_count += 1
+                    photo = photo_service.create_photo(db, photo_data)
+                    if photo:
+                        imported_count += 1
                 else:
                     print(f"文件 {file.filename} 处理失败: {message}")
 
@@ -160,7 +162,7 @@ async def upload_photos(
 @router.post("/process-single")
 async def process_single_file(
     file_path: str,
-    db: get_db = None
+    db: Session = Depends(get_db)
 ):
     """
     处理单个照片文件
@@ -170,7 +172,7 @@ async def process_single_file(
     """
     try:
         import_service = ImportService()
-        photo_service = PhotoService(db)
+        photo_service = PhotoService()
 
         # 处理照片
         success, message, photo_data = import_service.process_single_photo(file_path)
@@ -248,17 +250,17 @@ async def process_photos_batch(photo_files: List[str], db) -> int:
     :return: 成功导入的数量
     """
     import_service = ImportService()
-    photo_service = PhotoService(db)
+    photo_service = PhotoService()
     imported_count = 0
 
     for file_path in photo_files:
         try:
-            # 处理单个照片
-            success, message, photo_data = import_service.process_single_photo(file_path)
+            # 处理单个照片（文件夹扫描时复制文件，不移动）
+            success, message, photo_data = import_service.process_single_photo(file_path, move_file=False)
 
             if success and photo_data:
                 # 保存到数据库
-                photo = photo_service.create_photo(photo_data)
+                photo = photo_service.create_photo(db, photo_data)
                 imported_count += 1
                 print(f"成功导入: {file_path}")
             else:

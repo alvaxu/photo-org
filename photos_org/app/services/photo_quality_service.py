@@ -30,8 +30,31 @@ class PhotoQualityService:
             质量评估结果字典
         """
         try:
-            # 读取图片
+            # 读取图片 - 处理中文文件名问题
+            # 首先尝试直接读取
             image = cv2.imread(image_path)
+
+            # 如果直接读取失败或返回None，使用备用方案
+            if image is None:
+                # 使用np.fromfile和imdecode作为备用方案
+                try:
+                    with open(image_path, 'rb') as f:
+                        image_data = np.frombuffer(f.read(), dtype=np.uint8)
+                    image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+                except Exception as np_error:
+                    # 如果仍然失败，尝试使用PIL作为中间桥梁
+                    try:
+                        pil_image = Image.open(image_path)
+                        # 转换为RGB格式
+                        if pil_image.mode != 'RGB':
+                            pil_image = pil_image.convert('RGB')
+                        # 转换为numpy数组
+                        image_array = np.array(pil_image)
+                        # 转换为BGR格式（OpenCV默认格式）
+                        image = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
+                    except Exception as pil_error:
+                        raise Exception(f"无法读取图片文件，所有读取方法都失败: np_error={str(np_error)}, pil_error={str(pil_error)}")
+
             if image is None:
                 raise Exception("无法读取图片文件")
 
@@ -47,7 +70,13 @@ class PhotoQualityService:
             composition_score = self._assess_composition(image)
 
             # 技术问题检测
-            technical_issues = self._detect_technical_issues(image, pil_image)
+            technical_issues_raw = self._detect_technical_issues(image, pil_image)
+            # 将列表转换为字典格式以兼容数据库存储
+            technical_issues = {
+                "issues": technical_issues_raw,
+                "count": len(technical_issues_raw),
+                "has_issues": len(technical_issues_raw) > 0
+            }
 
             # 综合质量评分（加权平均）
             weights = {
