@@ -1,0 +1,39 @@
+{
+  "system": {
+    "max_file_size": 52428800,
+    "timeout": 10,
+    "max_concurrent": 2,
+    "temp_file_max_age": 24
+  },
+  "database": {
+    "path": "./data/photos.db"
+  },
+  "dashscope": {
+    "api_key": "${DASHSCOPE_API_KEY}",
+    "base_url": "https://dashscope.aliyuncs.com/api/v1"
+  },
+  "storage": {
+    "base_path": "./photos_storage",
+    "originals_path": "originals",
+    "thumbnails_path": "thumbnails",
+    "temp_path": "temp",
+    "backups_path": "backups",
+    "thumbnail_size": 300,
+    "thumbnail_quality": 85
+  },
+  "analysis": {
+    "duplicate_threshold": 5,
+    "quality_threshold": 0
+  },
+  "logging": {
+    "level": "INFO",
+    "file_path": "./logs/app.log",
+    "max_size": "10MB",
+    "backup_count": 5
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "debug": true
+  }
+}
