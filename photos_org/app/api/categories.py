@@ -211,6 +211,47 @@ async def get_category_statistics(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"获取分类统计失败: {str(e)}")
 
 
+@router.get("/popular", response_model=List[Dict[str, Any]])
+async def get_popular_categories(
+    limit: int = Query(20, ge=1, le=100, description="返回的分类数量"),
+    db: Session = Depends(get_db)
+):
+    """
+    获取热门分类（按照片数量排序）
+
+    - **limit**: 返回的分类数量上限
+    """
+    try:
+        from sqlalchemy import func
+
+        # 查询分类使用频率
+        category_usage = db.query(
+            Category.id,
+            Category.name,
+            Category.description,
+            func.count(PhotoCategory.photo_id).label('usage_count')
+        ).join(PhotoCategory, Category.id == PhotoCategory.category_id)\
+         .group_by(Category.id, Category.name, Category.description)\
+         .order_by(func.count(PhotoCategory.photo_id).desc())\
+         .limit(limit)\
+         .all()
+
+        result = []
+        for category_id, name, description, usage_count in category_usage:
+            result.append({
+                "id": category_id,
+                "name": name,
+                "description": description,
+                "usage_count": usage_count
+            })
+
+        return result
+
+    except Exception as e:
+        logger.error(f"获取热门分类失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取热门分类失败: {str(e)}")
+
+
 @router.get("/{category_id}", response_model=CategoryResponse)
 async def get_category(category_id: int, db: Session = Depends(get_db)):
     """
@@ -415,45 +456,5 @@ async def delete_category(category_id: int, db: Session = Depends(get_db)):
         logger.error(f"删除分类失败 category_id={category_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"删除分类失败: {str(e)}")
 
-
-@router.get("/popular", response_model=List[Dict[str, Any]])
-async def get_popular_categories(
-    limit: int = Query(20, ge=1, le=100, description="返回的分类数量"),
-    db: Session = Depends(get_db)
-):
-    """
-    获取热门分类（按照片数量排序）
-
-    - **limit**: 返回的分类数量上限
-    """
-    try:
-        from sqlalchemy import func
-
-        # 查询分类使用频率
-        category_usage = db.query(
-            Category.id,
-            Category.name,
-            Category.description,
-            func.count(PhotoCategory.photo_id).label('usage_count')
-        ).join(PhotoCategory, Category.id == PhotoCategory.category_id)\
-         .group_by(Category.id, Category.name, Category.description)\
-         .order_by(func.count(PhotoCategory.photo_id).desc())\
-         .limit(limit)\
-         .all()
-
-        result = []
-        for category_id, name, description, usage_count in category_usage:
-            result.append({
-                "id": category_id,
-                "name": name,
-                "description": description,
-                "usage_count": usage_count
-            })
-
-        return result
-
-    except Exception as e:
-        logger.error(f"获取热门分类失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"获取热门分类失败: {str(e)}")
 
 

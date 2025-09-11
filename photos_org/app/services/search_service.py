@@ -26,6 +26,7 @@ class SearchService:
         self,
         db: Session,
         keyword: Optional[str] = None,
+        search_type: str = "all",
         camera_make: Optional[str] = None,
         camera_model: Optional[str] = None,
         date_from: Optional[date] = None,
@@ -73,7 +74,7 @@ class SearchService:
 
             # 关键词搜索
             if keyword:
-                query = self._apply_keyword_filter(query, keyword)
+                query = self._apply_keyword_filter(query, keyword, search_type)
 
             # 相机筛选
             if camera_make:
@@ -127,44 +128,92 @@ class SearchService:
             self.logger.error(f"搜索照片失败: {e}")
             raise Exception(f"搜索照片失败: {e}")
 
-    def _apply_keyword_filter(self, query, keyword: str):
+    def _apply_keyword_filter(self, query, keyword: str, search_type: str = "all"):
         """应用关键词筛选"""
         try:
-            # 首先尝试使用全文搜索
-            fts_query = f"""
-            SELECT rowid
-            FROM photos_fts
-            WHERE photos_fts MATCH '{keyword}'
-            """
+            # 根据搜索类型选择不同的搜索策略
+            if search_type == "all":
+                # 全部内容搜索，首先尝试使用全文搜索
+                fts_query = f"""
+                SELECT rowid
+                FROM photos_fts
+                WHERE photos_fts MATCH '{keyword}'
+                """
 
-            # 获取匹配的照片ID
-            result = query.session.execute(text(fts_query)).fetchall()
-            photo_ids = [row[0] for row in result]
+                # 获取匹配的照片ID
+                result = query.session.execute(text(fts_query)).fetchall()
+                photo_ids = [row[0] for row in result]
 
-            if photo_ids:
-                query = query.filter(Photo.id.in_(photo_ids))
+                if photo_ids:
+                    query = query.filter(Photo.id.in_(photo_ids))
+                    return query
+
+            elif search_type == "filename":
+                # 只搜索文件名
+                query = query.filter(
+                    or_(
+                        Photo.filename.ilike(f"%{keyword}%"),
+                        Photo.original_path.ilike(f"%{keyword}%")
+                    )
+                )
+                return query
+
+            elif search_type == "tags":
+                # 只搜索标签
+                query = query.filter(
+                    Photo.tags.any(PhotoTag.tag.has(Tag.name.ilike(f"%{keyword}%")))
+                )
+                return query
+
+            elif search_type == "categories":
+                # 只搜索分类
+                query = query.filter(
+                    Photo.categories.any(PhotoCategory.category.has(Category.name.ilike(f"%{keyword}%")))
+                )
+                return query
+
+            elif search_type == "description":
+                # 搜索AI分析结果中的content类型描述
+                query = query.filter(
+                    Photo.analysis_results.any(
+                        and_(
+                            PhotoAnalysis.analysis_type == "content",
+                            PhotoAnalysis.analysis_result.ilike(f"%{keyword}%")
+                        )
+                    )
+                )
+                return query
+
+            elif search_type == "ai_analysis":
+                # 搜索所有类型的AI分析结果（content, scene, objects, faces等）
+                query = query.filter(
+                    Photo.analysis_results.any(
+                        PhotoAnalysis.analysis_result.ilike(f"%{keyword}%")
+                    )
+                )
                 return query
 
         except Exception as e:
             self.logger.warning(f"FTS搜索失败，使用LIKE查询: {e}")
 
-        # 如果FTS失败，使用传统的LIKE查询作为后备
-        # 搜索文件名、路径、标签、分类和分析结果
-        query = query.filter(
-            or_(
-                Photo.filename.ilike(f"%{keyword}%"),
-                Photo.original_path.ilike(f"%{keyword}%"),
-                Photo.description.ilike(f"%{keyword}%"),
-                # 搜索标签
-                Photo.tags.any(PhotoTag.tag.has(Tag.name.ilike(f"%{keyword}%"))),
-                # 搜索分类
-                Photo.categories.any(PhotoCategory.category.has(Category.name.ilike(f"%{keyword}%"))),
-                # 搜索分析结果中的描述和标签
-                Photo.analysis_results.any(
-                    PhotoAnalysis.analysis_result.ilike(f"%{keyword}%")
+        # 如果FTS失败或search_type为all，使用传统的LIKE查询作为后备
+        if search_type == "all":
+            # 搜索文件名、路径、标签、分类和分析结果
+            query = query.filter(
+                or_(
+                    Photo.filename.ilike(f"%{keyword}%"),
+                    Photo.original_path.ilike(f"%{keyword}%"),
+                    Photo.description.ilike(f"%{keyword}%"),
+                    # 搜索标签
+                    Photo.tags.any(PhotoTag.tag.has(Tag.name.ilike(f"%{keyword}%"))),
+                    # 搜索分类
+                    Photo.categories.any(PhotoCategory.category.has(Category.name.ilike(f"%{keyword}%"))),
+                    # 搜索分析结果中的描述和标签
+                    Photo.analysis_results.any(
+                        PhotoAnalysis.analysis_result.ilike(f"%{keyword}%")
+                    )
                 )
             )
-        )
 
         return query
 

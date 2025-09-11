@@ -74,12 +74,29 @@
                         <div class="row g-3 align-items-end">
                             <!-- 搜索框 -->
                             <div class="col-md-4">
-                                <label class="form-label">关键词搜索</label>
+                                <label class="form-label">快速搜索</label>
                                 <div class="input-group">
-                                    <input type="text" class="form-control" id="searchInput" placeholder="搜索照片、标签、描述...">
+                                    <select class="form-select" id="searchType" style="max-width: 120px;">
+                                        <option value="all">全部内容</option>
+                                        <option value="filename">文件名</option>
+                                        <option value="tags">标签</option>
+                                        <option value="categories">分类</option>
+                                        <option value="description">描述</option>
+                                        <option value="ai_analysis">AI分析结果</option>
+                                    </select>
+                                    <input type="text" class="form-control" id="searchInput" placeholder="搜索照片、标签、文件名、描述...">
                                     <button class="btn btn-outline-secondary" type="button" id="searchBtn">
                                         <i class="bi bi-search"></i>
                                     </button>
+                                </div>
+                                <small class="text-muted" id="searchScopeHint">支持搜索：文件名、标签、描述、分类、AI分析结果等</small>
+                                <!-- 搜索建议容器 -->
+                                <div id="searchSuggestions" class="mt-2" style="display: none;">
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <span class="badge bg-secondary me-1 mb-1" style="cursor: pointer;" onclick="selectSuggestion(this.textContent)">
+                                            点击标签快速搜索
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -87,10 +104,10 @@
                             <div class="col-md-2">
                                 <label class="form-label">拍摄日期</label>
                                 <select class="form-select" id="dateFilter">
-                                    <option value="">全部时间</option>
+                                    <option value="" selected>全部时间</option>
                                     <option value="today">今天</option>
                                     <option value="week">本周</option>
-                                    <option value="month" selected>本月</option>
+                                    <option value="month">本月</option>
                                     <option value="year">今年</option>
                                     <option value="custom">自定义</option>
                                 </select>
@@ -141,6 +158,7 @@
 
                             <!-- 视图切换 -->
                             <div class="col-md-1">
+                                <label class="form-label">视图</label>
                                 <div class="btn-group" role="group">
                                     <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off" checked>
                                     <label class="btn btn-outline-secondary" for="gridView">
@@ -156,7 +174,8 @@
                             
                             <!-- 清除筛选按钮 -->
                             <div class="col-md-1">
-                                <button class="btn btn-outline-danger" id="clearFilters" title="清除所有筛选条件">
+                                <label class="form-label">操作</label>
+                                <button class="btn btn-outline-danger w-100" id="clearFilters" title="清除所有筛选条件">
                                     <i class="bi bi-x-circle"></i>
                                 </button>
                             </div>
@@ -172,6 +191,16 @@
                                         <i class="bi bi-x-circle me-1"></i>清除筛选
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 搜索范围说明 -->
+                        <div class="row mt-1">
+                            <div class="col-12">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    搜索范围：文件名、标签、描述、分类、AI分析结果等
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -415,7 +444,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- 自定义JavaScript -->
-            <script src="js/app.js?v=20250109_47"></script>
+            <script src="js/app.js?v=20250109_73"></script>
             <script src="js/photo-manager.js?v=20250109_46"></script>
     <script src="js/ui-components.js"></script>
 </body>

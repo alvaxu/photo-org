@@ -21,13 +21,36 @@ const AppState = {
     isLoading: false,
     searchFilters: {
         keyword: '',
-        dateFilter: 'month',
+        searchType: 'all',
+        dateFilter: '',
         qualityFilter: '',
         sortBy: 'quality_score',
         sortOrder: 'desc'
     },
     photos: [],
-    stats: {}
+    stats: {},
+    hotTags: [],
+    hotCategories: []
+};
+
+// 搜索类型提示文字映射
+const searchTypePlaceholders = {
+    'all': '搜索照片、标签、文件名、描述...',
+    'filename': '搜索文件名...',
+    'tags': '搜索标签...',
+    'categories': '搜索分类...',
+    'description': '搜索描述...',
+    'ai_analysis': '搜索AI分析结果...'
+};
+
+// 搜索范围提示文字映射
+const searchScopeHints = {
+    'all': '支持搜索：文件名、标签、描述、分类、AI分析结果等',
+    'filename': '搜索范围：照片文件名（如：IMG_001.jpg, 生日聚会.jpg）',
+    'tags': '搜索范围：照片标签（如：Apple, 聚会, 室内, 欢乐）',
+    'categories': '搜索范围：照片分类（如：2024年, 下午, 秋季, Apple）',
+    'description': '搜索范围：照片描述和AI内容描述（如：生日聚会场景, 室内庆祝活动）',
+    'ai_analysis': '搜索范围：所有AI分析结果（如：聚会, 蛋糕, 人物, 场景识别）'
 };
 
 // DOM 元素缓存
@@ -37,6 +60,30 @@ let elements = {};
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
 });
+
+// 加载热门标签和分类数据
+async function loadHotData() {
+    try {
+        // 并行加载热门标签和分类
+        const [tagsResponse, categoriesResponse] = await Promise.all([
+            fetch('/api/v1/tags/popular?limit=10'),
+            fetch('/api/v1/categories/popular?limit=10')
+        ]);
+
+        if (tagsResponse.ok) {
+            AppState.hotTags = await tagsResponse.json();
+        }
+
+        if (categoriesResponse.ok) {
+            AppState.hotCategories = await categoriesResponse.json();
+        }
+        
+        // 数据加载完成后，更新搜索建议
+        updateSearchSuggestions(AppState.searchFilters.searchType);
+    } catch (error) {
+        console.error('加载热门数据失败:', error);
+    }
+}
 
 function initializeApp() {
     console.log('🚀 初始化家庭单机版智能照片整理系统');
@@ -49,6 +96,9 @@ function initializeApp() {
 
     // 初始化UI组件
     initializeUI();
+    
+    // 加载热门数据
+    loadHotData();
 
     // 加载初始数据
     loadInitialData();
@@ -74,6 +124,9 @@ function cacheElements() {
         // 搜索和筛选
         searchInput: document.getElementById('searchInput'),
         searchBtn: document.getElementById('searchBtn'),
+    searchType: document.getElementById('searchType'),
+    searchScopeHint: document.getElementById('searchScopeHint'),
+    searchSuggestions: document.getElementById('searchSuggestions'),
         dateFilter: document.getElementById('dateFilter'),
         customDateRange: document.getElementById('customDateRange'),
         startDate: document.getElementById('startDate'),
@@ -163,6 +216,7 @@ function bindEvents() {
     // 搜索事件
     elements.searchInput.addEventListener('input', debounce(handleSearch, CONFIG.DEBOUNCE_DELAY));
     elements.searchBtn.addEventListener('click', handleSearch);
+    elements.searchType.addEventListener('change', handleSearchTypeChange);
     elements.dateFilter.addEventListener('change', handleDateFilterChange);
     elements.qualityFilter.addEventListener('change', handleFilterChange);
     elements.sortBy.addEventListener('change', handleSortChange);
@@ -376,6 +430,73 @@ function handleSearch() {
     updateFilterStatus();
 }
 
+function handleSearchTypeChange() {
+    const searchType = elements.searchType.value;
+    AppState.searchFilters.searchType = searchType;
+    
+    // 更新搜索框提示文字
+    elements.searchInput.placeholder = searchTypePlaceholders[searchType] || searchTypePlaceholders['all'];
+    
+    // 更新搜索范围提示
+    elements.searchScopeHint.textContent = searchScopeHints[searchType] || searchScopeHints['all'];
+    
+    // 显示或隐藏搜索建议
+    updateSearchSuggestions(searchType);
+    
+    // 如果有关键词，重新搜索
+    if (AppState.searchFilters.keyword) {
+        AppState.currentPage = 1;
+        loadPhotos(1);
+    }
+    
+    updateFilterStatus();
+}
+
+function updateSearchSuggestions(searchType) {
+    const suggestionsContainer = elements.searchSuggestions;
+    const suggestionsDiv = suggestionsContainer.querySelector('div');
+    
+    if (searchType === 'tags' && AppState.hotTags.length > 0) {
+        // 显示热门标签建议
+        suggestionsDiv.innerHTML = '';
+        AppState.hotTags.slice(0, 8).forEach(tag => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-primary me-1 mb-1';
+            badge.style.cursor = 'pointer';
+            badge.textContent = tag.name;
+            badge.onclick = () => selectSuggestion(tag.name);
+            suggestionsDiv.appendChild(badge);
+        });
+        suggestionsContainer.style.display = 'block';
+    } else if (searchType === 'categories' && AppState.hotCategories.length > 0) {
+        // 显示热门分类建议
+        suggestionsDiv.innerHTML = '';
+        AppState.hotCategories.slice(0, 8).forEach(category => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-success me-1 mb-1';
+            badge.style.cursor = 'pointer';
+            badge.textContent = category.name;
+            badge.onclick = () => selectSuggestion(category.name);
+            suggestionsDiv.appendChild(badge);
+        });
+        suggestionsContainer.style.display = 'block';
+    } else {
+        // 隐藏搜索建议
+        suggestionsContainer.style.display = 'none';
+    }
+}
+
+function selectSuggestion(text) {
+    // 设置搜索框内容
+    elements.searchInput.value = text;
+    
+    // 触发搜索
+    AppState.searchFilters.keyword = text;
+    AppState.currentPage = 1;
+    loadPhotos(1);
+    updateFilterStatus();
+}
+
 function handleDateFilterChange() {
     const dateFilter = elements.dateFilter.value;
     AppState.searchFilters.dateFilter = dateFilter;
@@ -428,12 +549,20 @@ function handleSortChange() {
 function clearAllFilters() {
     // 重置所有筛选条件
     elements.searchInput.value = '';
-    elements.dateFilter.value = 'month';
+    elements.searchType.value = 'all';
+    elements.dateFilter.value = '';
     elements.qualityFilter.value = '';
     elements.sortBy.value = 'quality_score';
     elements.sortOrder.value = 'desc';
     elements.startDate.value = '';
     elements.endDate.value = '';
+    
+    // 重置搜索提示文字
+    elements.searchInput.placeholder = searchTypePlaceholders['all'];
+    elements.searchScopeHint.textContent = searchScopeHints['all'];
+    
+    // 隐藏搜索建议
+    elements.searchSuggestions.style.display = 'none';
     
     // 隐藏自定义日期范围
     elements.customDateRange.style.display = 'none';
@@ -441,7 +570,8 @@ function clearAllFilters() {
     // 更新AppState
     AppState.searchFilters = {
         keyword: '',
-        dateFilter: 'month',
+        searchType: 'all',
+        dateFilter: '',
         qualityFilter: '',
         sortBy: 'quality_score',
         sortOrder: 'desc'
@@ -458,10 +588,19 @@ function updateFilterStatus() {
     
     // 检查是否有筛选条件
     if (filters.keyword) {
-        statusParts.push(`关键词: "${filters.keyword}"`);
+        const searchTypeLabels = {
+            'all': '全部内容',
+            'filename': '文件名',
+            'tags': '标签',
+            'categories': '分类',
+            'description': '描述',
+            'ai_analysis': 'AI分析结果'
+        };
+        const searchTypeLabel = searchTypeLabels[filters.searchType] || '全部内容';
+        statusParts.push(`搜索(${searchTypeLabel}): "${filters.keyword}"`);
     }
     
-    if (filters.dateFilter && filters.dateFilter !== 'month') {
+    if (filters.dateFilter && filters.dateFilter !== '') {
         const dateLabels = {
             'today': '今天',
             'week': '本周',
@@ -585,6 +724,7 @@ async function loadPhotos(page = 1) {
             sort_by: AppState.searchFilters.sortBy,
             sort_order: AppState.searchFilters.sortOrder,
             keyword: AppState.searchFilters.keyword,
+            search_type: AppState.searchFilters.searchType,
             date_filter: AppState.searchFilters.dateFilter,
             quality_filter: AppState.searchFilters.qualityFilter
         });
@@ -756,7 +896,7 @@ function createPhotoCard(photo) {
     const qualityText = getQualityText(qualityLevel);
 
     return `
-        <div class="col photo-card" data-photo-id="${photo.id}">
+        <div class="col-1 photo-card" data-photo-id="${photo.id}">
             <div class="photo-image-container">
                 <img src="/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
                      alt="${photo.filename}"
@@ -2102,3 +2242,4 @@ window.PhotoApp = {
 };
 
 window.toggleTags = toggleTags;
+window.selectSuggestion = selectSuggestion;

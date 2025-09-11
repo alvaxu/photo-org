@@ -21,6 +21,7 @@ search_service = SearchService()
 @router.get("/photos", response_model=PhotoSearchResponse)
 async def search_photos(
     keyword: Optional[str] = Query(None, description="关键词搜索"),
+    search_type: str = Query("all", description="搜索类型"),
     camera_make: Optional[str] = Query(None, description="相机品牌"),
     camera_model: Optional[str] = Query(None, description="相机型号"),
     date_from: Optional[date] = Query(None, description="开始日期"),
@@ -92,6 +93,7 @@ async def search_photos(
         results, total = search_service.search_photos(
             db=db,
             keyword=keyword,
+            search_type=search_type,
             camera_make=camera_make,
             camera_model=camera_model,
             date_from=processed_date_from,
