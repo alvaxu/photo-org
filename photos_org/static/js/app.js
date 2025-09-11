@@ -174,6 +174,12 @@ function bindEvents() {
     elements.folderImport.addEventListener('change', () => switchImportMethod('folder'));
     elements.folderPath.addEventListener('input', handleFolderPathChange);
     elements.browseFolderBtn.addEventListener('click', browseFolder);
+    
+    // 绑定文件夹选择事件
+    const folderFilesInput = document.getElementById('folderFiles');
+    if (folderFilesInput) {
+        folderFilesInput.addEventListener('change', handleFolderSelection);
+    }
 
     // 批量处理事件
     // 注意：batchBtn 使用 data-bs-toggle="modal" 自动处理，不需要手动监听
@@ -873,13 +879,69 @@ function handleFolderPathChange() {
 }
 
 function browseFolder() {
-    // 由于浏览器安全限制，无法直接选择文件夹
-    // 提示用户手动输入路径
-    const path = prompt('请输入照片目录的完整路径：\n例如：D:\\Photos 或 /Users/username/Pictures');
-    if (path) {
-        elements.folderPath.value = path;
-        handleFolderPathChange();
+    // 触发隐藏的文件夹选择输入框
+    const folderFilesInput = document.getElementById('folderFiles');
+    if (folderFilesInput) {
+        folderFilesInput.click();
     }
+}
+
+function handleFolderSelection(event) {
+    /**
+     * 处理文件夹选择事件
+     * 
+     * @param {Event} event - 文件选择事件
+     */
+    const files = event.target.files;
+    
+    if (files && files.length > 0) {
+        // 获取第一个文件的路径，去掉文件名得到文件夹路径
+        const firstFile = files[0];
+        const filePath = firstFile.webkitRelativePath || firstFile.name;
+        const folderPath = filePath.substring(0, filePath.lastIndexOf('/'));
+        
+        // 显示文件夹路径
+        elements.folderPath.value = folderPath;
+        
+        // 显示选择的文件数量
+        const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        console.log(`选择了文件夹，包含 ${imageFiles.length} 个图片文件`);
+        
+        // 更新导入按钮状态
+        handleFolderPathChange();
+        
+        // 显示选择结果
+        showInfo(`已选择文件夹，发现 ${imageFiles.length} 个图片文件`);
+    }
+}
+
+function validateFolderPath(path) {
+    /**
+     * 验证文件夹路径格式
+     * 
+     * @param {string} path - 路径字符串
+     * @returns {boolean} 是否有效
+     */
+    if (!path || path.trim().length === 0) {
+        return false;
+    }
+    
+    // 检查是否包含非法字符
+    const invalidChars = /[<>:"|?*]/;
+    if (invalidChars.test(path)) {
+        return false;
+    }
+    
+    // 检查路径长度
+    if (path.length > 260) {
+        return false;
+    }
+    
+    // 检查是否以驱动器字母开头（Windows）或根目录开头（Linux/Mac）
+    const windowsPattern = /^[A-Za-z]:\\/;
+    const unixPattern = /^\//;
+    
+    return windowsPattern.test(path) || unixPattern.test(path);
 }
 
 async function startImport() {
@@ -976,44 +1038,55 @@ async function startFileImport() {
 
 async function startFolderImport() {
     console.log('开始目录扫描导入');
-    const folderPath = elements.folderPath.value.trim();
-    const recursive = elements.recursiveScan.checked;
     
-    if (!folderPath) {
-        showError('请输入照片目录路径');
+    // 获取选择的文件
+    const folderFilesInput = document.getElementById('folderFiles');
+    const files = folderFilesInput.files;
+    
+    if (!files || files.length === 0) {
+        showError('请先选择照片目录');
+        return;
+    }
+    
+    // 过滤出图片文件
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length === 0) {
+        showError('选择的目录中没有找到图片文件');
         return;
     }
     
     // 显示进度
     elements.importProgress.classList.remove('d-none');
     elements.startImportBtn.disabled = true;
-    elements.importStatus.textContent = '正在扫描目录...';
+    elements.importStatus.textContent = `正在处理 ${imageFiles.length} 个图片文件...`;
     
     try {
-        const response = await fetch(`${CONFIG.API_BASE_URL}/import/scan-folder`, {
+        // 直接使用文件上传API处理选择的文件
+        const formData = new FormData();
+        imageFiles.forEach(file => {
+            formData.append('files', file);
+        });
+        
+        const response = await fetch(`${CONFIG.API_BASE_URL}/import/upload`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                folder_path: folderPath,
-                recursive: recursive
-            })
+            body: formData
         });
         
         const data = await response.json();
         
         if (data.success) {
             const importedCount = data.data.imported_photos || 0;
-            const scannedFiles = data.data.scanned_files || 0;
+            const totalFiles = data.data.total_files || imageFiles.length;
             const failedFiles = data.data.failed_files || [];
             
-            // 显示导入结果
+            // 直接处理完成
             if (failedFiles.length > 0) {
-                const failedList = failedFiles.map(f => `• ${f}`).join('\n');
-                showWarning(`部分导入成功：${importedCount}/${scannedFiles} 张照片\n\n失败的文件：\n${failedList}`);
+                const failedList = failedFiles.slice(0, 10).map(f => `• ${f}`).join('\n');
+                const moreText = failedFiles.length > 10 ? `\n... 还有 ${failedFiles.length - 10} 个失败文件` : '';
+                showWarning(`部分导入成功：${importedCount}/${totalFiles} 张照片\n\n失败的文件：\n${failedList}${moreText}`);
             } else {
-                showSuccess(`成功扫描并导入 ${importedCount} 张照片！\n\n请手动点击"批量处理"按钮进行智能分析。`);
+                showSuccess(`成功导入 ${importedCount} 张照片！\n\n请手动点击"批量处理"按钮进行智能分析。`);
             }
             
             // 重新加载照片列表
@@ -1024,16 +1097,102 @@ async function startFolderImport() {
                 modal.hide();
             }
         } else {
-            showError(data.message || '目录扫描导入失败');
+            // 根据错误类型显示不同的错误信息
+            const errorMessage = data.message || '文件夹导入失败';
+            showError(`文件夹导入失败：${errorMessage}`);
         }
     } catch (error) {
-        console.error('目录扫描导入失败:', error);
-        showError('目录扫描导入失败，请稍后重试');
+        console.error('文件夹导入失败:', error);
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            showError('网络连接失败，请检查服务器是否正常运行');
+        } else {
+            showError(`文件夹导入失败：${error.message}\n\n请稍后重试或检查网络连接`);
+        }
     } finally {
         elements.importProgress.classList.add('d-none');
         elements.startImportBtn.disabled = false;
         elements.importStatus.textContent = '正在导入...';
     }
+}
+
+async function monitorScanProgress(taskId, totalFiles) {
+    /**
+     * 监控扫描任务进度
+     * 
+     * @param {string} taskId - 任务ID
+     * @param {number} totalFiles - 总文件数
+     */
+    let checkCount = 0;
+    const maxChecks = 300; // 最多检查300次，每次2秒，总共10分钟
+    
+    const progressInterval = setInterval(async () => {
+        checkCount++;
+        
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/import/scan-status/${taskId}`);
+            const statusData = await response.json();
+            
+            if (response.ok) {
+                const progress = statusData.progress_percentage || 0;
+                const processed = statusData.processed_files || 0;
+                const imported = statusData.imported_count || 0;
+                const failed = statusData.failed_files || [];
+                
+                // 更新进度显示
+                elements.importStatus.textContent = `正在处理... ${processed}/${totalFiles} (${progress.toFixed(1)}%)`;
+                
+                if (statusData.status === 'completed') {
+                    clearInterval(progressInterval);
+                    
+                    // 处理完成
+                    if (failed.length > 0) {
+                        const failedList = failed.slice(0, 10).map(f => `• ${f}`).join('\n');
+                        const moreText = failed.length > 10 ? `\n... 还有 ${failed.length - 10} 个失败文件` : '';
+                        showWarning(`后台导入完成：成功 ${imported}/${totalFiles} 张照片\n\n失败的文件：\n${failedList}${moreText}`);
+                    } else {
+                        showSuccess(`后台导入完成：成功导入 ${imported} 张照片！\n\n请手动点击"批量处理"按钮进行智能分析。`);
+                    }
+                    
+                    // 重新加载照片列表
+                    await loadPhotos();
+                    // 关闭导入模态框
+                    const modal = bootstrap.Modal.getInstance(elements.importModal);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    // 隐藏进度条
+                    elements.importProgress.classList.add('d-none');
+                    elements.startImportBtn.disabled = false;
+                    elements.importStatus.textContent = '正在导入...';
+                    
+                } else if (statusData.status === 'failed') {
+                    clearInterval(progressInterval);
+                    showError(`后台导入失败：${statusData.error || '未知错误'}`);
+                    
+                    // 隐藏进度条
+                    elements.importProgress.classList.add('d-none');
+                    elements.startImportBtn.disabled = false;
+                    elements.importStatus.textContent = '正在导入...';
+                }
+            } else {
+                console.error('获取扫描状态失败:', statusData);
+            }
+            
+        } catch (error) {
+            console.error('监控扫描进度失败:', error);
+        }
+        
+        // 超时检查
+        if (checkCount >= maxChecks) {
+            clearInterval(progressInterval);
+            showWarning('扫描任务超时，请检查任务状态或重新尝试');
+            elements.importProgress.classList.add('d-none');
+            elements.startImportBtn.disabled = false;
+            elements.importStatus.textContent = '正在导入...';
+        }
+        
+    }, 2000); // 每2秒检查一次
 }
 
 async function startBatchProcess() {
