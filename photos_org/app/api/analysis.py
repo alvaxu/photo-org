@@ -266,17 +266,55 @@ async def detect_duplicates(photo_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/queue/status")
-async def get_analysis_queue_status():
+async def get_analysis_queue_status(initial_total: int = None, db: Session = Depends(get_db)):
     """
     获取分析队列状态
     """
     try:
-        # 这里可以扩展为真正的队列状态监控
-        # 目前返回简单的状态信息
+        # 统计各种状态的照片数量
+        all_photos = db.query(Photo).count()
+        imported_photos = db.query(Photo).filter(Photo.status == 'imported').count()
+        analyzing_photos = db.query(Photo).filter(Photo.status == 'analyzing').count()
+        completed_photos = db.query(Photo).filter(Photo.status == 'completed').count()
+        error_photos = db.query(Photo).filter(Photo.status == 'error').count()
+        
+        # 计算当前批次需要处理的照片数（imported + error状态的照片）
+        current_pending_photos = imported_photos + error_photos
+        
+        # 使用传入的初始总数作为分母，如果没有传入则使用当前总数
+        if initial_total is not None and initial_total > 0:
+            total_batch_photos = initial_total
+            # 分子：初始总数 - 当前剩余的待处理照片数
+            batch_completed_photos = total_batch_photos - current_pending_photos
+        else:
+            # 如果没有传入初始总数，使用当前所有照片数（兼容旧版本）
+            current_processing_or_completed = analyzing_photos + completed_photos
+            total_batch_photos = current_pending_photos + current_processing_or_completed
+            batch_completed_photos = current_processing_or_completed
+
+        if total_batch_photos > 0:
+            progress_percentage = (batch_completed_photos / total_batch_photos * 100)
+        else:
+            progress_percentage = 100  # 如果没有需要处理的照片，显示100%
+        
+        # 计算处理状态
+        processing_photos = imported_photos + analyzing_photos + error_photos
+        is_processing = analyzing_photos > 0
+        is_complete = processing_photos == 0 and current_pending_photos > 0
+        
         return {
-            "queue_length": 0,
-            "processing_count": 0,
-            "completed_today": 0,
+            "all_photos": all_photos,  # 所有照片总数
+            "batch_total_photos": total_batch_photos,  # 当前批次总照片数
+            "batch_completed_photos": batch_completed_photos,  # 当前批次已完成照片数
+            "batch_pending_photos": current_pending_photos,  # 当前批次待处理照片数（imported + error）
+            "imported_photos": imported_photos,
+            "analyzing_photos": analyzing_photos,
+            "completed_photos": completed_photos,
+            "error_photos": error_photos,
+            "processing_photos": processing_photos,
+            "progress_percentage": round(progress_percentage, 2),
+            "is_processing": is_processing,
+            "is_complete": is_complete,
             "last_updated": datetime.now().isoformat()
         }
 

@@ -142,13 +142,21 @@ async def upload_photos(
                     else:
                         failed_files.append(f"{file.filename}: 数据库保存失败")
                 elif duplicate_info:
-                    # 处理重复文件
-                    existing_photo = duplicate_info['existing_photo']
-                    status_text = f"文件已存在（重复）"
+                    # 处理重复文件 - 使用完整的重复检测逻辑
+                    duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
+                    message = duplicate_info.get('message', '文件重复')
                     
-                    # 检查是否需要智能处理
-                    if existing_photo.status == 'imported' and not hasattr(existing_photo, 'has_analysis'):
-                        status_text += " - 建议进行批量处理"
+                    # 根据重复类型生成更详细的提示
+                    if duplicate_type == 'full_duplicate_completed':
+                        status_text = f"文件已存在且已完成智能处理"
+                    elif duplicate_type == 'full_duplicate_incomplete':
+                        status_text = f"文件已存在但未完成智能处理 - 将重新处理"
+                    elif duplicate_type == 'physical_only':
+                        status_text = f"文件已存在（物理重复）"
+                    elif duplicate_type == 'orphan_cleaned':
+                        status_text = f"孤儿记录已清理，继续处理"
+                    else:
+                        status_text = message
                     
                     failed_files.append(f"{file.filename}: {status_text}")
                 else:
@@ -214,7 +222,7 @@ async def process_single_file(
                 }
             )
         elif duplicate_info:
-            # 处理重复文件
+            # 处理重复文件 - 改为统一响应格式，不抛出异常
             duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
             message = duplicate_info.get('message', '文件重复')
             
@@ -230,9 +238,32 @@ async def process_single_file(
             else:
                 status_text = message
             
-            raise HTTPException(status_code=400, detail=status_text)
+            # 返回统一的响应格式，包含重复信息
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "success": False,
+                    "message": "文件重复",
+                    "data": {
+                        "duplicate_type": duplicate_type,
+                        "duplicate_message": status_text,
+                        "filename": Path(file_path).name
+                    }
+                }
+            )
         else:
-            raise HTTPException(status_code=400, detail=message)
+            # 其他错误情况也改为统一响应格式
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "success": False,
+                    "message": "处理失败",
+                    "data": {
+                        "error_message": message,
+                        "filename": Path(file_path).name
+                    }
+                }
+            )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"照片处理失败: {str(e)}")

@@ -938,7 +938,7 @@ async function startFileImport() {
                     }
                 });
                 
-                let message = `导入完成：成功 ${importedCount}/${totalFiles} 张照片`;
+                let message = `部分导入成功：${importedCount}/${totalFiles} 张照片`;
                 
                 if (duplicateFiles.length > 0) {
                     const duplicateList = duplicateFiles.map(f => `• ${f}`).join('\n');
@@ -952,16 +952,11 @@ async function startFileImport() {
                 
                 showWarning(message);
             } else {
-                showSuccess(`成功导入 ${importedCount} 张照片`);
+                showSuccess(`成功导入 ${importedCount} 张照片！\n\n请手动点击"批量处理"按钮进行智能分析。`);
             }
             
             // 重新加载照片列表
             await loadPhotos();
-            
-            // 提示用户手动点击批量处理
-            if (importedCount > 0) {
-                showSuccess(`成功导入 ${importedCount} 张照片！\n\n请手动点击"批量处理"按钮进行智能分析。`);
-            }
             // 关闭导入模态框
             const modal = bootstrap.Modal.getInstance(elements.importModal);
             if (modal) {
@@ -1016,18 +1011,13 @@ async function startFolderImport() {
             // 显示导入结果
             if (failedFiles.length > 0) {
                 const failedList = failedFiles.map(f => `• ${f}`).join('\n');
-                showWarning(`扫描完成：成功导入 ${importedCount}/${scannedFiles} 张照片\n\n失败的文件：\n${failedList}`);
+                showWarning(`部分导入成功：${importedCount}/${scannedFiles} 张照片\n\n失败的文件：\n${failedList}`);
             } else {
-                showSuccess(`成功扫描并导入 ${importedCount} 张照片`);
+                showSuccess(`成功扫描并导入 ${importedCount} 张照片！\n\n请手动点击"批量处理"按钮进行智能分析。`);
             }
             
             // 重新加载照片列表
             await loadPhotos();
-            
-            // 提示用户手动点击批量处理
-            if (importedCount > 0) {
-                showSuccess(`成功导入 ${importedCount} 张照片！\n\n请手动点击"批量处理"按钮进行智能分析。`);
-            }
             // 关闭导入模态框
             const modal = bootstrap.Modal.getInstance(elements.importModal);
             if (modal) {
@@ -1107,33 +1097,76 @@ async function startBatchProcess() {
         if (response.ok && data.total_photos > 0) {
             showSuccess(`批量处理已开始，正在处理 ${data.total_photos} 张照片`);
             
-            // 模拟进度更新（实际应该通过WebSocket或轮询获取真实进度）
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += Math.random() * 10;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(progressInterval);
-                    elements.batchStatus.textContent = '批量处理完成！';
-                    showSuccess('批量处理完成！');
+            // 保存初始总数，用于进度条计算
+            const initialTotal = data.total_photos;
+            
+            // 使用真实的状态检查API
+            let checkCount = 0;
+            const maxChecks = 120; // 最多检查120次，每次1秒，总共2分钟
+            
+            const statusCheckInterval = setInterval(async () => {
+                checkCount++;
+                
+                try {
+                    // 调用真实的状态检查API，传递初始总数
+                    const statusResponse = await fetch(`${CONFIG.API_BASE_URL}/analysis/queue/status?initial_total=${initialTotal}`);
+                    const statusData = await statusResponse.json();
                     
-                    // 重置按钮状态
-                    elements.startBatchBtn.disabled = false;
+                    console.log('处理状态:', statusData);
                     
-                    // 重新加载照片列表
-                    setTimeout(async () => {
-                        console.log('重新加载照片列表...');
-                        await loadPhotos();
-                        console.log('照片列表重新加载完成');
-                        // 关闭模态框
-                        const modal = bootstrap.Modal.getInstance(elements.batchModal);
-                        modal.hide();
-                    }, 1000);
-                } else {
+                    // 更新进度条
+                    const progress = Math.min(statusData.progress_percentage || 0, 95);
                     elements.batchProgressBar.style.width = `${progress}%`;
-                    elements.batchStatus.textContent = `正在处理... ${Math.round(progress)}%`;
+                    elements.batchStatus.textContent = `正在处理... ${Math.round(progress)}% (${statusData.batch_completed_photos}/${statusData.batch_total_photos})`;
+                    
+                    // 检查是否完成
+                    if (statusData.is_complete || statusData.processing_photos === 0) {
+                        clearInterval(statusCheckInterval);
+                        elements.batchProgressBar.style.width = '100%';
+                        elements.batchStatus.textContent = '批量处理完成！';
+                        showSuccess('批量处理完成！');
+                        
+                        // 重置按钮状态
+                        elements.startBatchBtn.disabled = false;
+                        
+                        // 等待2秒确保数据库事务完成，然后刷新照片列表
+                        setTimeout(async () => {
+                            console.log('重新加载照片列表...');
+                            await loadPhotos();
+                            console.log('照片列表重新加载完成');
+                            // 关闭模态框
+                            const modal = bootstrap.Modal.getInstance(elements.batchModal);
+                            modal.hide();
+                        }, 2000);
+                        return;
+                    }
+                    
+                    // 超时保护
+                    if (checkCount >= maxChecks) {
+                        clearInterval(statusCheckInterval);
+                        elements.batchProgressBar.style.width = '100%';
+                        elements.batchStatus.textContent = '批量处理完成！';
+                        showSuccess('批量处理完成！');
+                        
+                        // 重置按钮状态
+                        elements.startBatchBtn.disabled = false;
+                        
+                        // 等待3秒确保数据库事务完成，然后刷新照片列表
+                        setTimeout(async () => {
+                            console.log('重新加载照片列表...');
+                            await loadPhotos();
+                            console.log('照片列表重新加载完成');
+                            // 关闭模态框
+                            const modal = bootstrap.Modal.getInstance(elements.batchModal);
+                            modal.hide();
+                        }, 3000);
+                    }
+                    
+                } catch (error) {
+                    console.error('检查处理状态失败:', error);
+                    // 如果API调用失败，继续等待
                 }
-            }, 500);
+            }, 1000); // 每1秒检查一次
             
         } else {
             // 检查是否是因为没有需要处理的照片
