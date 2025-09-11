@@ -251,26 +251,45 @@ class PhotoManager {
 
         try {
             const response = await fetch(`${CONFIG.API_BASE_URL}/photos/batch-delete`, {
-                method: 'DELETE',
+                method: 'POST',  // 注意：应该是POST，不是DELETE
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ photo_ids: photoIds })
+                body: JSON.stringify({ 
+                    photo_ids: photoIds,
+                    delete_files: true  // 确保删除物理文件
+                })
             });
 
             const result = await response.json();
 
-            if (result.success) {
-                // 刷新照片列表
-                window.PhotoApp.loadPhotos(1);
-                window.PhotoApp.loadStats();
+            if (response.ok) {
+                // 处理成功响应
+                const { total_requested, successful_deletions, failed_deletions } = result;
+                
+                if (successful_deletions > 0) {
+                    // 刷新照片列表
+                    if (window.PhotoApp && window.PhotoApp.loadPhotos) {
+                        window.PhotoApp.loadPhotos(1);
+                    }
+                    if (window.PhotoApp && window.PhotoApp.loadStats) {
+                        window.PhotoApp.loadStats();
+                    }
 
-                // 清空选择
-                this.clearSelection();
+                    // 清空选择
+                    this.clearSelection();
 
-                this.showToast('照片删除成功！', 'success');
+                    // 显示成功消息
+                    if (failed_deletions.length === 0) {
+                        this.showToast(`成功删除 ${successful_deletions} 张照片！`, 'success');
+                    } else {
+                        this.showToast(`成功删除 ${successful_deletions} 张照片，${failed_deletions.length} 张删除失败`, 'warning');
+                    }
+                } else {
+                    throw new Error('没有照片被成功删除');
+                }
             } else {
-                throw new Error(result.message || '删除失败');
+                throw new Error(result.detail || '删除失败');
             }
         } catch (error) {
             console.error('删除照片失败:', error);
@@ -280,12 +299,20 @@ class PhotoManager {
 
     // 选择/取消选择照片
     togglePhotoSelection(photoId) {
-        if (this.selectedPhotos.has(photoId)) {
-            this.selectedPhotos.delete(photoId);
+        console.log('🔄 切换照片选择状态:', photoId);
+        
+        // 确保photoId是数字类型
+        const photoIdNum = typeof photoId === 'string' ? parseInt(photoId) : photoId;
+        
+        if (this.selectedPhotos.has(photoIdNum)) {
+            this.selectedPhotos.delete(photoIdNum);
+            console.log('❌ 取消选择照片:', photoIdNum);
         } else {
-            this.selectedPhotos.add(photoId);
+            this.selectedPhotos.add(photoIdNum);
+            console.log('✅ 选择照片:', photoIdNum);
         }
 
+        console.log('📋 当前选中的照片:', Array.from(this.selectedPhotos));
         this.updateSelectionUI();
     }
 
@@ -293,8 +320,9 @@ class PhotoManager {
     selectAllPhotos() {
         const photoCards = document.querySelectorAll('.photo-card, .photo-list-item');
         photoCards.forEach(card => {
-            const photoId = card.dataset.photoId;
-            if (photoId) {
+            const photoIdStr = card.getAttribute('data-photo-id');
+            if (photoIdStr) {
+                const photoId = parseInt(photoIdStr); // 转换为数字
                 this.selectedPhotos.add(photoId);
             }
         });
@@ -313,29 +341,53 @@ class PhotoManager {
         const photoCards = document.querySelectorAll('.photo-card, .photo-list-item');
         const selectedCount = this.selectedPhotos.size;
 
+        console.log('更新选择UI - 找到照片卡片数量:', photoCards.length);
+        console.log('当前选中照片数量:', selectedCount);
+
         // 更新照片卡片选中状态
         photoCards.forEach(card => {
-            const photoId = card.dataset.photoId;
+            const photoIdStr = card.getAttribute('data-photo-id');
+            const photoId = parseInt(photoIdStr); // 转换为数字
             const isSelected = this.selectedPhotos.has(photoId);
 
             if (isSelected) {
                 card.classList.add('selected');
+                console.log('添加选中样式到照片:', photoId);
             } else {
                 card.classList.remove('selected');
+                console.log('移除选中样式从照片:', photoId);
             }
         });
 
         // 更新删除按钮状态
         const deleteBtn = document.getElementById('deleteSelectedBtn');
-        deleteBtn.disabled = selectedCount === 0;
-        deleteBtn.innerHTML = selectedCount > 0 ?
-            `<i class="bi bi-trash"></i> 删除选中 (${selectedCount})` :
-            `<i class="bi bi-trash"></i> 删除选中`;
+        if (deleteBtn) {
+            deleteBtn.disabled = selectedCount === 0;
+            deleteBtn.innerHTML = selectedCount > 0 ?
+                `<i class="bi bi-trash"></i> 删除选中 (${selectedCount})` :
+                `<i class="bi bi-trash"></i> 删除选中`;
+        }
 
         // 更新全选按钮文本
         const selectAllBtn = document.getElementById('selectAllBtn');
-        const totalPhotos = photoCards.length;
-        selectAllBtn.textContent = selectedCount === totalPhotos ? '取消全选' : '全选';
+        if (selectAllBtn) {
+            const totalPhotos = photoCards.length;
+            selectAllBtn.textContent = selectedCount === totalPhotos ? '取消全选' : '全选';
+        }
+
+        // 同步状态到AppState
+        this.syncWithAppState();
+    }
+
+    // 同步状态到AppState
+    syncWithAppState() {
+        if (window.AppState && window.AppState.selectedPhotos) {
+            // 同步选中状态
+            window.AppState.selectedPhotos.clear();
+            this.selectedPhotos.forEach(id => {
+                window.AppState.selectedPhotos.add(id);
+            });
+        }
     }
 
     // 获取选中的照片ID列表
@@ -440,3 +492,28 @@ const photoManager = new PhotoManager();
 
 // 导出到全局作用域
 window.PhotoManager = photoManager;
+
+// 添加测试函数
+window.testSelection = function() {
+    console.log('🧪 测试选择功能');
+    console.log('PhotoManager实例:', window.PhotoManager);
+    console.log('当前选中照片:', Array.from(window.PhotoManager.selectedPhotos));
+    
+    // 查找第一个照片卡片
+    const firstCard = document.querySelector('.photo-card, .photo-list-item');
+    if (firstCard) {
+        const photoId = firstCard.getAttribute('data-photo-id');
+        console.log('第一个照片卡片ID:', photoId);
+        console.log('卡片元素:', firstCard);
+        console.log('卡片类名:', firstCard.className);
+        
+        // 尝试选择这个照片
+        if (photoId) {
+            window.PhotoManager.togglePhotoSelection(photoId);
+            console.log('切换选择后，卡片类名:', firstCard.className);
+            console.log('是否包含selected类:', firstCard.classList.contains('selected'));
+        }
+    } else {
+        console.log('未找到照片卡片');
+    }
+};

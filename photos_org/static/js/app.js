@@ -547,17 +547,61 @@ function renderGridView(photos) {
     // 为每个照片卡片绑定事件
     photos.forEach((photo, index) => {
         const card = elements.photosGrid.children[index];
-        card.addEventListener('click', () => showPhotoDetail(photo));
+        
+        // 绑定点击事件 - 支持选择和查看详情
+        card.addEventListener('click', (event) => {
+            // 如果按住了Ctrl键，则切换选择状态
+            if (event.ctrlKey || event.metaKey) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                if (window.PhotoManager) {
+                    window.PhotoManager.togglePhotoSelection(photo.id);
+                }
+            } else {
+                // 普通点击查看详情
+                showPhotoDetail(photo);
+            }
+        });
     });
 }
 
 function renderListView(photos) {
     const html = photos.map(photo => createPhotoListItem(photo)).join('');
     elements.photosGrid.innerHTML = html;
+
+    // 为每个照片列表项绑定事件
+    photos.forEach((photo, index) => {
+        const item = elements.photosGrid.children[index];
+        
+        // 绑定点击事件 - 支持选择和查看详情
+        item.addEventListener('click', (event) => {
+            // 如果按住了Ctrl键，则切换选择状态
+            if (event.ctrlKey || event.metaKey) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                if (window.PhotoManager) {
+                    window.PhotoManager.togglePhotoSelection(photo.id);
+                }
+            } else {
+                // 普通点击查看详情
+                showPhotoDetail(photo);
+            }
+        });
+    });
 }
 
 function createPhotoCard(photo) {
-    const tagsHtml = (photo.tags || []).map(tag =>
+    const allTags = photo.tags || [];
+    const visibleTags = allTags.slice(0, 5);
+    const hiddenTagsCount = allTags.length - 5;
+    
+    const visibleTagsHtml = visibleTags.map(tag =>
+        `<span class="photo-tag">${tag}</span>`
+    ).join('');
+    
+    const hiddenTagsHtml = allTags.slice(5).map(tag =>
         `<span class="photo-tag">${tag}</span>`
     ).join('');
 
@@ -568,20 +612,32 @@ function createPhotoCard(photo) {
 
     return `
         <div class="col photo-card" data-photo-id="${photo.id}">
-            <img src="/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
-                 alt="${photo.filename}"
-                 class="photo-image"
-                 loading="lazy">
-            <div class="photo-overlay">
-                <i class="bi bi-eye text-white" style="font-size: 2rem;"></i>
+            <div class="photo-image-container">
+                <img src="/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
+                     alt="${photo.filename}"
+                     class="photo-image"
+                     loading="lazy">
+                <div class="photo-overlay">
+                    <i class="bi bi-eye text-white" style="font-size: 2rem;"></i>
+                </div>
             </div>
             <div class="photo-info">
                 <div class="photo-title">${photo.filename}</div>
                 <div class="photo-meta">
-                    <i class="bi bi-calendar me-1"></i>${formatDate(photo.created_at)}
+                    <i class="bi bi-calendar me-1"></i>${formatDate(photo.taken_at)} (拍摄日期)
                 </div>
                 <div class="photo-tags">
-                    ${tagsHtml}
+                    <div class="visible-tags">
+                        ${visibleTagsHtml}
+                    </div>
+                    ${hiddenTagsCount > 0 ? `
+                        <div class="hidden-tags" style="display: none;">
+                            ${hiddenTagsHtml}
+                        </div>
+                        <span class="tag-toggle" onclick="toggleTags(this, event)" data-photo-id="${photo.id}">
+                            +${hiddenTagsCount} 更多
+                        </span>
+                    ` : ''}
                 </div>
                 <div class="photo-quality ${qualityClass}">
                     ${qualityText}
@@ -592,32 +648,99 @@ function createPhotoCard(photo) {
 }
 
 function createPhotoListItem(photo) {
-    const tagsHtml = (photo.tags || []).slice(0, 3).map(tag =>
-        `<span class="badge bg-secondary me-1">${tag}</span>`
+    const allTags = photo.tags || [];
+    const visibleTags = allTags.slice(0, 5);
+    const hiddenTagsCount = allTags.length - 5;
+    
+    const visibleTagsHtml = visibleTags.map(tag =>
+        `<span class="badge bg-secondary me-1 mb-1">${tag}</span>`
+    ).join('');
+    
+    const hiddenTagsHtml = allTags.slice(5).map(tag =>
+        `<span class="badge bg-secondary me-1 mb-1">${tag}</span>`
     ).join('');
 
     const qualityClass = getQualityClass(photo.quality?.level || '');
     const qualityText = getQualityText(photo.quality?.level || '');
 
+    // 格式化文件大小
+    const formatFileSize = (bytes) => {
+        if (!bytes) return '未知';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let size = bytes;
+        let unitIndex = 0;
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex++;
+        }
+        return `${size.toFixed(1)} ${units[unitIndex]}`;
+    };
+
+    // 格式化分辨率
+    const resolution = photo.width && photo.height ? `${photo.width} × ${photo.height}` : '未知';
+
     return `
         <div class="photo-list-item" data-photo-id="${photo.id}">
-            <img src="/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
-                 alt="${photo.filename}"
-                 class="photo-thumbnail">
+            <div class="photo-thumbnail-container">
+                <img src="/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
+                     alt="${photo.filename}"
+                     class="photo-thumbnail">
+                <div class="photo-overlay">
+                    <i class="bi bi-eye text-white"></i>
+                </div>
+            </div>
             <div class="photo-details">
-                <div class="photo-title">${photo.filename}</div>
+                <div class="photo-header">
+                    <div class="photo-title">${photo.filename}</div>
+                    <div class="photo-actions">
+                        <span class="badge ${qualityClass}">${qualityText}</span>
+                    </div>
+                </div>
                 <div class="photo-meta">
-                    <i class="bi bi-calendar me-1"></i>${formatDate(photo.taken_at)}
-                    <i class="bi bi-geo-alt me-1 ms-3"></i>${photo.location_name || '未知位置'}
+                    <div class="meta-row">
+                        <span class="meta-item">
+                            <i class="bi bi-calendar me-1"></i>
+                            ${formatDate(photo.taken_at)} (拍摄日期)
+                        </span>
+                        <span class="meta-item">
+                            <i class="bi bi-geo-alt me-1"></i>
+                            ${photo.location_name || '未知位置'}
+                        </span>
+                        <span class="meta-item">
+                            <i class="bi bi-camera me-1"></i>
+                            ${photo.camera_make || '未知'} ${photo.camera_model || ''}
+                        </span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-item">
+                            <i class="bi bi-image me-1"></i>
+                            ${resolution}
+                        </span>
+                        <span class="meta-item">
+                            <i class="bi bi-file-earmark me-1"></i>
+                            ${formatFileSize(photo.file_size)}
+                        </span>
+                        <span class="meta-item">
+                            <i class="bi bi-clock me-1"></i>
+                            ${formatDateTime(photo.created_at)}
+                        </span>
+                    </div>
                 </div>
                 <div class="photo-description">
                     ${photo.analysis?.description || '暂无描述'}
                 </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        ${tagsHtml}
+                <div class="photo-tags">
+                    <div class="visible-tags">
+                        ${visibleTagsHtml}
                     </div>
-                    <span class="badge ${qualityClass}">${qualityText}</span>
+                    ${hiddenTagsCount > 0 ? `
+                        <div class="hidden-tags" style="display: none;">
+                            ${hiddenTagsHtml}
+                        </div>
+                        <span class="tag-toggle" onclick="toggleTags(this, event)" data-photo-id="${photo.id}">
+                            +${hiddenTagsCount} 更多
+                        </span>
+                    ` : ''}
                 </div>
             </div>
         </div>
@@ -704,6 +827,23 @@ function formatDate(dateString) {
     try {
         const date = new Date(dateString);
         return date.toLocaleDateString('zh-CN');
+    } catch (e) {
+        return dateString;
+    }
+}
+
+function formatDateTime(dateString) {
+    if (!dateString) return '未知时间';
+
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     } catch (e) {
         return dateString;
     }
@@ -848,7 +988,174 @@ function createToastContainer() {
 
 function showPhotoDetail(photo) {
     console.log('显示照片详情:', photo);
-    // TODO: 实现照片详情显示
+    
+    // 创建详情模态框内容
+    const modalContent = createPhotoDetailModal(photo);
+    
+    // 更新模态框内容
+    const modalBody = elements.photoModal.querySelector('.modal-body');
+    modalBody.innerHTML = modalContent;
+    
+    // 更新模态框标题
+    const modalTitle = elements.photoModal.querySelector('.modal-title');
+    modalTitle.textContent = photo.filename;
+    
+    // 显示模态框
+    const modal = new bootstrap.Modal(elements.photoModal);
+    modal.show();
+}
+
+function createPhotoDetailModal(photo) {
+    // 格式化文件大小
+    const formatFileSize = (bytes) => {
+        if (!bytes) return '未知';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let size = bytes;
+        let unitIndex = 0;
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex++;
+        }
+        return `${size.toFixed(1)} ${units[unitIndex]}`;
+    };
+    
+    // 格式化拍摄时间
+    const formatDateTime = (dateString) => {
+        if (!dateString) return '未知时间';
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        } catch (e) {
+            return dateString;
+        }
+    };
+    
+    // 获取质量信息
+    const qualityLevel = photo.quality?.level || photo.analysis?.quality_rating || '';
+    const qualityClass = getQualityClass(qualityLevel);
+    const qualityText = getQualityText(qualityLevel);
+    
+    // 构建EXIF信息
+    const exifInfo = [];
+    if (photo.camera_make) exifInfo.push(`相机品牌：${photo.camera_make}`);
+    if (photo.camera_model) exifInfo.push(`相机型号：${photo.camera_model}`);
+    if (photo.lens_model) exifInfo.push(`镜头信息：${photo.lens_model}`);
+    if (photo.aperture) exifInfo.push(`光圈：f/${photo.aperture}`);
+    if (photo.shutter_speed) exifInfo.push(`快门：1/${photo.shutter_speed}s`);
+    if (photo.iso) exifInfo.push(`ISO：${photo.iso}`);
+    if (photo.focal_length) exifInfo.push(`焦距：${photo.focal_length}mm`);
+    if (photo.flash !== undefined) exifInfo.push(`闪光灯：${photo.flash ? '开启' : '关闭'}`);
+    
+    // 构建位置信息
+    const locationInfo = [];
+    if (photo.location_name) locationInfo.push(`拍摄地点：${photo.location_name}`);
+    if (photo.latitude && photo.longitude) locationInfo.push(`经纬度：${photo.latitude}, ${photo.longitude}`);
+    if (photo.altitude) locationInfo.push(`海拔：${photo.altitude}m`);
+    
+    // 构建AI分析信息
+    const aiInfo = [];
+    if (photo.analysis?.description) aiInfo.push(`内容描述：${photo.analysis.description}`);
+    if (photo.analysis?.scene) aiInfo.push(`场景识别：${photo.analysis.scene}`);
+    if (photo.analysis?.objects) aiInfo.push(`物体检测：${photo.analysis.objects}`);
+    if (photo.analysis?.faces) aiInfo.push(`人脸识别：${photo.analysis.faces}`);
+    
+    // 构建文件信息
+    const fileInfo = [];
+    if (photo.original_path) fileInfo.push(`原始路径：${photo.original_path}`);
+    if (photo.thumbnail_path) fileInfo.push(`缩略图路径：${photo.thumbnail_path}`);
+    if (photo.file_size) fileInfo.push(`文件大小：${formatFileSize(photo.file_size)}`);
+    if (photo.created_at) fileInfo.push(`创建时间：${formatDateTime(photo.created_at)}`);
+    if (photo.updated_at) fileInfo.push(`修改时间：${formatDateTime(photo.updated_at)}`);
+    if (photo.file_hash) fileInfo.push(`文件哈希：${photo.file_hash}`);
+    
+    return `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="text-center mb-3">
+                    <img src="/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
+                         alt="${photo.filename}" 
+                         class="img-fluid rounded" 
+                         style="max-height: 500px; object-fit: contain;">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <h5>基本信息</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                <p><strong>文件名：</strong>${photo.filename}</p>
+                                <p><strong>拍摄时间：</strong>${formatDateTime(photo.taken_at)}</p>
+                                <p><strong>分辨率：</strong>${photo.width || '未知'} × ${photo.height || '未知'}</p>
+                                <p><strong>质量评级：</strong><span class="badge ${qualityClass}">${qualityText}</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${exifInfo.length > 0 ? `
+                    <div class="col-12 mb-3">
+                        <h5>相机信息</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                ${exifInfo.map(info => `<p>${info}</p>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${locationInfo.length > 0 ? `
+                    <div class="col-12 mb-3">
+                        <h5>位置信息</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                ${locationInfo.map(info => `<p>${info}</p>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${aiInfo.length > 0 ? `
+                    <div class="col-12 mb-3">
+                        <h5>AI分析</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                ${aiInfo.map(info => `<p>${info}</p>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="col-12 mb-3">
+                        <h5>标签</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                ${photo.tags && photo.tags.length > 0 ? 
+                                    photo.tags.map(tag => `<span class="badge bg-secondary me-1 mb-1">${tag}</span>`).join('') : 
+                                    '<p class="text-muted">暂无标签</p>'
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12 mb-3">
+                        <h5>文件信息</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                ${fileInfo.map(info => `<p class="small">${info}</p>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 // ============ 导入功能 ============
@@ -1351,17 +1658,119 @@ async function startBatchProcess() {
 
 function selectAllPhotos() {
     console.log('全选照片');
-    // TODO: 实现全选功能
+    if (window.PhotoManager) {
+        window.PhotoManager.selectAllPhotos();
+    } else {
+        console.error('PhotoManager 未初始化');
+        showError('照片管理器未初始化，请刷新页面重试');
+    }
 }
 
 function clearSelection() {
     console.log('取消选择');
-    // TODO: 实现取消选择功能
+    if (window.PhotoManager) {
+        window.PhotoManager.clearSelection();
+    } else {
+        console.error('PhotoManager 未初始化');
+        showError('照片管理器未初始化，请刷新页面重试');
+    }
 }
 
 function deleteSelectedPhotos() {
     console.log('删除选中照片');
-    // TODO: 实现删除功能
+    if (window.PhotoManager) {
+        const selectedIds = window.PhotoManager.getSelectedPhotoIds();
+        if (selectedIds.length > 0) {
+            window.PhotoManager.deletePhotos(selectedIds);
+        } else {
+            showWarning('请先选择要删除的照片');
+        }
+    } else {
+        console.error('PhotoManager 未初始化');
+        showError('照片管理器未初始化，请刷新页面重试');
+    }
+}
+
+// 错误处理和用户反馈函数
+function showError(message) {
+    console.error('错误:', message);
+    // 使用Bootstrap的alert组件显示错误
+    const alertHtml = `
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // 在页面顶部显示错误
+    const container = document.querySelector('.container-fluid') || document.body;
+    const alertDiv = document.createElement('div');
+    alertDiv.innerHTML = alertHtml;
+    container.insertBefore(alertDiv.firstElementChild, container.firstChild);
+    
+    // 3秒后自动消失
+    setTimeout(() => {
+        const alert = container.querySelector('.alert-danger');
+        if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }
+    }, 5000);
+}
+
+function showWarning(message) {
+    console.warn('警告:', message);
+    // 使用Bootstrap的alert组件显示警告
+    const alertHtml = `
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // 在页面顶部显示警告
+    const container = document.querySelector('.container-fluid') || document.body;
+    const alertDiv = document.createElement('div');
+    alertDiv.innerHTML = alertHtml;
+    container.insertBefore(alertDiv.firstElementChild, container.firstChild);
+    
+    // 3秒后自动消失
+    setTimeout(() => {
+        const alert = container.querySelector('.alert-warning');
+        if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }
+    }, 3000);
+}
+
+function showSuccess(message) {
+    console.log('成功:', message);
+    // 使用Bootstrap的alert组件显示成功消息
+    const alertHtml = `
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // 在页面顶部显示成功消息
+    const container = document.querySelector('.container-fluid') || document.body;
+    const alertDiv = document.createElement('div');
+    alertDiv.innerHTML = alertHtml;
+    container.insertBefore(alertDiv.firstElementChild, container.firstChild);
+    
+    // 3秒后自动消失
+    setTimeout(() => {
+        const alert = container.querySelector('.alert-success');
+        if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }
+    }, 3000);
 }
 
 function switchSection(section) {
@@ -1543,6 +1952,29 @@ function showSettingsSection() {
     }
 }
 
+// ============ 标签展开/收起功能 ============
+
+function toggleTags(element, event) {
+    event.stopPropagation(); // 阻止事件冒泡，避免触发照片选择
+    
+    const photoId = element.getAttribute('data-photo-id');
+    const photoCard = document.querySelector(`[data-photo-id="${photoId}"]`);
+    const hiddenTags = photoCard.querySelector('.hidden-tags');
+    const toggleText = element;
+    
+    if (hiddenTags.style.display === 'none') {
+        // 展开标签
+        hiddenTags.style.display = 'block';
+        toggleText.textContent = '收起';
+        toggleText.classList.add('expanded');
+    } else {
+        // 收起标签
+        hiddenTags.style.display = 'none';
+        toggleText.textContent = `+${hiddenTags.children.length} 更多`;
+        toggleText.classList.remove('expanded');
+    }
+}
+
 // ============ 全局导出 ============
 
 window.PhotoApp = {
@@ -1550,3 +1982,5 @@ window.PhotoApp = {
     loadStats,
     showError
 };
+
+window.toggleTags = toggleTags;
