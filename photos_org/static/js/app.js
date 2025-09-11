@@ -21,9 +21,9 @@ const AppState = {
     isLoading: false,
     searchFilters: {
         keyword: '',
-        dateFilter: '',
+        dateFilter: 'month',
         qualityFilter: '',
-        sortBy: 'taken_at',
+        sortBy: 'quality_score',
         sortOrder: 'desc'
     },
     photos: [],
@@ -75,8 +75,16 @@ function cacheElements() {
         searchInput: document.getElementById('searchInput'),
         searchBtn: document.getElementById('searchBtn'),
         dateFilter: document.getElementById('dateFilter'),
+        customDateRange: document.getElementById('customDateRange'),
+        startDate: document.getElementById('startDate'),
+        endDate: document.getElementById('endDate'),
         qualityFilter: document.getElementById('qualityFilter'),
         sortBy: document.getElementById('sortBy'),
+        sortOrder: document.getElementById('sortOrder'),
+        clearFilters: document.getElementById('clearFilters'),
+        clearFiltersSmall: document.getElementById('clearFiltersSmall'),
+        filterStatus: document.getElementById('filterStatus'),
+        filterStatusText: document.getElementById('filterStatusText'),
 
         // 视图切换
         gridView: document.getElementById('gridView'),
@@ -155,9 +163,14 @@ function bindEvents() {
     // 搜索事件
     elements.searchInput.addEventListener('input', debounce(handleSearch, CONFIG.DEBOUNCE_DELAY));
     elements.searchBtn.addEventListener('click', handleSearch);
-    elements.dateFilter.addEventListener('change', handleFilterChange);
+    elements.dateFilter.addEventListener('change', handleDateFilterChange);
     elements.qualityFilter.addEventListener('change', handleFilterChange);
     elements.sortBy.addEventListener('change', handleSortChange);
+    elements.sortOrder.addEventListener('change', handleSortChange);
+    elements.startDate.addEventListener('change', handleCustomDateChange);
+    elements.endDate.addEventListener('change', handleCustomDateChange);
+    elements.clearFilters.addEventListener('click', clearAllFilters);
+    elements.clearFiltersSmall.addEventListener('click', clearAllFilters);
 
     // 视图切换事件
     elements.gridView.addEventListener('change', () => switchView('grid'));
@@ -360,19 +373,141 @@ function handleSearch() {
     AppState.searchFilters.keyword = keyword;
     AppState.currentPage = 1;
     loadPhotos(1);
+    updateFilterStatus();
+}
+
+function handleDateFilterChange() {
+    const dateFilter = elements.dateFilter.value;
+    AppState.searchFilters.dateFilter = dateFilter;
+    
+    // 显示或隐藏自定义日期范围
+    if (dateFilter === 'custom') {
+        elements.customDateRange.style.display = 'block';
+    } else {
+        elements.customDateRange.style.display = 'none';
+        // 清除自定义日期
+        elements.startDate.value = '';
+        elements.endDate.value = '';
+    }
+    
+    AppState.currentPage = 1;
+    loadPhotos(1);
+    updateFilterStatus();
+}
+
+function handleCustomDateChange() {
+    const startDate = elements.startDate.value;
+    const endDate = elements.endDate.value;
+    
+    // 验证日期范围
+    if (startDate && endDate && startDate > endDate) {
+        showWarning('开始日期不能晚于结束日期');
+        return;
+    }
+    
+    AppState.currentPage = 1;
+    loadPhotos(1);
+    updateFilterStatus();
 }
 
 function handleFilterChange() {
-    AppState.searchFilters.dateFilter = elements.dateFilter.value;
     AppState.searchFilters.qualityFilter = elements.qualityFilter.value;
     AppState.currentPage = 1;
     loadPhotos(1);
+    updateFilterStatus();
 }
 
 function handleSortChange() {
     AppState.searchFilters.sortBy = elements.sortBy.value;
+    AppState.searchFilters.sortOrder = elements.sortOrder.value;
     AppState.currentPage = 1;
     loadPhotos(1);
+    updateFilterStatus();
+}
+
+function clearAllFilters() {
+    // 重置所有筛选条件
+    elements.searchInput.value = '';
+    elements.dateFilter.value = 'month';
+    elements.qualityFilter.value = '';
+    elements.sortBy.value = 'quality_score';
+    elements.sortOrder.value = 'desc';
+    elements.startDate.value = '';
+    elements.endDate.value = '';
+    
+    // 隐藏自定义日期范围
+    elements.customDateRange.style.display = 'none';
+    
+    // 更新AppState
+    AppState.searchFilters = {
+        keyword: '',
+        dateFilter: 'month',
+        qualityFilter: '',
+        sortBy: 'quality_score',
+        sortOrder: 'desc'
+    };
+    
+    AppState.currentPage = 1;
+    loadPhotos(1);
+    updateFilterStatus();
+}
+
+function updateFilterStatus() {
+    const filters = AppState.searchFilters;
+    const statusParts = [];
+    
+    // 检查是否有筛选条件
+    if (filters.keyword) {
+        statusParts.push(`关键词: "${filters.keyword}"`);
+    }
+    
+    if (filters.dateFilter && filters.dateFilter !== 'month') {
+        const dateLabels = {
+            'today': '今天',
+            'week': '本周',
+            'month': '本月',
+            'year': '今年',
+            'custom': '自定义'
+        };
+        if (filters.dateFilter === 'custom' && elements.startDate.value && elements.endDate.value) {
+            statusParts.push(`日期: ${elements.startDate.value} 至 ${elements.endDate.value}`);
+        } else if (dateLabels[filters.dateFilter]) {
+            statusParts.push(`日期: ${dateLabels[filters.dateFilter]}`);
+        }
+    }
+    
+    if (filters.qualityFilter) {
+        const qualityLabels = {
+            'excellent': '优秀',
+            'good': '良好',
+            'average': '一般',
+            'poor': '较差',
+            'bad': '很差'
+        };
+        statusParts.push(`质量: ${qualityLabels[filters.qualityFilter] || filters.qualityFilter}`);
+    }
+    
+    if (filters.sortBy !== 'quality_score' || filters.sortOrder !== 'desc') {
+        const sortLabels = {
+            'taken_at': '拍摄时间',
+            'created_at': '导入时间',
+            'filename': '文件名',
+            'quality_score': '质量分数'
+        };
+        const orderLabels = {
+            'asc': '升序',
+            'desc': '降序'
+        };
+        statusParts.push(`排序: ${sortLabels[filters.sortBy] || filters.sortBy} ${orderLabels[filters.sortOrder] || filters.sortOrder}`);
+    }
+    
+    // 显示或隐藏筛选状态
+    if (statusParts.length > 0) {
+        elements.filterStatusText.textContent = `当前筛选条件：${statusParts.join(' | ')}`;
+        elements.filterStatus.style.display = 'block';
+    } else {
+        elements.filterStatus.style.display = 'none';
+    }
 }
 
 function switchView(viewType) {
@@ -453,6 +588,16 @@ async function loadPhotos(page = 1) {
             date_filter: AppState.searchFilters.dateFilter,
             quality_filter: AppState.searchFilters.qualityFilter
         });
+        
+        // 添加自定义日期范围参数
+        if (AppState.searchFilters.dateFilter === 'custom') {
+            if (elements.startDate.value) {
+                params.append('start_date', elements.startDate.value);
+            }
+            if (elements.endDate.value) {
+                params.append('end_date', elements.endDate.value);
+            }
+        }
 
         const response = await fetch(`${CONFIG.API_BASE_URL}/search/photos?${params}`);
         const data = await response.json();
@@ -861,36 +1006,9 @@ function getQualityClass(level) {
 }
 
 function getQualityText(level) {
-    // 修复编码问题：将乱码转换为正确的中文
-    const fixEncoding = (str) => {
-        if (!str) return '一般';
-        
-        // 检查是否是乱码
-        if (str.includes('浼樼') || str.includes('')) {
-            return '优秀';
-        }
-        if (str.includes('良好') || str.includes('')) {
-            return '良好';
-        }
-        if (str.includes('一般') || str.includes('')) {
-            return '一般';
-        }
-        if (str.includes('较差') || str.includes('')) {
-            return '较差';
-        }
-        if (str.includes('很差') || str.includes('')) {
-            return '很差';
-        }
-        
-        return str;
-    };
-    
-    // 修复编码
-    const fixedLevel = fixEncoding(level);
-    
     // 如果已经是正确的中文，直接返回
-    if (['优秀', '良好', '一般', '较差', '很差'].includes(fixedLevel)) {
-        return fixedLevel;
+    if (['优秀', '良好', '一般', '较差', '很差'].includes(level)) {
+        return level;
     }
     
     // 如果是英文，转换为中文
@@ -902,7 +1020,7 @@ function getQualityText(level) {
         'poor': '较差',
         'bad': '很差'
     };
-    return texts[fixedLevel] || '一般';
+    return texts[level] || '一般';
 }
 
 function debounce(func, delay) {

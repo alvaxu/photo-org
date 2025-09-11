@@ -90,17 +90,27 @@
                                     <option value="">全部时间</option>
                                     <option value="today">今天</option>
                                     <option value="week">本周</option>
-                                    <option value="month">本月</option>
+                                    <option value="month" selected>本月</option>
                                     <option value="year">今年</option>
                                     <option value="custom">自定义</option>
                                 </select>
+                            </div>
+                            
+                            <!-- 自定义日期范围（默认隐藏） -->
+                            <div class="col-md-2" id="customDateRange" style="display: none;">
+                                <label class="form-label">自定义范围</label>
+                                <div class="input-group">
+                                    <input type="date" class="form-control" id="startDate" placeholder="开始日期">
+                                    <span class="input-group-text">至</span>
+                                    <input type="date" class="form-control" id="endDate" placeholder="结束日期">
+                                </div>
                             </div>
 
                             <!-- 质量筛选 -->
                             <div class="col-md-2">
                                 <label class="form-label">质量等级</label>
                                 <select class="form-select" id="qualityFilter">
-                                    <option value="">全部质量</option>
+                                    <option value="" selected>全部质量</option>
                                     <option value="excellent">优秀</option>
                                     <option value="good">良好</option>
                                     <option value="average">一般</option>
@@ -116,12 +126,21 @@
                                     <option value="taken_at">拍摄时间</option>
                                     <option value="created_at">导入时间</option>
                                     <option value="filename">文件名</option>
-                                    <option value="quality_score">质量分数</option>
+                                    <option value="quality_score" selected>质量分数</option>
+                                </select>
+                            </div>
+                            
+                            <!-- 排序方向 -->
+                            <div class="col-md-1">
+                                <label class="form-label">方向</label>
+                                <select class="form-select" id="sortOrder">
+                                    <option value="desc" selected>降序</option>
+                                    <option value="asc">升序</option>
                                 </select>
                             </div>
 
                             <!-- 视图切换 -->
-                            <div class="col-md-2">
+                            <div class="col-md-1">
                                 <div class="btn-group" role="group">
                                     <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off" checked>
                                     <label class="btn btn-outline-secondary" for="gridView">
@@ -132,6 +151,26 @@
                                     <label class="btn btn-outline-secondary" for="listView">
                                         <i class="bi bi-list"></i>
                                     </label>
+                                </div>
+                            </div>
+                            
+                            <!-- 清除筛选按钮 -->
+                            <div class="col-md-1">
+                                <button class="btn btn-outline-danger" id="clearFilters" title="清除所有筛选条件">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 筛选状态显示 -->
+                        <div class="row mt-2" id="filterStatus" style="display: none;">
+                            <div class="col-12">
+                                <div class="alert alert-info py-2 mb-0">
+                                    <i class="bi bi-funnel me-2"></i>
+                                    <span id="filterStatusText">当前筛选条件：</span>
+                                    <button class="btn btn-sm btn-outline-danger ms-2" id="clearFiltersSmall">
+                                        <i class="bi bi-x-circle me-1"></i>清除筛选
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -376,8 +415,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- 自定义JavaScript -->
-            <script src="js/app.js?v=20250109_45"></script>
-            <script src="js/photo-manager.js?v=20250109_17"></script>
+            <script src="js/app.js?v=20250109_47"></script>
+            <script src="js/photo-manager.js?v=20250109_46"></script>
     <script src="js/ui-components.js"></script>
 </body>
 </html>

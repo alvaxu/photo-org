@@ -178,7 +178,17 @@ class SearchService:
             subquery = subquery.filter(PhotoQuality.quality_score >= quality_min)
 
         if quality_level:
-            subquery = subquery.filter(PhotoQuality.quality_level == quality_level)
+            # 将英文质量等级转换为中文
+            quality_mapping = {
+                'excellent': '优秀',
+                'good': '良好', 
+                'average': '一般',
+                'fair': '一般',
+                'poor': '较差',
+                'bad': '很差'
+            }
+            chinese_quality_level = quality_mapping.get(quality_level, quality_level)
+            subquery = subquery.filter(PhotoQuality.quality_level == chinese_quality_level)
 
         query = query.filter(subquery.exists())
         return query

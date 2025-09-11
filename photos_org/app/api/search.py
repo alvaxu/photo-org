@@ -25,8 +25,12 @@ async def search_photos(
     camera_model: Optional[str] = Query(None, description="相机型号"),
     date_from: Optional[date] = Query(None, description="开始日期"),
     date_to: Optional[date] = Query(None, description="结束日期"),
+    start_date: Optional[date] = Query(None, description="自定义开始日期"),
+    end_date: Optional[date] = Query(None, description="自定义结束日期"),
+    date_filter: Optional[str] = Query(None, description="日期筛选类型"),
     quality_min: Optional[float] = Query(None, ge=0, le=100, description="最低质量分数"),
     quality_level: Optional[str] = Query(None, description="质量等级"),
+    quality_filter: Optional[str] = Query(None, description="质量筛选"),
     tags: Optional[List[str]] = Query(None, description="标签列表"),
     categories: Optional[List[str]] = Query(None, description="分类列表"),
     location_lat: Optional[float] = Query(None, description="纬度"),
@@ -56,15 +60,44 @@ async def search_photos(
         if keyword:
             keyword = unquote(keyword)
         
+        # 处理日期筛选
+        processed_date_from = date_from
+        processed_date_to = date_to
+        
+        # 如果使用自定义日期范围
+        if start_date or end_date:
+            processed_date_from = start_date
+            processed_date_to = end_date
+        # 如果使用预设日期筛选
+        elif date_filter:
+            from datetime import datetime, timedelta
+            today = datetime.now().date()
+            
+            if date_filter == "today":
+                processed_date_from = today
+                processed_date_to = today
+            elif date_filter == "week":
+                processed_date_from = today - timedelta(days=today.weekday())
+                processed_date_to = today
+            elif date_filter == "month":
+                processed_date_from = today.replace(day=1)
+                processed_date_to = today
+            elif date_filter == "year":
+                processed_date_from = today.replace(month=1, day=1)
+                processed_date_to = today
+        
+        # 处理质量筛选
+        processed_quality_level = quality_level or quality_filter
+        
         results, total = search_service.search_photos(
             db=db,
             keyword=keyword,
             camera_make=camera_make,
             camera_model=camera_model,
-            date_from=date_from,
-            date_to=date_to,
+            date_from=processed_date_from,
+            date_to=processed_date_to,
             quality_min=quality_min,
-            quality_level=quality_level,
+            quality_level=processed_quality_level,
             tags=tags,
             categories=categories,
             location_lat=location_lat,
