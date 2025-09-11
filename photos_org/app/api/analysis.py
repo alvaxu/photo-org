@@ -311,13 +311,51 @@ async def perform_batch_analysis(photo_ids: List[int]):
         photo_ids: 照片ID列表
     """
     try:
-        logger.info(f"开始后台批量分析照片: {len(photo_ids)} 张")
+        logger.info(f"=== 开始后台批量分析照片: {len(photo_ids)} 张 ===")
+        logger.info(f"照片ID列表: {photo_ids}")
+        
+        # 验证输入参数
+        if not photo_ids:
+            logger.warning("照片ID列表为空，跳过批量分析")
+            return
+            
         analysis_service = AnalysisService()
-        result = await analysis_service.batch_analyze_photos(photo_ids)
-        logger.info(f"后台批量分析完成: {result['successful_analyses']}/{result['total_photos']}")
+        logger.info("AnalysisService 创建成功")
+        
+        # 创建新的数据库会话用于后台任务
+        logger.info("开始创建数据库会话...")
+        try:
+            db = next(get_db())
+            logger.info("数据库会话创建成功")
+        except Exception as e:
+            logger.error(f"创建数据库会话失败: {str(e)}")
+            import traceback
+            logger.error(f"数据库会话创建详细错误: {traceback.format_exc()}")
+            raise
+            
+        try:
+            logger.info("开始调用 batch_analyze_photos...")
+            result = await analysis_service.batch_analyze_photos(photo_ids, db)
+            logger.info(f"=== 后台批量分析完成: {result['successful_analyses']}/{result['total_photos']} ===")
+            logger.info(f"成功分析的照片: {[r['photo_id'] for r in result.get('results', [])]}")
+            if result.get('errors'):
+                logger.error(f"分析失败的照片: {[e['photo_id'] for e in result['errors']]}")
+        except Exception as e:
+            logger.error(f"batch_analyze_photos 调用失败: {str(e)}")
+            import traceback
+            logger.error(f"batch_analyze_photos 详细错误: {traceback.format_exc()}")
+            raise
+        finally:
+            try:
+                db.close()
+                logger.info("数据库会话已关闭")
+            except Exception as e:
+                logger.error(f"关闭数据库会话失败: {str(e)}")
 
     except Exception as e:
         logger.error(f"后台批量分析失败: {str(e)}")
+        import traceback
+        logger.error(f"详细错误信息: {traceback.format_exc()}")
 
 
 # 导入必要的模块

@@ -357,6 +357,7 @@ class ClassificationService:
 
         # 去重和标准化
         normalized_tags = self._normalize_tags(tags)
+        self.logger.info(f"最终生成的标签: {[t['name'] for t in normalized_tags]}")
 
         return normalized_tags
 
@@ -369,6 +370,7 @@ class ClassificationService:
 
         # 使用AI分析结果中已经存在的标签
         ai_tags = analysis_result.get('tags', [])
+        self.logger.info(f"AI分析结果中的标签: {ai_tags}")
         if ai_tags:
             for tag_name in ai_tags:
                 tags.append({
@@ -376,6 +378,7 @@ class ClassificationService:
                     'type': 'ai_generated',
                     'confidence': 0.95
                 })
+        self.logger.info(f"从AI标签生成的标签: {[t['name'] for t in tags]}")
 
         # 从其他字段生成额外标签（无论是否有AI标签都执行）
         # 物体标签
@@ -496,7 +499,8 @@ class ClassificationService:
                     description=f'自动生成的{classification["type"]}分类'
                 )
                 db.add(category)
-                db.commit()
+                # 不在这里提交，由调用方统一提交
+                db.flush()  # 刷新以获取ID
                 db.refresh(category)
 
             # 创建照片-分类关联
@@ -509,7 +513,7 @@ class ClassificationService:
 
             saved_categories.append(classification['name'])
 
-        db.commit()
+        # 不在这里提交，由调用方统一提交
         return saved_categories
 
     def _save_auto_tags(self, photo_id: int, tags: List[Dict[str, Any]], db: Session) -> List[str]:
@@ -526,7 +530,8 @@ class ClassificationService:
                     description=f'自动生成的{tag_data["type"]}标签'
                 )
                 db.add(tag)
-                db.commit()
+                # 不在这里提交，由调用方统一提交
+                db.flush()  # 刷新以获取ID
                 db.refresh(tag)
 
             # 创建照片-标签关联
@@ -543,7 +548,7 @@ class ClassificationService:
 
             saved_tags.append(tag_data['name'])
 
-        db.commit()
+        # 不在这里提交，由调用方统一提交
         return saved_tags
 
     def get_photo_classifications(self, photo_id: int, db: Session = None) -> List[Dict[str, Any]]:

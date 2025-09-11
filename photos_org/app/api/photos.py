@@ -593,7 +593,7 @@ async def process_photos_background(photos, enable_ai, enable_quality, enable_cl
                 try:
                     # AI内容分析（包含分类服务调用）
                     if enable_ai:
-                        await analysis_service.analyze_photo(current_photo.id)
+                        await analysis_service.analyze_photo(current_photo.id, fresh_db)
                     
                     # 质量评估
                     if enable_quality:
