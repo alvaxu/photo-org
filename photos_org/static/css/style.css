@@ -92,11 +92,7 @@ body {
 }
 
 /* ===== 照片网格样式 ===== */
-.photo-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
-}
+/* 使用Bootstrap网格系统，不需要自定义grid */
 
 .photo-card {
     background: white;
@@ -106,8 +102,8 @@ body {
     transition: var(--transition);
     position: relative;
     cursor: pointer;
-    max-width: 300px;
     width: 100%;
+    /* 移除max-width限制，让Bootstrap的col类控制宽度 */
 }
 
 .photo-card:hover {
@@ -143,7 +139,7 @@ body {
 .photo-card .photo-image-container {
     position: relative;
     width: 100%;
-    height: 200px;
+    aspect-ratio: 4/3;  /* 使用宽高比保持图片比例 */
     border-radius: 8px 8px 0 0;
     background-color: #f8f9fa;
     flex-shrink: 0;
@@ -168,6 +164,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     opacity: 0;
     transition: var(--transition);
     pointer-events: none;
@@ -181,6 +178,18 @@ body {
 .photo-card.selected .photo-overlay {
     opacity: 0 !important;
     pointer-events: none !important;
+}
+
+/* 悬停按钮样式 */
+.photo-card .photo-overlay .btn {
+    padding: 6px 12px;
+    font-size: 0.875rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.photo-card .photo-overlay .btn:hover {
+    transform: scale(1.05);
 }
 
 .photo-card .photo-info {
@@ -306,8 +315,8 @@ body {
 .photo-list-item .photo-thumbnail-container {
     position: relative;
     flex-shrink: 0;
-    width: 120px;
-    height: 90px;
+    width: 160px;
+    aspect-ratio: 4/3;  /* 使用宽高比保持图片比例 */
     border-radius: 6px;
     overflow: hidden;
     background-color: #f8f9fa;
@@ -331,6 +340,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 4px;
     opacity: 0;
     transition: var(--transition);
 }
@@ -340,6 +350,20 @@ body {
 }
 
 .photo-list-item:hover .photo-thumbnail {
+    transform: scale(1.05);
+}
+
+/* 列表视图悬停按钮样式 */
+.photo-list-item .photo-overlay .btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    min-width: 32px;
+    height: 28px;
+}
+
+.photo-list-item .photo-overlay .btn:hover {
     transform: scale(1.05);
 }
 
@@ -478,13 +502,10 @@ body {
 
 /* ===== 响应式设计 ===== */
 @media (max-width: 768px) {
-    .photo-grid {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 0.75rem;
-    }
+    /* 使用Bootstrap网格系统 */
 
     .photo-card .photo-image-container {
-        height: 150px;
+        aspect-ratio: 4/3;  /* 平板端保持4:3比例 */
     }
 
     .photo-list-item {
@@ -529,12 +550,10 @@ body {
 }
 
 @media (max-width: 576px) {
-    .photo-grid {
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    }
+    /* 使用Bootstrap网格系统 */
 
     .photo-card .photo-image-container {
-        height: 120px;
+        aspect-ratio: 4/3;  /* 移动端保持4:3比例 */
     }
 
     .container-fluid {

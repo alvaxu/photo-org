@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>家庭单机版智能照片整理系统</title>
 
     <!-- Bootstrap CSS -->
@@ -10,7 +13,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
 
     <!-- 自定义样式 -->
-    <link href="css/style.css?v=20250109_45" rel="stylesheet">
+    <link href="css/style.css?v=20250119_17" rel="stylesheet">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="images/favicon.ico">
@@ -66,15 +69,15 @@
                                         <option value="filename">文件名</option>
                                         <option value="tags">标签</option>
                                         <option value="categories">分类</option>
-                                        <option value="description">描述</option>
+                                        <option value="description">用户照片描述</option>
                                         <option value="ai_analysis">AI分析结果</option>
                                     </select>
-                                    <input type="text" class="form-control" id="searchInput" placeholder="搜索照片、标签、文件名、描述...">
+                                    <input type="text" class="form-control" id="searchInput" placeholder="搜索照片、标签、文件名、用户照片描述...">
                                     <button class="btn btn-outline-secondary" type="button" id="searchBtn">
                                         <i class="bi bi-search"></i>
                                     </button>
                                 </div>
-                                <small class="text-muted" id="searchScopeHint">支持搜索：文件名、标签、描述、分类、AI分析结果等</small>
+                                <small class="text-muted" id="searchScopeHint">支持搜索：文件名、标签、用户照片描述、分类、AI分析结果等</small>
                                 <!-- 搜索建议容器 -->
                                 <div id="searchSuggestions" class="mt-2" style="display: none;">
                                     <div class="d-flex flex-wrap gap-1">
@@ -184,7 +187,7 @@
                             <div class="col-12">
                                 <small class="text-muted">
                                     <i class="bi bi-info-circle me-1"></i>
-                                    搜索范围：文件名、标签、描述、分类、AI分析结果等
+                                    搜索范围：文件名、标签、用户照片描述、分类、AI分析结果等
                                 </small>
                             </div>
                         </div>
@@ -250,8 +253,24 @@
                             <!-- 照片卡片将通过JavaScript动态生成 -->
                         </div>
 
+                        <!-- 分页信息 -->
+                        <div id="paginationInfo" class="mt-4 d-none">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <small class="text-muted" id="paginationText">
+                                        <!-- 分页信息将通过JavaScript动态生成 -->
+                                    </small>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <small class="text-muted">
+                                        每页显示 <span id="pageSize">12</span> 张照片
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- 分页 -->
-                        <div id="paginationContainer" class="mt-4 d-none">
+                        <div id="paginationContainer" class="mt-2 d-none">
                             <nav aria-label="照片分页">
                                 <ul class="pagination justify-content-center" id="pagination">
                                     <!-- 分页按钮将通过JavaScript动态生成 -->
@@ -283,6 +302,80 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 照片编辑模态框 -->
+    <div class="modal fade" id="photoEditModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="photoEditModalTitle">编辑照片</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="photoEditForm">
+                        <input type="hidden" id="editPhotoId" value="">
+                        
+                        <!-- 照片预览 -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <img id="editPhotoPreview" src="" class="img-fluid rounded" alt="照片预览">
+                            </div>
+                            <div class="col-md-8">
+                                <h6 id="editPhotoFilename">文件名</h6>
+                                <p class="text-muted" id="editPhotoMeta">元数据信息</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 描述编辑 -->
+                        <div class="mb-3">
+                            <label for="editPhotoDescription" class="form-label">用户照片描述</label>
+                            <textarea class="form-control" id="editPhotoDescription" rows="3" 
+                                    placeholder="请输入用户照片描述..."></textarea>
+                        </div>
+                        
+                        <!-- 标签编辑 -->
+                        <div class="mb-3">
+                            <label for="editPhotoTags" class="form-label">标签</label>
+                            <div class="d-flex gap-2">
+                                <input type="text" class="form-control" id="editPhotoTags" 
+                                       placeholder="输入标签名称...">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="addTagBtn">
+                                    <i class="bi bi-plus"></i> 添加
+                                </button>
+                            </div>
+                            <div class="mt-2">
+                                <div id="selectedTags" class="d-flex flex-wrap gap-1">
+                                    <!-- 选中的标签将显示在这里 -->
+                                </div>
+                            </div>
+                            <div class="form-text">输入标签名称后点击"添加"按钮，或从下方选择已有标签</div>
+                        </div>
+                        
+                        <!-- 已有标签选择 -->
+                        <div class="mb-3">
+                            <label class="form-label">选择已有标签</label>
+                            <div id="availableTags" class="d-flex flex-wrap gap-1">
+                                <!-- 可用标签将通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                        
+                        <!-- 分类编辑 -->
+                        <div class="mb-3">
+                            <label for="editPhotoCategories" class="form-label">分类</label>
+                            <select class="form-select" id="editPhotoCategories" multiple>
+                                <!-- 分类选项将通过JavaScript动态生成 -->
+                            </select>
+                            <div class="form-text">按住Ctrl键可选择多个分类</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="savePhotoEdit">保存修改</button>
                 </div>
             </div>
         </div>
@@ -429,14 +522,14 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- 自定义JavaScript -->
-            <script src="js/app-utils.js?v=20250109_01"></script>
-            <script src="js/app-data.js?v=20250109_01"></script>
-            <script src="js/app-ui.js?v=20250109_01"></script>
-            <script src="js/app-events.js?v=20250109_03"></script>
-            <script src="js/app-import.js?v=20250109_05"></script>
-            <script src="js/app-photos.js?v=20250109_01"></script>
-            <script src="js/app.js?v=20250109_88"></script>
-            <script src="js/photo-manager.js?v=20250109_46"></script>
+            <script src="js/app-utils.js?v=20250119_05"></script>
+            <script src="js/app-data.js?v=20250119_05"></script>
+            <script src="js/app-ui.js?v=20250119_17"></script>
+            <script src="js/app-events.js?v=20250119_05"></script>
+            <script src="js/app-import.js?v=20250119_05"></script>
+            <script src="js/app-photos.js?v=20250119_17"></script>
+            <script src="js/app.js?v=20250119_07"></script>
+            <script src="js/photo-manager.js?v=20250119_05"></script>
     <script src="js/ui-components.js"></script>
 </body>
 </html>

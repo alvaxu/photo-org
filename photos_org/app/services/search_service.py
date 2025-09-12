@@ -173,14 +173,9 @@ class SearchService:
                 return query
 
             elif search_type == "description":
-                # 搜索AI分析结果中的content类型描述
+                # 搜索用户手动添加的照片描述
                 query = query.filter(
-                    Photo.analysis_results.any(
-                        and_(
-                            PhotoAnalysis.analysis_type == "content",
-                            PhotoAnalysis.analysis_result.ilike(f"%{keyword}%")
-                        )
-                    )
+                    Photo.description.ilike(f"%{keyword}%")
                 )
                 return query
 
@@ -347,6 +342,7 @@ class SearchService:
             "location_lat": photo.location_lat,
             "location_lng": photo.location_lng,
             "location_name": photo.location_name,
+            "description": photo.description,
             "status": photo.status,
             "created_at": photo.created_at.isoformat() if photo.created_at else None,
 

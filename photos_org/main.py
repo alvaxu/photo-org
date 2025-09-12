@@ -77,6 +77,11 @@ app.add_middleware(
 # 注册API路由
 app.include_router(api_router, prefix="/api/v1")
 
+# 注册增强搜索API路由
+from app.api.enhanced_search import router as enhanced_search_router
+app.include_router(enhanced_search_router)
+
+
 # 挂载静态文件
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/photos_storage", StaticFiles(directory="photos_storage"), name="photos_storage")
@@ -97,6 +102,19 @@ async def root():
         "frontend": "/static/index.html",
         "docs": "/docs"
     }
+
+# 搜索页面路由
+@app.get("/search")
+async def search_page():
+    """高级搜索页面"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    search_html_path = os.path.join("templates", "search.html")
+    if os.path.exists(search_html_path):
+        return FileResponse(search_html_path)
+    else:
+        return {"error": "搜索页面不存在"}
 
 if __name__ == "__main__":
     # 使用更精确的文件监控策略

@@ -214,6 +214,143 @@ async def get_photo_detail(
         raise HTTPException(status_code=500, detail=f"获取照片详情失败: {str(e)}")
 
 
+@router.get("/similar/{photo_id}")
+async def search_similar_photos(
+    photo_id: int,
+    threshold: float = Query(0.8, ge=0.0, le=1.0, description="相似度阈值"),
+    limit: int = Query(20, ge=1, le=100, description="返回数量"),
+    db: Session = Depends(get_db)
+):
+    """
+    搜索相似照片
+    
+    基于感知哈希算法搜索与指定照片相似的照片
+    """
+    try:
+        # 获取参考照片
+        photo = db.query(Photo).filter(Photo.id == photo_id).first()
+        if not photo:
+            raise HTTPException(status_code=404, detail="照片不存在")
+        
+        # 检查照片是否有感知哈希值
+        if not photo.perceptual_hash:
+            raise HTTPException(status_code=400, detail="照片缺少感知哈希值，无法进行相似搜索")
+        
+        # 使用重复检测服务搜索相似照片
+        from app.services.duplicate_detection_service import DuplicateDetectionService
+        duplicate_service = DuplicateDetectionService()
+        
+        # 搜索相似照片
+        similar_photos = duplicate_service.find_similar_photos(
+            db_session=db,
+            reference_photo_id=photo_id,
+            threshold=threshold,
+            limit=limit
+        )
+        
+        # 格式化结果
+        results = []
+        for similar_photo in similar_photos:
+            # 从数据库获取完整的照片对象
+            photo_obj = db.query(Photo).filter(Photo.id == similar_photo['photo_id']).first()
+            if photo_obj:
+                result = search_service._format_photo_result(db=db, photo=photo_obj)
+                if result:
+                    result['similarity'] = similar_photo.get('similarity', 0.0)
+                    results.append(result)
+        
+        return {
+            "success": True,
+            "data": {
+                "reference_photo": search_service._format_photo_result(db=db, photo=photo),
+                "similar_photos": results,
+                "total": len(results),
+                "threshold": threshold
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"搜索相似照片失败: {str(e)}")
+
+
+@router.post("/similar/process")
+async def process_similar_photos(
+    photo_ids: List[int],
+    action: str = Query(..., description="处理动作: delete, keep_best, group"),
+    db: Session = Depends(get_db)
+):
+    """
+    处理相似照片
+    
+    支持批量删除、保留最佳、分组等操作
+    """
+    try:
+        if not photo_ids:
+            raise HTTPException(status_code=400, detail="请提供照片ID列表")
+        
+        if action not in ["delete", "keep_best", "group"]:
+            raise HTTPException(status_code=400, detail="不支持的处理动作")
+        
+        if action == "delete":
+            # 批量删除
+            from app.api.photos import batch_delete_photos
+            return await batch_delete_photos(
+                photo_ids=photo_ids,
+                delete_files=True,
+                db=db
+            )
+        
+        elif action == "keep_best":
+            # 保留质量最高的照片
+            photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
+            if not photos:
+                raise HTTPException(status_code=404, detail="照片不存在")
+            
+            # 找到质量最高的照片
+            best_photo = max(photos, key=lambda p: p.quality_score or 0)
+            other_ids = [p.id for p in photos if p.id != best_photo.id]
+            
+            if other_ids:
+                from app.api.photos import batch_delete_photos
+                delete_result = await batch_delete_photos(
+                    photo_ids=other_ids,
+                    delete_files=True,
+                    db=db
+                )
+                
+                return {
+                    "success": True,
+                    "data": {
+                        "kept_photo": best_photo.id,
+                        "deleted_photos": other_ids,
+                        "message": f"已保留质量最高的照片: {best_photo.filename}"
+                    }
+                }
+            else:
+                return {
+                    "success": True,
+                    "data": {
+                        "message": "只有一张照片，无需处理"
+                    }
+                }
+        
+        elif action == "group":
+            # TODO: 实现相似照片分组功能
+            return {
+                "success": True,
+                "data": {
+                    "message": "相似照片分组功能开发中"
+                }
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"处理相似照片失败: {str(e)}")
+
+
 @router.get("/advanced")
 async def advanced_search_help():
     """
@@ -249,7 +386,7 @@ async def advanced_search_help():
         "sort_options": ["taken_at", "filename", "file_size", "created_at"],
         "quality_levels": ["优秀", "良好", "一般", "较差", "很差"]
     }
-
+    
     return {
         "success": True,
         "data": help_info

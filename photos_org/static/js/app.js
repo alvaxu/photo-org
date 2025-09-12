@@ -142,6 +142,40 @@ function bindEvents() {
     // 视图切换事件
     elements.gridView.addEventListener('change', () => switchView('grid'));
     elements.listView.addEventListener('change', () => switchView('list'));
+    
+    // 照片编辑模态框事件
+    const savePhotoEditBtn = document.getElementById('savePhotoEdit');
+    if (savePhotoEditBtn) {
+        savePhotoEditBtn.addEventListener('click', savePhotoEdit);
+    }
+    
+    // 添加标签按钮事件
+    const addTagBtn = document.getElementById('addTagBtn');
+    if (addTagBtn) {
+        addTagBtn.addEventListener('click', () => {
+            const tagInput = document.getElementById('editPhotoTags');
+            const tagName = tagInput.value.trim();
+            if (tagName) {
+                addTag(tagName);
+                tagInput.value = '';
+            }
+        });
+    }
+    
+    // 标签输入框回车事件
+    const tagInput = document.getElementById('editPhotoTags');
+    if (tagInput) {
+        tagInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const tagName = tagInput.value.trim();
+                if (tagName) {
+                    addTag(tagName);
+                    tagInput.value = '';
+                }
+            }
+        });
+    }
 }
 
 // 注意：initializeUI 函数已移至 app-ui.js

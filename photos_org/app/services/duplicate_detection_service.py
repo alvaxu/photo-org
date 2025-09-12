@@ -346,6 +346,94 @@ class DuplicateDetectionService:
         similarity = (max_distance - distance) / max_distance * 100
         return round(similarity, 2)
 
+    def find_similar_photos(self, db_session, reference_photo_id: int, threshold: float = 0.8, limit: int = 20) -> List[Dict]:
+        """
+        搜索与指定照片相似的照片
+
+        Args:
+            db_session: 数据库会话
+            reference_photo_id: 参考照片ID
+            threshold: 相似度阈值 (0.0-1.0)
+            limit: 返回数量限制
+
+        Returns:
+            相似照片列表，包含相似度信息
+        """
+        try:
+            # 获取参考照片
+            reference_photo = db_session.query(Photo).filter(Photo.id == reference_photo_id).first()
+            if not reference_photo or not reference_photo.perceptual_hash:
+                return []
+
+            # 将阈值转换为汉明距离
+            max_distance = self.hash_size * self.hash_size
+            hamming_threshold = int(max_distance * (1 - threshold))
+
+            # 获取所有有感知哈希的照片（排除参考照片）
+            photos_with_hash = db_session.query(Photo).filter(
+                Photo.id != reference_photo_id,
+                Photo.perceptual_hash.isnot(None),
+                Photo.perceptual_hash != ''
+            ).all()
+
+            similar_photos = []
+            reference_hash = reference_photo.perceptual_hash
+
+            for photo in photos_with_hash:
+                try:
+                    # 计算汉明距离
+                    distance = self._calculate_hamming_distance(reference_hash, photo.perceptual_hash)
+                    
+                    # 检查是否满足相似度阈值
+                    if distance <= hamming_threshold:
+                        similarity = (max_distance - distance) / max_distance
+                        similar_photos.append({
+                            'photo_id': photo.id,
+                            'filename': photo.filename,
+                            'file_path': photo.original_path,
+                            'thumbnail_path': photo.thumbnail_path,
+                            'similarity': similarity,
+                            'hamming_distance': distance,
+                            'taken_at': photo.taken_at,
+                            'created_at': photo.created_at
+                        })
+                except Exception as e:
+                    self.logger.warning(f"计算照片 {photo.id} 相似度失败: {str(e)}")
+                    continue
+
+            # 按相似度排序（降序）
+            similar_photos.sort(key=lambda x: x['similarity'], reverse=True)
+
+            # 限制返回数量
+            return similar_photos[:limit]
+
+        except Exception as e:
+            self.logger.error(f"搜索相似照片失败: {str(e)}")
+            raise Exception(f"搜索相似照片失败: {str(e)}")
+
+    def _calculate_hamming_distance(self, hash1: str, hash2: str) -> int:
+        """
+        计算两个感知哈希之间的汉明距离
+
+        Args:
+            hash1: 第一个哈希值
+            hash2: 第二个哈希值
+
+        Returns:
+            汉明距离
+        """
+        try:
+            # 将十六进制字符串转换为整数
+            h1 = int(hash1, 16)
+            h2 = int(hash2, 16)
+            
+            # 计算异或并统计1的个数
+            xor_result = h1 ^ h2
+            return bin(xor_result).count('1')
+        except Exception as e:
+            self.logger.error(f"计算汉明距离失败: {str(e)}")
+            return float('inf')  # 返回无穷大表示无法计算
+
     def optimize_similarity_threshold(self, test_photos: List[str]) -> int:
         """
         基于测试照片优化相似度阈值

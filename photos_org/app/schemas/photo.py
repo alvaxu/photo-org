@@ -142,6 +142,7 @@ class PhotoSearchResult(BaseModel):
     location_lat: Optional[float] = Field(None, description="纬度")
     location_lng: Optional[float] = Field(None, description="经度")
     location_name: Optional[str] = Field(None, description="地点名称")
+    description: Optional[str] = Field(None, description="照片描述")
     status: str = Field(..., description="状态")
     created_at: Optional[str] = Field(None, description="创建时间")
 

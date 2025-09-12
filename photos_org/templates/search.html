@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>高级搜索 - 智能照片整理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/css/search.css?v=20250119_01" rel="stylesheet">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-images me-2"></i>
+                智能照片整理系统
+            </a>
+            
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">
+                        <i class="bi bi-grid-3x3-gap"></i> 照片库
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/search">
+                        <i class="bi bi-search"></i> 高级搜索
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- 左侧搜索面板 -->
+            <div class="col-md-3 col-lg-2">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-funnel me-1"></i>
+                            搜索条件
+                        </h6>
+                    </div>
+                    <div class="card-body p-2">
+                        <!-- 高级搜索表单 -->
+                        <form id="advancedSearchForm">
+                            <!-- 关键词搜索 -->
+                            <div class="mb-3">
+                                <label class="form-label">关键词搜索</label>
+                                <div class="input-group">
+                                    <select class="form-select form-select-sm" id="searchType">
+                                        <option value="all">全部内容</option>
+                                        <option value="filename">文件名</option>
+                                        <option value="tags">标签</option>
+                                        <option value="categories">分类</option>
+                                        <option value="description">描述</option>
+                                        <option value="ai_analysis">AI分析结果</option>
+                                    </select>
+                                    <input type="text" class="form-control form-control-sm" id="keywordInput" 
+                                           placeholder="输入关键词...">
+                                </div>
+                            </div>
+
+                            <!-- 时间范围 -->
+                            <div class="mb-3">
+                                <label class="form-label">时间范围</label>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <input type="date" class="form-control form-control-sm" id="startDate">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="date" class="form-control form-control-sm" id="endDate">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 质量评分 -->
+                            <div class="mb-3">
+                                <label class="form-label">质量评分</label>
+                                <div class="d-flex align-items-center">
+                                    <input type="range" class="form-range" id="qualityRange" 
+                                           min="0" max="100" value="0">
+                                    <span class="ms-2" id="qualityValue">0</span>
+                                </div>
+                            </div>
+
+                            <!-- 设备类型 -->
+                            <div class="mb-3">
+                                <label class="form-label">设备类型</label>
+                                <select class="form-select form-select-sm" id="cameraMake">
+                                    <option value="">所有设备</option>
+                                    <option value="Apple">iPhone</option>
+                                    <option value="Canon">佳能</option>
+                                    <option value="Nikon">尼康</option>
+                                    <option value="Sony">索尼</option>
+                                </select>
+                            </div>
+
+                            <!-- 标签筛选 -->
+                            <div class="mb-3">
+                                <label class="form-label">标签筛选</label>
+                                <input type="text" class="form-control form-control-sm" id="tagFilter" 
+                                       placeholder="输入标签...">
+                            </div>
+
+                            <!-- 分类筛选 -->
+                            <div class="mb-3">
+                                <label class="form-label">分类筛选</label>
+                                <input type="text" class="form-control form-control-sm" id="categoryFilter" 
+                                       placeholder="输入分类...">
+                            </div>
+
+                            <!-- 搜索按钮 -->
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-search"></i> 搜索
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="resetSearch">
+                                    <i class="bi bi-arrow-clockwise"></i> 重置
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 搜索历史 -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-clock-history me-1"></i>
+                            搜索历史
+                        </h6>
+                        <button class="btn btn-sm btn-outline-danger" id="clearHistory">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-2">
+                        <div id="searchHistory" class="search-history-list">
+                            <!-- 搜索历史项将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主内容区域 -->
+            <div class="col-md-9 col-lg-10">
+                <!-- 搜索结果头部 -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-search me-2"></i>
+                            <span id="searchResultsCount">搜索结果</span>
+                        </h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- 排序选项 -->
+                            <select class="form-select form-select-sm" id="sortBy" style="width: auto;">
+                                <option value="taken_at">按时间</option>
+                                <option value="quality_score">按质量</option>
+                                <option value="filename">按文件名</option>
+                                <option value="created_at">按创建时间</option>
+                            </select>
+                            <select class="form-select form-select-sm" id="sortOrder" style="width: auto;">
+                                <option value="desc">降序</option>
+                                <option value="asc">升序</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 批量操作工具栏 -->
+                <div class="card mb-4" id="batchToolbar" style="display: none;">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="selectedCount">已选择 0 张照片</span>
+                                <button class="btn btn-sm btn-outline-primary" id="selectAllBtn">全选</button>
+                                <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn">取消选择</button>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-danger" id="batchDeleteBtn" disabled>
+                                    <i class="bi bi-trash"></i> 批量删除
+                                </button>
+                                <button class="btn btn-sm btn-warning" id="batchEditBtn" disabled>
+                                    <i class="bi bi-pencil"></i> 批量编辑
+                                </button>
+                                <button class="btn btn-sm btn-info" id="batchTagBtn" disabled>
+                                    <i class="bi bi-tag"></i> 批量标签
+                                </button>
+                                <button class="btn btn-sm btn-success" id="batchCategoryBtn" disabled>
+                                    <i class="bi bi-folder"></i> 批量分类
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 搜索结果网格 -->
+                <div class="card">
+                    <div class="card-body">
+                        <div id="searchResults" class="row g-3">
+                            <!-- 搜索结果将通过JavaScript动态生成 -->
+                        </div>
+                        
+                        <!-- 加载状态 -->
+                        <div id="loadingSpinner" class="text-center py-5" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-2">正在搜索照片...</p>
+                        </div>
+
+                        <!-- 空状态 -->
+                        <div id="emptyState" class="text-center py-5" style="display: none;">
+                            <i class="bi bi-search display-1 text-muted"></i>
+                            <h5 class="mt-3">没有找到照片</h5>
+                            <p class="text-muted">请尝试调整搜索条件</p>
+                        </div>
+
+                        <!-- 分页控件 -->
+                        <nav id="paginationNav" class="mt-4" style="display: none;">
+                            <ul class="pagination justify-content-center" id="pagination">
+                                <!-- 分页按钮将通过JavaScript动态生成 -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 照片详情模态框 -->
+    <div class="modal fade" id="photoModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="photoModalTitle">照片详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <img id="photoModalImage" src="" class="img-fluid rounded" alt="照片">
+                        </div>
+                        <div class="col-md-4">
+                            <div id="photoModalInfo">
+                                <!-- 照片信息通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 相似照片搜索模态框 -->
+    <div class="modal fade" id="similarSearchModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">相似照片搜索</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6>参考照片</h6>
+                                </div>
+                                <div class="card-body text-center">
+                                    <img id="referenceImage" src="" class="img-fluid rounded mb-2" alt="参考照片">
+                                    <p class="mb-2" id="referenceFilename">选择参考照片</p>
+                                    <div class="mb-3">
+                                        <label class="form-label">相似度阈值</label>
+                                        <div class="d-flex align-items-center">
+                                            <input type="range" class="form-range" id="similarityThreshold" 
+                                                   min="0.5" max="1.0" step="0.1" value="0.8">
+                                            <span class="ms-2" id="similarityValue">80%</span>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary" id="searchSimilarBtn">搜索相似照片</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6>相似照片结果</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="similarResults" class="row g-2">
+                                        <!-- 相似照片结果将通过JavaScript动态生成 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/search.js?v=20250119_01"></script>
+    <script src="/static/js/search-advanced.js?v=20250119_01"></script>
+    <script src="/static/js/search-similar.js?v=20250119_01"></script>
+</body>
+</html>

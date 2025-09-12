@@ -6,7 +6,7 @@
 // 全局配置
 const CONFIG = {
     API_BASE_URL: '/api/v1',
-    PAGE_SIZE: 50,
+    PAGE_SIZE: 12,  // 改为12张/页
     DEBOUNCE_DELAY: 300,
     IMAGE_PLACEHOLDER: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTAwSDE0MEwxMjAgMTIwSDEwMFYxNDBIMTZWMTAwWiIgZmlsbD0iIzk3OTdhNyIvPgo8L3N2Zz4K'
 };
@@ -15,6 +15,7 @@ const CONFIG = {
 const AppState = {
     currentPage: 1,
     totalPages: 1,
+    totalPhotos: 0,  // 添加总照片数
     currentView: 'grid', // 'grid' or 'list'
     selectedPhotos: new Set(),
     isLoading: false,
@@ -117,18 +118,33 @@ async function loadPhotos(page = 1) {
             }
         }
 
+        console.log('发送搜索请求:', `${CONFIG.API_BASE_URL}/search/photos?${params}`);
+        
         const response = await fetch(`${CONFIG.API_BASE_URL}/search/photos?${params}`);
         const data = await response.json();
+
+        console.log('API响应数据:', data);
 
         if (data.success) {
             // 兼容两种数据格式：data.data 和 data.photos
             AppState.photos = data.data || data.photos || [];
             AppState.currentPage = page;
-            AppState.totalPages = Math.ceil((data.total || 0) / CONFIG.PAGE_SIZE);
+            AppState.totalPhotos = data.total || 0;
+            AppState.totalPages = Math.ceil(AppState.totalPhotos / CONFIG.PAGE_SIZE);
+
+            // 调试信息
+            console.log('照片库分页信息:', {
+                currentPage: AppState.currentPage,
+                totalPages: AppState.totalPages,
+                totalPhotos: AppState.totalPhotos,
+                photosInCurrentPage: AppState.photos.length,
+                pageSize: CONFIG.PAGE_SIZE
+            });
 
             renderPhotos();
             renderPagination();
-            updatePhotoCount(data.total || 0);
+            renderPaginationInfo();
+            updatePhotoCount(AppState.totalPhotos);
         } else {
             showError(data.error || '加载照片失败');
         }
@@ -204,12 +220,17 @@ function renderPhotos() {
 }
 
 function renderGridView(photos) {
-    const html = photos.map(photo => createPhotoCard(photo)).join('');
+    const html = photos.map(photo => `
+        <div class="col-md-2 col-6">
+            ${createPhotoCard(photo)}
+        </div>
+    `).join('');
     elements.photosGrid.innerHTML = html;
 
     // 为每个照片卡片绑定事件
     photos.forEach((photo, index) => {
-        const card = elements.photosGrid.children[index];
+        const colDiv = elements.photosGrid.children[index];
+        const card = colDiv.querySelector('.photo-card');
         
         // 绑定点击事件 - 支持选择和查看详情
         card.addEventListener('click', (event) => {
@@ -256,11 +277,27 @@ function renderListView(photos) {
 }
 
 function renderPagination() {
+    console.log('渲染分页:', {
+        currentPage: AppState.currentPage,
+        totalPages: AppState.totalPages,
+        totalPhotos: AppState.totalPhotos,
+        shouldShow: AppState.totalPages > 1,
+        paginationContainer: elements.paginationContainer,
+        pagination: elements.pagination
+    });
+
+    if (!elements.paginationContainer) {
+        console.error('分页容器元素未找到!');
+        return;
+    }
+
     if (AppState.totalPages <= 1) {
+        console.log('总页数 <= 1，隐藏分页控件');
         elements.paginationContainer.classList.add('d-none');
         return;
     }
 
+    console.log('显示分页控件，移除d-none类');
     elements.paginationContainer.classList.remove('d-none');
 
     let html = '';
@@ -268,8 +305,28 @@ function renderPagination() {
     // 上一页
     if (AppState.currentPage > 1) {
         html += `<li class="page-item">
-            <a class="page-link" href="#" data-page="${AppState.currentPage - 1}">上一页</a>
+            <a class="page-link" href="#" data-page="${AppState.currentPage - 1}">
+                <i class="bi bi-chevron-left"></i> 上一页
+            </a>
         </li>`;
+    } else {
+        html += `<li class="page-item disabled">
+            <span class="page-link">
+                <i class="bi bi-chevron-left"></i> 上一页
+            </span>
+        </li>`;
+    }
+
+    // 第一页
+    if (AppState.currentPage > 3) {
+        html += `<li class="page-item">
+            <a class="page-link" href="#" data-page="1">1</a>
+        </li>`;
+        if (AppState.currentPage > 4) {
+            html += `<li class="page-item disabled">
+                <span class="page-link">...</span>
+            </li>`;
+        }
     }
 
     // 页码
@@ -283,10 +340,30 @@ function renderPagination() {
         </li>`;
     }
 
+    // 最后一页
+    if (AppState.currentPage < AppState.totalPages - 2) {
+        if (AppState.currentPage < AppState.totalPages - 3) {
+            html += `<li class="page-item disabled">
+                <span class="page-link">...</span>
+            </li>`;
+        }
+        html += `<li class="page-item">
+            <a class="page-link" href="#" data-page="${AppState.totalPages}">${AppState.totalPages}</a>
+        </li>`;
+    }
+
     // 下一页
     if (AppState.currentPage < AppState.totalPages) {
         html += `<li class="page-item">
-            <a class="page-link" href="#" data-page="${AppState.currentPage + 1}">下一页</a>
+            <a class="page-link" href="#" data-page="${AppState.currentPage + 1}">
+                下一页 <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>`;
+    } else {
+        html += `<li class="page-item disabled">
+            <span class="page-link">
+                下一页 <i class="bi bi-chevron-right"></i>
+            </span>
         </li>`;
     }
 
@@ -297,9 +374,50 @@ function renderPagination() {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const page = parseInt(e.target.dataset.page);
-            loadPhotos(page);
+            if (page && page !== AppState.currentPage) {
+                console.log('切换到页面:', page);
+                loadPhotos(page);
+            }
         });
     });
+    
+    // 确认分页容器状态
+    console.log('分页渲染完成，容器类名:', elements.paginationContainer.className);
+    console.log('分页HTML内容:', elements.pagination.innerHTML);
+}
+
+function renderPaginationInfo() {
+    const paginationInfo = document.getElementById('paginationInfo');
+    const paginationText = document.getElementById('paginationText');
+    const pageSize = document.getElementById('pageSize');
+    
+    console.log('渲染分页信息:', {
+        paginationInfo: paginationInfo,
+        paginationText: paginationText,
+        pageSize: pageSize,
+        totalPages: AppState.totalPages,
+        totalPhotos: AppState.totalPhotos
+    });
+    
+    if (!paginationInfo) {
+        console.error('分页信息元素未找到!');
+        return;
+    }
+    
+    if (AppState.totalPages <= 1) {
+        console.log('总页数 <= 1，隐藏分页信息');
+        paginationInfo.classList.add('d-none');
+        return;
+    }
+    
+    console.log('显示分页信息，移除d-none类');
+    paginationInfo.classList.remove('d-none');
+    
+    const startPhoto = (AppState.currentPage - 1) * CONFIG.PAGE_SIZE + 1;
+    const endPhoto = Math.min(AppState.currentPage * CONFIG.PAGE_SIZE, AppState.totalPhotos);
+    
+    paginationText.textContent = `第 ${AppState.currentPage} 页，共 ${AppState.totalPages} 页 (显示 ${startPhoto}-${endPhoto} 张，共 ${AppState.totalPhotos} 张照片)`;
+    pageSize.textContent = CONFIG.PAGE_SIZE;
 }
 
 // ============ 搜索和筛选函数 ============

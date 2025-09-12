@@ -237,12 +237,33 @@ function createPhotoDetailModal(photo) {
     if (photo.latitude && photo.longitude) locationInfo.push(`经纬度：${photo.latitude}, ${photo.longitude}`);
     if (photo.altitude) locationInfo.push(`海拔：${photo.altitude}m`);
     
+    // 构建用户描述信息
+    const descriptionInfo = [];
+    if (photo.description) {
+        descriptionInfo.push(`<p><strong>用户照片描述：</strong>${photo.description}</p>`);
+    }
+    
     // 构建AI分析信息
     const aiInfo = [];
-    if (photo.analysis?.description) aiInfo.push(`内容描述：${photo.analysis.description}`);
-    if (photo.analysis?.scene) aiInfo.push(`场景识别：${photo.analysis.scene}`);
-    if (photo.analysis?.objects) aiInfo.push(`物体检测：${photo.analysis.objects}`);
-    if (photo.analysis?.faces) aiInfo.push(`人脸识别：${photo.analysis.faces}`);
+    if (photo.analysis) {
+        if (photo.analysis.description) aiInfo.push(`<p><strong>AI内容描述：</strong>${photo.analysis.description}</p>`);
+        if (photo.analysis.scene_type) aiInfo.push(`<p><strong>场景类型：</strong>${photo.analysis.scene_type}</p>`);
+        if (photo.analysis.objects && photo.analysis.objects.length > 0) {
+            aiInfo.push(`<p><strong>检测到的物体：</strong>${photo.analysis.objects.join(', ')}</p>`);
+        }
+        if (photo.analysis.tags && photo.analysis.tags.length > 0) {
+            aiInfo.push(`<p><strong>AI标签：</strong>${photo.analysis.tags.join(', ')}</p>`);
+        }
+        if (photo.analysis.confidence) {
+            aiInfo.push(`<p><strong>置信度：</strong>${(photo.analysis.confidence * 100).toFixed(1)}%</p>`);
+        }
+    }
+    
+    // 构建分类信息
+    const categoryInfo = [];
+    if (photo.categories && photo.categories.length > 0) {
+        categoryInfo.push(`<p><strong>分类：</strong>${photo.categories.map(cat => `<span class="badge bg-primary me-1">${cat}</span>`).join('')}</p>`);
+    }
     
     // 构建文件信息
     const fileInfo = [];
@@ -277,6 +298,17 @@ function createPhotoDetailModal(photo) {
                         </div>
                     </div>
                     
+                    ${descriptionInfo.length > 0 ? `
+                    <div class="col-12 mb-3">
+                        <h5>用户照片描述</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                ${descriptionInfo.join('')}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
                     ${exifInfo.length > 0 ? `
                     <div class="col-12 mb-3">
                         <h5>相机信息</h5>
@@ -301,10 +333,10 @@ function createPhotoDetailModal(photo) {
                     
                     ${aiInfo.length > 0 ? `
                     <div class="col-12 mb-3">
-                        <h5>AI分析</h5>
+                        <h5>AI分析结果</h5>
                         <div class="card">
                             <div class="card-body">
-                                ${aiInfo.map(info => `<p>${info}</p>`).join('')}
+                                ${aiInfo.join('')}
                             </div>
                         </div>
                     </div>
@@ -321,6 +353,17 @@ function createPhotoDetailModal(photo) {
                             </div>
                         </div>
                     </div>
+                    
+                    ${categoryInfo.length > 0 ? `
+                    <div class="col-12 mb-3">
+                        <h5>分类</h5>
+                        <div class="card">
+                            <div class="card-body">
+                                ${categoryInfo.join('')}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
                     
                     <div class="col-12 mb-3">
                         <h5>文件信息</h5>
