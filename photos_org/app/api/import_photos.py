@@ -83,7 +83,7 @@ async def scan_folder(
             )
 
         # 小批量直接处理
-        imported_count, failed_files = await process_photos_batch(photo_files, db)
+        imported_count, skipped_count, failed_count, failed_files = await process_photos_batch(photo_files, db)
 
         return JSONResponse(
             status_code=200,
@@ -91,8 +91,10 @@ async def scan_folder(
                 "success": True,
                 "message": f"成功导入{imported_count}张照片",
                 "data": {
-                    "scanned_files": len(photo_files),
+                    "total_files": len(photo_files),
                     "imported_photos": imported_count,
+                    "skipped_photos": skipped_count,
+                    "failed_photos": failed_count,
                     "failed_files": failed_files
                 }
             }
@@ -125,12 +127,15 @@ async def upload_photos(
         import_service = ImportService()
         photo_service = PhotoService()
         imported_count = 0
+        skipped_count = 0
+        failed_count = 0
         failed_files = []
 
         for file in files:
             # 验证文件类型
             if not file.content_type or not file.content_type.startswith('image/'):
                 failed_files.append(f"{file.filename}: 不支持的文件类型")
+                failed_count += 1
                 continue
 
             # 保存临时文件
@@ -149,6 +154,7 @@ async def upload_photos(
                         imported_count += 1
                     else:
                         failed_files.append(f"{file.filename}: 数据库保存失败")
+                        failed_count += 1
                 elif duplicate_info:
                     # 处理重复文件 - 使用完整的重复检测逻辑
                     duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
@@ -157,21 +163,32 @@ async def upload_photos(
                     # 根据重复类型生成更详细的提示
                     if duplicate_type == 'full_duplicate_completed':
                         status_text = f"文件已存在且已完成智能处理"
+                        skipped_count += 1
                     elif duplicate_type == 'full_duplicate_incomplete':
                         status_text = f"文件已存在但未完成智能处理 - 将重新处理"
+                        imported_count += 1  # 重新处理，计入成功
                     elif duplicate_type == 'physical_only':
                         status_text = f"文件已存在（物理重复）"
+                        imported_count += 1  # 物理重复，计入成功
                     elif duplicate_type == 'orphan_cleaned':
                         status_text = f"孤儿记录已清理，继续处理"
+                        imported_count += 1  # 清理后继续处理，计入成功
                     else:
                         status_text = message
+                        failed_files.append(f"{file.filename}: {status_text}")
+                        failed_count += 1
+                        continue
                     
-                    failed_files.append(f"{file.filename}: {status_text}")
+                    # 只有需要跳过的才添加到失败列表（用于显示）
+                    if duplicate_type == 'full_duplicate_completed':
+                        failed_files.append(f"{file.filename}: {status_text}")
                 else:
                     failed_files.append(f"{file.filename}: {message}")
+                    failed_count += 1
 
             except Exception as e:
                 failed_files.append(f"{file.filename}: 处理异常 - {str(e)}")
+                failed_count += 1
             finally:
                 # 清理临时文件
                 Path(temp_path).unlink(missing_ok=True)
@@ -184,6 +201,8 @@ async def upload_photos(
                 "data": {
                     "total_files": len(files),
                     "imported_photos": imported_count,
+                    "skipped_photos": skipped_count,
+                    "failed_photos": failed_count,
                     "failed_files": failed_files
                 }
             }
@@ -316,17 +335,19 @@ async def get_import_status():
     )
 
 
-async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, List[str]]:
+async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, int, int, List[str]]:
     """
     批量处理照片文件
 
     :param photo_files: 照片文件路径列表
     :param db: 数据库会话
-    :return: (成功导入的数量, 失败文件列表)
+    :return: (成功导入的数量, 无需导入的数量, 失败的数量, 失败文件列表)
     """
     import_service = ImportService()
     photo_service = PhotoService()
     imported_count = 0
+    skipped_count = 0
+    failed_count = 0
     failed_files = []
 
     for file_path in photo_files:
@@ -349,10 +370,10 @@ async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, List[st
                 message = duplicate_info.get('message', '文件重复')
                 
                 if duplicate_type == 'full_duplicate_completed':
-                    # 情况1.1：完全重复且已完成智能处理 - 跳过所有处理
+                    # 情况1.1：完全重复且已完成智能处理 - 无需导入
                     status_text = f"文件已存在且已完成智能处理"
-                failed_files.append(f"{file_path}: {status_text}")
-                print(f"跳过重复文件: {file_path} - {status_text}")
+                    skipped_count += 1
+                    print(f"跳过重复文件: {file_path} - {status_text}")
                     
                 elif duplicate_type == 'full_duplicate_incomplete':
                     # 情况1.2：完全重复但未完成智能处理 - 继续智能处理
@@ -378,10 +399,13 @@ async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, List[st
                                 print(f"孤儿记录清理后成功导入: {file_path}")
                             else:
                                 failed_files.append(f"{file_path}: 孤儿记录清理后数据库保存失败")
+                                failed_count += 1
                         else:
                             failed_files.append(f"{file_path}: 孤儿记录清理后处理失败 - {message}")
+                            failed_count += 1
                     except Exception as e:
                         failed_files.append(f"{file_path}: 孤儿记录清理后处理异常 - {str(e)}")
+                        failed_count += 1
                         
                 elif duplicate_type == 'physical_only':
                     # 情况3：物理重复 - 使用现有文件，继续处理
@@ -395,21 +419,26 @@ async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, List[st
                             print(f"物理重复文件成功处理: {file_path}")
                         else:
                             failed_files.append(f"{file_path}: 物理重复文件数据库保存失败")
+                            failed_count += 1
                     else:
                         failed_files.append(f"{file_path}: 物理重复文件处理失败 - {message}")
+                        failed_count += 1
                         
                 else:
                     # 未知重复类型
                     status_text = message
                     failed_files.append(f"{file_path}: {status_text}")
+                    failed_count += 1
                     print(f"未知重复类型: {file_path} - {status_text}")
             else:
                 failed_files.append(f"{file_path}: {message}")
+                failed_count += 1
                 print(f"导入失败 {file_path}: {message}")
 
         except Exception as e:
             error_msg = f"处理文件 {file_path} 时发生错误: {str(e)}"
             failed_files.append(error_msg)
+            failed_count += 1
             print(error_msg)
             continue
 
@@ -419,13 +448,13 @@ async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, List[st
         for failed in failed_files:
             print(f"  - {failed}")
     
-    print(f"\n导入完成: 成功 {imported_count}/{len(photo_files)} 张照片")
+    print(f"\n导入完成: 成功 {imported_count}/{len(photo_files)} 张照片，跳过 {skipped_count} 张，失败 {failed_count} 张")
     
     # 导入完成，通知用户手动点击批量处理
     if imported_count > 0:
         print(f"导入完成: {imported_count} 张照片已导入，请手动点击批量处理按钮进行智能分析")
     
-    return imported_count, failed_files
+    return imported_count, skipped_count, failed_count, failed_files
 
 
 async def process_photos_batch_with_status(photo_files: List[str], db, task_id: str):
@@ -443,6 +472,8 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
             "total_files": len(photo_files),
             "processed_files": 0,
             "imported_count": 0,
+            "skipped_count": 0,
+            "failed_count": 0,
             "failed_files": [],
             "progress_percentage": 0,
             "start_time": datetime.now().isoformat(),
@@ -453,6 +484,8 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
         import_service = ImportService()
         photo_service = PhotoService()
         imported_count = 0
+        skipped_count = 0
+        failed_count = 0
         failed_files = []
         
         # 使用数据库事务确保数据一致性
@@ -479,14 +512,13 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                         message = duplicate_info.get('message', '文件重复')
                         
                         if duplicate_type == 'full_duplicate_completed':
-                            # 情况1.1：完全重复且已完成智能处理 - 跳过所有处理
+                            # 情况1.1：完全重复且已完成智能处理 - 无需导入
                             status_text = f"文件已存在且已完成智能处理"
-                            failed_files.append(f"{file_path}: {status_text}")
+                            skipped_count += 1
                             print(f"跳过重复文件: {file_path} - {status_text}")
                             
                         elif duplicate_type == 'full_duplicate_incomplete':
                             # 情况1.2：完全重复但未完成智能处理 - 继续智能处理
-                            # 这里应该继续处理，而不是跳过
                             status_text = f"文件已存在但未完成智能处理 - 将重新处理"
                             print(f"继续处理重复文件: {file_path} - {status_text}")
                             # 注意：这里不需要创建新的数据库记录，因为记录已存在
@@ -510,10 +542,13 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                                         print(f"孤儿记录清理后成功导入: {file_path}")
                                     else:
                                         failed_files.append(f"{file_path}: 孤儿记录清理后数据库保存失败")
+                                        failed_count += 1
                                 else:
                                     failed_files.append(f"{file_path}: 孤儿记录清理后处理失败 - {message}")
+                                    failed_count += 1
                             except Exception as e:
                                 failed_files.append(f"{file_path}: 孤儿记录清理后处理异常 - {str(e)}")
+                                failed_count += 1
                                 
                         elif duplicate_type == 'physical_only':
                             # 情况3：物理重复 - 使用现有文件，继续处理
@@ -528,21 +563,26 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                                     print(f"物理重复文件成功处理: {file_path}")
                                 else:
                                     failed_files.append(f"{file_path}: 物理重复文件数据库保存失败")
+                                    failed_count += 1
                             else:
                                 failed_files.append(f"{file_path}: 物理重复文件处理失败 - {message}")
+                                failed_count += 1
                                 
                         else:
                             # 未知重复类型
                             status_text = message
                             failed_files.append(f"{file_path}: {status_text}")
+                            failed_count += 1
                             print(f"未知重复类型: {file_path} - {status_text}")
                     else:
                         failed_files.append(f"{file_path}: {message}")
+                        failed_count += 1
                         print(f"导入失败 {file_path}: {message}")
                         
                 except Exception as e:
                     error_msg = f"{file_path}: 处理异常 - {str(e)}"
                     failed_files.append(error_msg)
+                    failed_count += 1
                     print(error_msg)
                 
                 # 更新任务状态
@@ -552,6 +592,8 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                 task_status[task_id].update({
                     "processed_files": processed_count,
                     "imported_count": imported_count,
+                    "skipped_count": skipped_count,
+                    "failed_count": failed_count,
                     "failed_files": failed_files,
                     "progress_percentage": round(progress, 2)
                 })
@@ -564,6 +606,8 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                 "status": "completed",
                 "end_time": datetime.now().isoformat(),
                 "imported_count": imported_count,
+                "skipped_count": skipped_count,
+                "failed_count": failed_count,
                 "failed_files": failed_files
             })
             
@@ -578,14 +622,15 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                 "error": str(e)
             })
             print(f"后台导入失败: {str(e)}")
-                
-        except Exception as e:
+            
+    except Exception as e:
+        # 处理整个函数级别的异常
         task_status[task_id] = {
             "status": "failed",
             "error": str(e),
             "end_time": datetime.now().isoformat()
         }
-        print(f"后台任务初始化失败: {str(e)}")
+        print(f"批量处理函数异常: {str(e)}")
 
 
 @router.get("/scan-status/{task_id}")

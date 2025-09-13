@@ -233,7 +233,7 @@ class PhotoManager {
                 window.PhotoApp.loadPhotos(1);
                 window.PhotoApp.loadStats();
 
-                this.showToast('批量处理完成！', 'success');
+                // 已删除批量处理完成通知，避免冗余（模态框已有状态显示）
             } else {
                 throw new Error(result.message || '批量处理失败');
             }

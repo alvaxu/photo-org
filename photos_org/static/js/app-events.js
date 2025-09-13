@@ -85,7 +85,7 @@ function handleFileSelection(event) {
         console.log(`选择了 ${imageFiles.length} 个图片文件`);
         
         // 显示选择结果
-        showSuccess(`已选择 ${imageFiles.length} 个图片文件`);
+        // 已删除选择文件的通知，避免冗余
     }
 }
 

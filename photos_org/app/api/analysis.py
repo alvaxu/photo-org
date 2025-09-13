@@ -141,7 +141,8 @@ async def batch_analyze_photos(
                 failed_analyses=0,
                 results=[],
                 errors=[],
-                completed_at=datetime.now().isoformat()
+                completed_at=datetime.now().isoformat(),
+                message="没有需要处理的照片，所有照片都已完成分析"
             )
 
         # 创建分析服务

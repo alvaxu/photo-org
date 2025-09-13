@@ -81,23 +81,27 @@ function showError(message) {
     alertDiv.innerHTML = alertHtml;
     container.insertBefore(alertDiv.firstElementChild, container.firstChild);
     
-    // 3秒后自动消失
-    setTimeout(() => {
-        const alert = container.querySelector('.alert-danger');
-        if (alert) {
-            const bsAlert = new bootstrap.Alert(alert);
-            bsAlert.close();
-        }
-    }, 5000);
+    // 不自动消失，只有用户点击关闭按钮才会消失
 }
 
-function showSuccess(message) {
+function showSuccess(message, showDetails = false, detailsData = null) {
     console.log('成功:', message);
+    
+    // 处理多行消息
+    const formattedMessage = message.replace(/\n/g, '<br>');
+    
+    // 构建查看详情按钮
+    let detailsButton = '';
+    if (showDetails && detailsData) {
+        detailsButton = `<button type="button" class="btn btn-outline-success btn-sm ms-2" onclick="showImportDetails(${JSON.stringify(detailsData).replace(/"/g, '&quot;')})">查看详情</button>`;
+    }
+    
     // 使用Bootstrap的alert组件显示成功消息
     const alertHtml = `
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             <i class="bi bi-check-circle me-2"></i>
-            ${message}
+            ${formattedMessage}
+            ${detailsButton}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
@@ -108,23 +112,27 @@ function showSuccess(message) {
     alertDiv.innerHTML = alertHtml;
     container.insertBefore(alertDiv.firstElementChild, container.firstChild);
     
-    // 3秒后自动消失
-    setTimeout(() => {
-        const alert = container.querySelector('.alert-success');
-        if (alert) {
-            const bsAlert = new bootstrap.Alert(alert);
-            bsAlert.close();
-        }
-    }, 3000);
+    // 不自动消失，只有用户点击关闭按钮才会消失
 }
 
-function showWarning(message) {
+function showWarning(message, showDetails = false, detailsData = null) {
     console.warn('警告:', message);
+    
+    // 处理多行消息
+    const formattedMessage = message.replace(/\n/g, '<br>');
+    
+    // 构建查看详情按钮
+    let detailsButton = '';
+    if (showDetails && detailsData) {
+        detailsButton = `<button type="button" class="btn btn-outline-warning btn-sm ms-2" onclick="showImportDetails(${JSON.stringify(detailsData).replace(/"/g, '&quot;')})">查看详情</button>`;
+    }
+    
     // 使用Bootstrap的alert组件显示警告
     const alertHtml = `
         <div class="alert alert-warning alert-dismissible fade show" role="alert">
             <i class="bi bi-exclamation-triangle me-2"></i>
-            ${message}
+            ${formattedMessage}
+            ${detailsButton}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
@@ -135,14 +143,7 @@ function showWarning(message) {
     alertDiv.innerHTML = alertHtml;
     container.insertBefore(alertDiv.firstElementChild, container.firstChild);
     
-    // 3秒后自动消失
-    setTimeout(() => {
-        const alert = container.querySelector('.alert-warning');
-        if (alert) {
-            const bsAlert = new bootstrap.Alert(alert);
-            bsAlert.close();
-        }
-    }, 3000);
+    // 不自动消失，只有用户点击关闭按钮才会消失
 }
 
 function createToastContainer() {
@@ -151,6 +152,99 @@ function createToastContainer() {
     container.style.zIndex = '9999';
     document.body.appendChild(container);
     return container;
+}
+
+// ============ 导入详情显示函数 ============
+
+function showImportDetails(detailsData) {
+    const modalHtml = `
+        <div class="modal fade" id="importDetailsModal" tabindex="-1" aria-labelledby="importDetailsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="importDetailsModalLabel">导入结果详情</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-primary">${detailsData.total_files}</h5>
+                                        <p class="card-text">总文件数</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-success">${detailsData.imported_photos}</h5>
+                                        <p class="card-text">成功导入</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-warning">${detailsData.skipped_photos || 0}</h5>
+                                        <p class="card-text">无需导入</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-danger">${detailsData.failed_photos || 0}</h5>
+                                        <p class="card-text">导入失败</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${detailsData.failed_files && detailsData.failed_files.length > 0 ? `
+                        <div class="mt-4">
+                            <h6>详细信息：</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>文件名</th>
+                                            <th>状态</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${detailsData.failed_files.map(file => `
+                                            <tr>
+                                                <td>${file.split(':')[0]}</td>
+                                                <td>${file.split(':')[1] || ''}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 移除已存在的模态框
+    const existingModal = document.getElementById('importDetailsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 添加新的模态框
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('importDetailsModal'));
+    modal.show();
 }
 
 // ============ 工具函数 ============
@@ -199,6 +293,7 @@ window.showError = showError;
 window.showSuccess = showSuccess;
 window.showWarning = showWarning;
 window.createToastContainer = createToastContainer;
+window.showImportDetails = showImportDetails;
 window.debounce = debounce;
 window.setLoading = setLoading;
 window.showEmptyState = showEmptyState;

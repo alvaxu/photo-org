@@ -103,18 +103,6 @@ async def root():
         "docs": "/docs"
     }
 
-# 搜索页面路由
-@app.get("/search")
-async def search_page():
-    """高级搜索页面"""
-    from fastapi.responses import FileResponse
-    import os
-    
-    search_html_path = os.path.join("templates", "search.html")
-    if os.path.exists(search_html_path):
-        return FileResponse(search_html_path)
-    else:
-        return {"error": "搜索页面不存在"}
 
 if __name__ == "__main__":
     # 使用更精确的文件监控策略
