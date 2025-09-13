@@ -8,6 +8,16 @@
 function initializeUI() {
     console.log('🎨 初始化UI组件');
 
+    // 设置初始搜索框placeholder
+    if (elements.searchInput) {
+        elements.searchInput.placeholder = searchTypePlaceholders['all'] || '搜索照片、文件名、描述...';
+    }
+
+    // 设置搜索范围提示
+    if (elements.searchScopeHint) {
+        elements.searchScopeHint.textContent = searchScopeHints['all'] || '支持搜索：照片名、用户照片描述、AI分析结果';
+    }
+
     // 初始化Bootstrap模态框
     const photoModal = new bootstrap.Modal(elements.photoModal);
     const importModal = new bootstrap.Modal(elements.importModal);

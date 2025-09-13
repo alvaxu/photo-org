@@ -25,7 +25,9 @@ const AppState = {
         dateFilter: '',
         qualityFilter: '',
         sortBy: 'quality_score',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
+        selectedTags: [],
+        selectedCategories: []
     },
     photos: [],
     stats: {},
@@ -35,23 +37,209 @@ const AppState = {
 
 // 搜索类型提示文字映射
 const searchTypePlaceholders = {
-    'all': '搜索照片、标签、文件名、描述...',
-    'filename': '搜索文件名...',
-    'tags': '搜索标签...',
-    'categories': '搜索分类...',
-    'description': '搜索描述...',
+    'all': '搜索照片名、用户照片描述、AI分析结果...',
+    'filename': '搜索照片文件名...',
+    'description': '搜索用户照片描述...',
     'ai_analysis': '搜索AI分析结果...'
 };
 
 // 搜索范围提示文字映射
 const searchScopeHints = {
-    'all': '支持搜索：文件名、标签、描述、分类、AI分析结果等',
+    'all': '支持搜索：照片名、用户照片描述、AI分析结果',
     'filename': '搜索范围：照片文件名（如：IMG_001.jpg, 生日聚会.jpg）',
-    'tags': '搜索范围：照片标签（如：Apple, 聚会, 室内, 欢乐）',
-    'categories': '搜索范围：照片分类（如：2024年, 下午, 秋季, Apple）',
-    'description': '搜索范围：照片描述和AI内容描述（如：生日聚会场景, 室内庆祝活动）',
+    'description': '搜索范围：用户照片描述和AI内容描述（如：生日聚会场景, 室内庆祝活动）',
     'ai_analysis': '搜索范围：所有AI分析结果（如：聚会, 蛋糕, 人物, 场景识别）'
 };
+
+// ============ 多选下拉组件 ============
+
+let tagMultiSelect = null;
+let categoryMultiSelect = null;
+
+// 全局标签和分类数据存储
+let globalTagsData = [];
+let globalCategoriesData = [];
+
+/**
+ * 初始化多选下拉组件
+ */
+function initMultiSelectDropdown(container, data, placeholder, onChange) {
+    console.log('初始化多选下拉 - 容器:', container);
+    console.log('初始化多选下拉 - 数据:', data);
+    
+    const button = container.querySelector('.dropdown-toggle');
+    const buttonText = container.querySelector('[id$="FilterText"]');
+    const searchInput = container.querySelector('input[type="text"]');
+    const optionsContainer = container.querySelector('[id$="Options"]');
+    
+    console.log('找到的元素:', {
+        button,
+        buttonText,
+        searchInput,
+        optionsContainer
+    });
+    
+    let selectedItems = new Set();
+    let filteredData = [...data];
+    
+    // 渲染选项
+    function renderOptions() {
+        console.log('渲染选项 - 容器:', optionsContainer);
+        console.log('渲染选项 - 数据:', filteredData);
+        optionsContainer.innerHTML = '';
+        
+        filteredData.forEach(item => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'form-check';
+            
+            const isSelected = selectedItems.has(item.id);
+            
+            optionDiv.innerHTML = `
+                <input class="form-check-input" type="checkbox" 
+                       id="option_${item.id}" 
+                       value="${item.id}" 
+                       ${isSelected ? 'checked' : ''}>
+                <label class="form-check-label" for="option_${item.id}">
+                    ${item.name}
+                </label>
+            `;
+            
+            // 绑定点击事件
+            const checkbox = optionDiv.querySelector('input[type="checkbox"]');
+            checkbox.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    selectedItems.add(item.id);
+                } else {
+                    selectedItems.delete(item.id);
+                }
+                updateButtonText();
+                onChange(Array.from(selectedItems));
+            });
+            
+            optionsContainer.appendChild(optionDiv);
+        });
+    }
+    
+    // 更新按钮文本
+    function updateButtonText() {
+        const count = selectedItems.size;
+        if (count === 0) {
+            buttonText.textContent = `选择${placeholder}`;
+        } else if (count <= 3) {
+            const selectedNames = Array.from(selectedItems).map(id => {
+                const item = data.find(item => item.id === id);
+                return item ? item.name : id;
+            });
+            buttonText.textContent = selectedNames.join(', ');
+        } else {
+            buttonText.textContent = `已选择 ${count} 个${placeholder}`;
+        }
+    }
+    
+    // 搜索功能
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            filteredData = data.filter(item => 
+                item.name.toLowerCase().includes(searchTerm)
+            );
+            renderOptions();
+        });
+    }
+    
+    // 阻止下拉菜单点击时关闭
+    const dropdownMenu = container.querySelector('.dropdown-menu');
+    if (dropdownMenu) {
+        dropdownMenu.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    }
+    
+    // 初始化
+    renderOptions();
+    updateButtonText();
+    
+    // 返回控制对象
+    return {
+        setSelectedItems: (itemIds) => {
+            selectedItems = new Set(itemIds);
+            renderOptions();
+            updateButtonText();
+        },
+        clearSelection: () => {
+            selectedItems.clear();
+            renderOptions();
+            updateButtonText();
+            onChange([]);
+        }
+    };
+}
+
+/**
+ * 初始化搜索式多选组件
+ */
+async function initSearchMultiSelect() {
+    try {
+        // 加载标签和分类数据
+        const [tagsResponse, categoriesResponse] = await Promise.all([
+            fetch('/api/v1/tags/'),
+            fetch('/api/v1/categories/')
+        ]);
+
+        let tags = [];
+        let categories = [];
+
+        if (tagsResponse.ok) {
+            tags = await tagsResponse.json();
+            globalTagsData = tags; // 存储到全局变量
+            console.log('标签数据加载成功:', tags.length, '个标签');
+        } else {
+            console.error('标签数据加载失败:', tagsResponse.status, tagsResponse.statusText);
+        }
+
+        if (categoriesResponse.ok) {
+            categories = await categoriesResponse.json();
+            globalCategoriesData = categories; // 存储到全局变量
+            console.log('分类数据加载成功:', categories.length, '个分类');
+        } else {
+            console.error('分类数据加载失败:', categoriesResponse.status, categoriesResponse.statusText);
+        }
+
+        // 初始化标签多选组件
+        const tagContainer = document.getElementById('tagFilter');
+        console.log('标签容器:', tagContainer);
+        if (tagContainer) {
+            console.log('开始初始化标签多选组件');
+            tagMultiSelect = initMultiSelectDropdown(tagContainer, tags, '标签', (selectedIds) => {
+                AppState.searchFilters.selectedTags = selectedIds;
+                AppState.currentPage = 1;
+                loadPhotos(1);
+                updateFilterStatus();
+            });
+        } else {
+            console.error('未找到标签容器元素 #tagFilter');
+        }
+
+        // 初始化分类多选组件
+        const categoryContainer = document.getElementById('categoryFilter');
+        console.log('分类容器:', categoryContainer);
+        if (categoryContainer) {
+            console.log('开始初始化分类多选组件');
+            categoryMultiSelect = initMultiSelectDropdown(categoryContainer, categories, '分类', (selectedIds) => {
+                AppState.searchFilters.selectedCategories = selectedIds;
+                AppState.currentPage = 1;
+                loadPhotos(1);
+                updateFilterStatus();
+            });
+        } else {
+            console.error('未找到分类容器元素 #categoryFilter');
+        }
+
+        console.log('搜索式多选组件初始化完成');
+    } catch (error) {
+        console.error('初始化搜索式多选组件失败:', error);
+    }
+}
 
 // ============ 数据加载函数 ============
 
@@ -107,6 +295,16 @@ async function loadPhotos(page = 1) {
             date_filter: AppState.searchFilters.dateFilter,
             quality_filter: AppState.searchFilters.qualityFilter
         });
+
+        // 添加标签筛选参数
+        if (AppState.searchFilters.selectedTags.length > 0) {
+            params.append('tag_ids', AppState.searchFilters.selectedTags.join(','));
+        }
+
+        // 添加分类筛选参数
+        if (AppState.searchFilters.selectedCategories.length > 0) {
+            params.append('category_ids', AppState.searchFilters.selectedCategories.join(','));
+        }
         
         // 添加自定义日期范围参数
         if (AppState.searchFilters.dateFilter === 'custom') {
@@ -456,34 +654,9 @@ function updateSearchSuggestions(searchType) {
     const suggestionsContainer = elements.searchSuggestions;
     const suggestionsDiv = suggestionsContainer.querySelector('div');
     
-    if (searchType === 'tags' && AppState.hotTags.length > 0) {
-        // 显示热门标签建议
-        suggestionsDiv.innerHTML = '';
-        AppState.hotTags.slice(0, 8).forEach(tag => {
-            const badge = document.createElement('span');
-            badge.className = 'badge bg-primary me-1 mb-1';
-            badge.style.cursor = 'pointer';
-            badge.textContent = tag.name;
-            badge.onclick = () => selectSuggestion(tag.name);
-            suggestionsDiv.appendChild(badge);
-        });
-        suggestionsContainer.style.display = 'block';
-    } else if (searchType === 'categories' && AppState.hotCategories.length > 0) {
-        // 显示热门分类建议
-        suggestionsDiv.innerHTML = '';
-        AppState.hotCategories.slice(0, 8).forEach(category => {
-            const badge = document.createElement('span');
-            badge.className = 'badge bg-success me-1 mb-1';
-            badge.style.cursor = 'pointer';
-            badge.textContent = category.name;
-            badge.onclick = () => selectSuggestion(category.name);
-            suggestionsDiv.appendChild(badge);
-        });
-        suggestionsContainer.style.display = 'block';
-    } else {
-        // 隐藏搜索建议
-        suggestionsContainer.style.display = 'none';
-    }
+    // 由于标签和分类已移至筛选区域，搜索建议功能暂时隐藏
+    // 未来可以根据需要添加其他类型的搜索建议
+    suggestionsContainer.style.display = 'none';
 }
 
 function selectSuggestion(text) {
@@ -567,6 +740,14 @@ function clearAllFilters() {
     // 隐藏自定义日期范围
     elements.customDateRange.style.display = 'none';
     
+    // 清空多选组件
+    if (tagMultiSelect) {
+        tagMultiSelect.clearSelection();
+    }
+    if (categoryMultiSelect) {
+        categoryMultiSelect.clearSelection();
+    }
+    
     // 更新AppState
     AppState.searchFilters = {
         keyword: '',
@@ -574,7 +755,9 @@ function clearAllFilters() {
         dateFilter: '',
         qualityFilter: '',
         sortBy: 'quality_score',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
+        selectedTags: [],
+        selectedCategories: []
     };
     
     AppState.currentPage = 1;
@@ -591,8 +774,6 @@ function updateFilterStatus() {
         const searchTypeLabels = {
             'all': '全部内容',
             'filename': '文件名',
-            'tags': '标签',
-            'categories': '分类',
             'description': '描述',
             'ai_analysis': 'AI分析结果'
         };
@@ -624,6 +805,26 @@ function updateFilterStatus() {
             'bad': '很差'
         };
         statusParts.push(`质量: ${qualityLabels[filters.qualityFilter] || filters.qualityFilter}`);
+    }
+    
+    // 显示选中的标签
+    if (filters.selectedTags.length > 0) {
+        // 从全局标签数据中获取名称
+        const selectedTagNames = filters.selectedTags.map(id => {
+            const tag = globalTagsData.find(tag => tag.id === id);
+            return tag ? tag.name : `标签${id}`;
+        });
+        statusParts.push(`标签: ${selectedTagNames.join(', ')}`);
+    }
+    
+    // 显示选中的分类
+    if (filters.selectedCategories.length > 0) {
+        // 从全局分类数据中获取名称
+        const selectedCategoryNames = filters.selectedCategories.map(id => {
+            const category = globalCategoriesData.find(category => category.id === id);
+            return category ? category.name : `分类${id}`;
+        });
+        statusParts.push(`分类: ${selectedCategoryNames.join(', ')}`);
     }
     
     if (filters.sortBy !== 'quality_score' || filters.sortOrder !== 'desc') {
@@ -661,6 +862,7 @@ window.searchScopeHints = searchScopeHints;
 window.loadHotData = loadHotData;
 window.loadStats = loadStats;
 window.loadPhotos = loadPhotos;
+window.initSearchMultiSelect = initSearchMultiSelect;
 
 // 导出渲染函数
 window.renderStats = renderStats;

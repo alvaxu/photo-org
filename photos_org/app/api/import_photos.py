@@ -351,8 +351,8 @@ async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, List[st
                 if duplicate_type == 'full_duplicate_completed':
                     # 情况1.1：完全重复且已完成智能处理 - 跳过所有处理
                     status_text = f"文件已存在且已完成智能处理"
-                    failed_files.append(f"{file_path}: {status_text}")
-                    print(f"跳过重复文件: {file_path} - {status_text}")
+                failed_files.append(f"{file_path}: {status_text}")
+                print(f"跳过重复文件: {file_path} - {status_text}")
                     
                 elif duplicate_type == 'full_duplicate_incomplete':
                     # 情况1.2：完全重复但未完成智能处理 - 继续智能处理
@@ -578,8 +578,8 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                 "error": str(e)
             })
             print(f"后台导入失败: {str(e)}")
-            
-    except Exception as e:
+                
+        except Exception as e:
         task_status[task_id] = {
             "status": "failed",
             "error": str(e),

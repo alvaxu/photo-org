@@ -34,6 +34,8 @@ async def search_photos(
     quality_filter: Optional[str] = Query(None, description="质量筛选"),
     tags: Optional[List[str]] = Query(None, description="标签列表"),
     categories: Optional[List[str]] = Query(None, description="分类列表"),
+    tag_ids: Optional[str] = Query(None, description="标签ID列表(逗号分隔)"),
+    category_ids: Optional[str] = Query(None, description="分类ID列表(逗号分隔)"),
     location_lat: Optional[float] = Query(None, description="纬度"),
     location_lng: Optional[float] = Query(None, description="经度"),
     location_radius: Optional[float] = Query(None, ge=0, description="搜索半径(公里)"),
@@ -51,8 +53,8 @@ async def search_photos(
     - 相机筛选
     - 日期范围筛选
     - 质量筛选
-    - 标签筛选
-    - 分类筛选
+    - 标签筛选（与关系：必须包含所有选中的标签）
+    - 分类筛选（与关系：必须包含所有选中的分类）
     - 地理位置筛选
     - 多维度排序和分页
     """
@@ -90,6 +92,22 @@ async def search_photos(
         # 处理质量筛选
         processed_quality_level = quality_level or quality_filter
         
+        # 处理标签ID和分类ID参数
+        processed_tag_ids = None
+        processed_category_ids = None
+        
+        if tag_ids:
+            try:
+                processed_tag_ids = [int(id.strip()) for id in tag_ids.split(',') if id.strip()]
+            except ValueError:
+                raise HTTPException(status_code=400, detail="标签ID格式错误")
+        
+        if category_ids:
+            try:
+                processed_category_ids = [int(id.strip()) for id in category_ids.split(',') if id.strip()]
+            except ValueError:
+                raise HTTPException(status_code=400, detail="分类ID格式错误")
+        
         results, total = search_service.search_photos(
             db=db,
             keyword=keyword,
@@ -102,6 +120,8 @@ async def search_photos(
             quality_level=processed_quality_level,
             tags=tags,
             categories=categories,
+            tag_ids=processed_tag_ids,
+            category_ids=processed_category_ids,
             location_lat=location_lat,
             location_lng=location_lng,
             location_radius=location_radius,

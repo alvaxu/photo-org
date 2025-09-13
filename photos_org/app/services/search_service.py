@@ -35,6 +35,8 @@ class SearchService:
         quality_level: Optional[str] = None,
         tags: Optional[List[str]] = None,
         categories: Optional[List[str]] = None,
+        tag_ids: Optional[List[int]] = None,
+        category_ids: Optional[List[int]] = None,
         location_lat: Optional[float] = None,
         location_lng: Optional[float] = None,
         location_radius: Optional[float] = None,  # 公里
@@ -95,10 +97,18 @@ class SearchService:
             # 标签筛选
             if tags:
                 query = self._apply_tags_filter(query, tags)
+            
+            # 标签ID筛选
+            if tag_ids:
+                query = self._apply_tag_ids_filter(query, tag_ids)
 
             # 分类筛选
             if categories:
                 query = self._apply_categories_filter(query, categories)
+            
+            # 分类ID筛选
+            if category_ids:
+                query = self._apply_category_ids_filter(query, category_ids)
 
             # 地理位置筛选
             if location_lat and location_lng and location_radius:
@@ -256,6 +266,32 @@ class SearchService:
                 and_(
                     PhotoCategory.photo_id == Photo.id,
                     Category.name.ilike(f"%{category_name}%")
+                )
+            )
+            query = query.filter(subquery.exists())
+        return query
+
+    def _apply_tag_ids_filter(self, query, tag_ids: List[int]):
+        """应用标签ID筛选 - 与关系：照片必须包含所有选中的标签"""
+        # 为每个标签ID创建一个子查询，确保照片包含该标签
+        for tag_id in tag_ids:
+            subquery = query.session.query(PhotoTag.photo_id).filter(
+                and_(
+                    PhotoTag.photo_id == Photo.id,
+                    PhotoTag.tag_id == tag_id
+                )
+            )
+            query = query.filter(subquery.exists())
+        return query
+
+    def _apply_category_ids_filter(self, query, category_ids: List[int]):
+        """应用分类ID筛选 - 与关系：照片必须包含所有选中的分类"""
+        # 为每个分类ID创建一个子查询，确保照片包含该分类
+        for category_id in category_ids:
+            subquery = query.session.query(PhotoCategory.photo_id).filter(
+                and_(
+                    PhotoCategory.photo_id == Photo.id,
+                    PhotoCategory.category_id == category_id
                 )
             )
             query = query.filter(subquery.exists())

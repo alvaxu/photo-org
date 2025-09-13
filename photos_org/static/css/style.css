@@ -107,14 +107,14 @@ body {
 }
 
 .photo-card:hover {
-    transform: translateY(-4px);
+    /* transform: translateY(-4px); */
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .photo-card.selected {
     border: 3px solid var(--primary-color);
     box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
-    transform: scale(1.02);
+    /* transform: scale(1.02); */
 }
 
 .photo-card.selected::after {
@@ -742,4 +742,98 @@ body {
         background-color: #333333;
         color: #ffffff;
     }
+}
+
+/* ===== 搜索筛选面板样式 ===== */
+.search-filter-panel {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.search-filter-panel .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.search-filter-panel .form-label.fw-bold {
+    font-size: 1.1rem;
+    color: #0d6efd;
+}
+
+.search-filter-panel .btn-group .btn {
+    border-radius: 0.375rem;
+    font-weight: 500;
+}
+
+.search-filter-panel .btn-group .btn-check:checked + .btn {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+.search-filter-panel .input-group .form-select {
+    border-right: none;
+}
+
+.search-filter-panel .input-group .form-control {
+    border-left: none;
+    border-right: none;
+}
+
+.search-filter-panel .input-group .btn {
+    border-left: none;
+}
+
+/* 优化筛选区域布局 */
+.card-body {
+    padding: 1.5rem;
+}
+
+.card-body .row {
+    margin-bottom: 1rem;
+}
+
+.card-body .row:last-child {
+    margin-bottom: 0;
+}
+
+/* 优化按钮样式 */
+.btn-outline-danger {
+    border-width: 2px;
+    font-weight: 500;
+}
+
+.btn-outline-danger:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+/* 优化表单控件样式 */
+.form-select, .form-control {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    transition: all 0.2s ease;
+}
+
+.form-select:focus, .form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* 优化标签和分类筛选区域 */
+#tagFilter, #categoryFilter {
+    min-height: 38px;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    background-color: #fff;
+    padding: 0.375rem 0.75rem;
+}
+
+/* ===== 下拉框覆盖样式 ===== */
+.dropdown-menu {
+    z-index: 9999 !important;
+    max-height: 150px !important;  /* 限制最大高度，确保不进入照片区域 */
 }

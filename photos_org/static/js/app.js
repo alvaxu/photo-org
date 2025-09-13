@@ -31,11 +31,21 @@ function initializeApp() {
     // 加载热门数据
     loadHotData();
 
+    // 初始化搜索式多选组件
+    initSearchMultiSelect();
+
     // 加载初始数据
     loadInitialData();
 
     // 设置定期刷新
     setupAutoRefresh();
+    
+    // 确保搜索框placeholder正确设置
+    setTimeout(() => {
+        if (elements.searchInput && searchTypePlaceholders) {
+            elements.searchInput.placeholder = searchTypePlaceholders['all'] || '搜索照片、文件名、描述...';
+        }
+    }, 100);
 }
 
 function cacheElements() {
@@ -62,7 +72,6 @@ function cacheElements() {
         qualityFilter: document.getElementById('qualityFilter'),
         sortBy: document.getElementById('sortBy'),
         sortOrder: document.getElementById('sortOrder'),
-        clearFilters: document.getElementById('clearFilters'),
         clearFiltersSmall: document.getElementById('clearFiltersSmall'),
         filterStatus: document.getElementById('filterStatus'),
         filterStatusText: document.getElementById('filterStatusText'),
@@ -136,13 +145,12 @@ function bindEvents() {
     elements.sortOrder.addEventListener('change', handleSortChange);
     elements.startDate.addEventListener('change', handleCustomDateChange);
     elements.endDate.addEventListener('change', handleCustomDateChange);
-    elements.clearFilters.addEventListener('click', clearAllFilters);
     elements.clearFiltersSmall.addEventListener('click', clearAllFilters);
 
     // 视图切换事件
     elements.gridView.addEventListener('change', () => switchView('grid'));
     elements.listView.addEventListener('change', () => switchView('list'));
-    
+
     // 照片编辑模态框事件
     const savePhotoEditBtn = document.getElementById('savePhotoEdit');
     if (savePhotoEditBtn) {
