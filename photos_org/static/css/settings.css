@@ -1,0 +1,270 @@
+/* 配置页面样式 */
+
+/* 配置卡片样式 */
+.config-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.config-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.config-card .card-header {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 滑块样式增强 */
+.form-range {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.form-range::-webkit-slider-track {
+    background: #e9ecef;
+    height: 6px;
+    border-radius: 3px;
+}
+
+.form-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    background: #0d6efd;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.form-range::-webkit-slider-thumb:hover {
+    background: #0b5ed7;
+    transform: scale(1.1);
+}
+
+.form-range::-moz-range-track {
+    background: #e9ecef;
+    height: 6px;
+    border-radius: 3px;
+    border: none;
+}
+
+.form-range::-moz-range-thumb {
+    background: #0d6efd;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 数值标签样式 */
+.badge {
+    font-size: 0.75em;
+    padding: 0.35em 0.65em;
+}
+
+/* 配置状态提示 */
+#configStatus {
+    border-left: 4px solid #0d6efd;
+    animation: slideIn 0.3s ease;
+}
+
+#configStatus.show {
+    display: block !important;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 按钮组样式 */
+.btn-group .btn {
+    transition: all 0.2s ease;
+}
+
+.btn-group .btn:hover {
+    transform: translateY(-1px);
+}
+
+/* 表单控件样式 */
+.form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-text {
+    font-size: 0.875em;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* 卡片头部图标 */
+.card-header i {
+    font-size: 1.1em;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .config-card {
+        margin-bottom: 1rem;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    .btn-group .btn {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    .config-card {
+        background-color: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .config-card .card-header {
+        background-color: #4a5568;
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .form-label {
+        color: #e2e8f0;
+    }
+    
+    .form-text {
+        color: #a0aec0;
+    }
+    
+    .form-range::-webkit-slider-track {
+        background: #4a5568;
+    }
+    
+    .form-range::-moz-range-track {
+        background: #4a5568;
+    }
+}
+
+/* 加载状态 */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 成功/错误状态 */
+.alert-success {
+    border-left-color: #198754;
+}
+
+.alert-danger {
+    border-left-color: #dc3545;
+}
+
+.alert-warning {
+    border-left-color: #ffc107;
+}
+
+/* 配置项间距 */
+.config-item {
+    margin-bottom: 1.5rem;
+}
+
+.config-item:last-child {
+    margin-bottom: 0;
+}
+
+/* 滑块容器 */
+.range-container {
+    position: relative;
+    padding: 0.5rem 0;
+}
+
+.range-container .form-range {
+    margin: 0;
+}
+
+.range-container .range-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
+.range-container .range-labels small {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+/* 配置值显示 */
+.config-value {
+    background: #e9ecef;
+    color: #495057;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    min-width: 2rem;
+    text-align: center;
+    display: inline-block;
+}
+
+/* 卡片高度统一 */
+.card.h-100 {
+    min-height: 300px;
+}
+
+/* 导航激活状态 */
+.nav-link.active {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 0.375rem;
+}
+
+/* 模态框样式 */
+.modal-content {
+    border: none;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    border-bottom: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+}
+
+.modal-footer {
+    border-top: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+}

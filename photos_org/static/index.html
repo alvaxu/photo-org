@@ -13,8 +13,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
 
     <!-- 自定义样式 -->
-    <link href="css/style.css?v=20250119_70" rel="stylesheet">
-    <link href="css/search-multiselect.css?v=20250119_56" rel="stylesheet">
+    <link href="css/style.css?v=20250119_80" rel="stylesheet">
+    <link href="css/search-multiselect.css?v=20250119_80" rel="stylesheet">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="images/favicon.ico">
@@ -37,6 +37,11 @@
                     <li class="nav-item">
                         <a class="nav-link active" href="#photos" id="navPhotos" data-section="photos">
                             <i class="bi bi-grid-3x3-gap"></i> 照片库
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings" id="navSettings" data-section="settings">
+                            <i class="bi bi-gear"></i> 系统配置
                         </a>
                     </li>
                 </ul>
@@ -73,7 +78,7 @@
                                 
                                 <!-- 第二行：搜索输入框 -->
                                 <div class="mb-3">
-                                    <div class="input-group">
+                                <div class="input-group">
                                         <select class="form-select" id="searchType" style="max-width: 100px;">
                                             <option value="all">全部内容</option>
                                             <option value="filename">文件名</option>
@@ -82,11 +87,11 @@
                                         </select>
                                         <input type="text" class="form-control" id="searchInput" placeholder="">
                                         <button class="btn btn-primary" type="button" id="searchBtn">
-                                            <i class="bi bi-search"></i>
-                                        </button>
-                                    </div>
+                                        <i class="bi bi-search"></i>
+                                    </button>
                                 </div>
-                                
+                            </div>
+
                                 <!-- 第三行：搜索范围提示 -->
                                 <div class="mb-3">
                                     <small class="text-muted" id="searchScopeHint">
@@ -137,42 +142,42 @@
                                     </div>
                                     
                                     <div class="col">
-                                        <label class="form-label">拍摄日期</label>
-                                        <select class="form-select" id="dateFilter">
+                                <label class="form-label">拍摄日期</label>
+                                <select class="form-select" id="dateFilter">
                                             <option value="" selected>全部时间</option>
-                                            <option value="today">今天</option>
-                                            <option value="week">本周</option>
-                                            <option value="month">本月</option>
-                                            <option value="year">今年</option>
-                                            <option value="custom">自定义</option>
-                                        </select>
-                                    </div>
-                                    
+                                    <option value="today">今天</option>
+                                    <option value="week">本周</option>
+                                    <option value="month">本月</option>
+                                    <option value="year">今年</option>
+                                    <option value="custom">自定义</option>
+                                </select>
+                            </div>
+
                                     <div class="col">
-                                        <label class="form-label">质量等级</label>
-                                        <select class="form-select" id="qualityFilter">
+                                <label class="form-label">质量等级</label>
+                                <select class="form-select" id="qualityFilter">
                                             <option value="" selected>全部质量</option>
-                                            <option value="excellent">优秀</option>
-                                            <option value="good">良好</option>
-                                            <option value="average">一般</option>
-                                            <option value="poor">较差</option>
-                                            <option value="bad">很差</option>
-                                        </select>
-                                    </div>
-                                    
+                                    <option value="excellent">优秀</option>
+                                    <option value="good">良好</option>
+                                    <option value="average">一般</option>
+                                    <option value="poor">较差</option>
+                                    <option value="bad">很差</option>
+                                </select>
+                            </div>
+
                                     <div class="col">
-                                        <label class="form-label">排序方式</label>
+                                <label class="form-label">排序方式</label>
                                         <div class="d-flex gap-1">
                                             <select class="form-select" id="sortBy" style="flex: 2;">
                                                 <option value="quality_score" selected>质量分数</option>
-                                                <option value="taken_at">拍摄时间</option>
-                                                <option value="created_at">导入时间</option>
-                                                <option value="filename">文件名</option>
+                                    <option value="taken_at">拍摄时间</option>
+                                    <option value="created_at">导入时间</option>
+                                    <option value="filename">文件名</option>
                                             </select>
                                             <select class="form-select" id="sortOrder" style="flex: 1;">
                                                 <option value="desc" selected>降序</option>
                                                 <option value="asc">升序</option>
-                                            </select>
+                                </select>
                                         </div>
                                     </div>
                                 </div>
@@ -182,8 +187,8 @@
                         <!-- 搜索建议容器 -->
                         <div id="searchSuggestions" class="mt-2" style="display: none;">
                             <div class="d-flex flex-wrap gap-1"></div>
-                        </div>
-                        
+                            </div>
+
                         <!-- 自定义日期范围 -->
                         <div class="row mb-3" id="customDateRange" style="display: none;">
                             <div class="col-md-2"></div>
@@ -553,15 +558,15 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- 自定义JavaScript -->
-            <script src="js/app-utils.js?v=20250119_73"></script>
-            <script src="js/app-data.js?v=20250119_71"></script>
-            <script src="js/app-ui.js?v=20250119_71"></script>
-            <script src="js/app-events.js?v=20250119_73"></script>
-            <script src="js/app-import.js?v=20250119_80"></script>
-            <script src="js/app-photos.js?v=20250119_71"></script>
-            <script src="js/search-multiselect.js?v=20250119_71"></script>
-            <script src="js/app.js?v=20250119_71"></script>
-            <script src="js/photo-manager.js?v=20250119_74"></script>
+            <script src="js/app-utils.js?v=20250119_81"></script>
+            <script src="js/app-data.js?v=20250119_81"></script>
+            <script src="js/app-ui.js?v=20250119_81"></script>
+            <script src="js/app-events.js?v=20250119_81"></script>
+            <script src="js/app-import.js?v=20250119_81"></script>
+            <script src="js/app-photos.js?v=20250119_81"></script>
+            <script src="js/search-multiselect.js?v=20250119_81"></script>
+            <script src="js/app.js?v=20250119_81"></script>
+            <script src="js/photo-manager.js?v=20250119_81"></script>
     <script src="js/ui-components.js"></script>
 </body>
 </html>

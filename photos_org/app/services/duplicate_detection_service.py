@@ -21,9 +21,10 @@ class DuplicateDetectionService:
 
     def __init__(self):
         """初始化重复检测服务"""
+        from app.core.config import settings
         self.logger = get_logger(__name__)
         self.hash_size = 16  # 哈希大小，影响精确度
-        self.similarity_threshold = 10  # 相似度阈值，越小越严格
+        self.similarity_threshold = settings.analysis.duplicate_threshold  # 从配置获取相似度阈值
 
     def calculate_perceptual_hash(self, image_path: str) -> str:
         """

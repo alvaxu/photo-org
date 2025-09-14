@@ -62,17 +62,24 @@ class AnalysisService:
             if not photo:
                 raise Exception("照片不存在")
 
-            if not photo.original_path or not Path(photo.original_path).exists():
-                raise Exception("照片文件不存在")
+            if not photo.original_path:
+                raise Exception("照片路径为空")
+            
+            # 构建完整的文件路径
+            storage_base = Path(settings.storage.base_path)
+            full_path = storage_base / photo.original_path
+            
+            if not full_path.exists():
+                raise Exception(f"照片文件不存在: {full_path}")
 
             self.logger.info(f"=== 开始分析照片 {photo_id}: {photo.filename} ===")
 
             # 并发执行各项分析
             self.logger.info(f"照片 {photo_id}: 开始并发分析...")
             tasks = [
-                self._analyze_content_async(photo.original_path),
-                self._analyze_quality_async(photo.original_path),
-                self._calculate_duplicate_hash_async(photo.original_path)
+                self._analyze_content_async(str(full_path)),
+                self._analyze_quality_async(str(full_path)),
+                self._calculate_duplicate_hash_async(str(full_path))
             ]
 
             # 等待所有分析完成
@@ -462,11 +469,18 @@ class AnalysisService:
             if not photo or not photo.original_path:
                 raise Exception("照片不存在或文件路径无效")
 
+            # 构建完整的文件路径
+            storage_base = Path(settings.storage.base_path)
+            full_path = storage_base / photo.original_path
+            
+            if not full_path.exists():
+                raise Exception(f"照片文件不存在: {full_path}")
+
             # 使用DashScope生成标题
             caption = await asyncio.get_event_loop().run_in_executor(
                 self.executor,
                 self.dashscope_service.generate_photo_caption,
-                photo.original_path,
+                str(full_path),
                 style
             )
 

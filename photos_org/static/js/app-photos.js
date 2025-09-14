@@ -35,7 +35,7 @@ function createPhotoCard(photo) {
     return `
         <div class="photo-card" data-photo-id="${photo.id}">
             <div class="photo-image-container">
-                <img src="/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
+                <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
                      alt="${photo.filename}"
                      class="photo-image"
                      loading="lazy">
@@ -121,7 +121,7 @@ function createPhotoListItem(photo) {
     return `
         <div class="photo-list-item" data-photo-id="${photo.id}">
             <div class="photo-thumbnail-container">
-                <img src="/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
+                <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
                      alt="${photo.filename}"
                      class="photo-thumbnail">
                 <div class="photo-overlay">
@@ -367,11 +367,20 @@ async function searchSimilarPhotos(photoId) {
     console.log('搜索相似照片:', photoId);
     
     try {
+        // 确保配置已加载
+        if (!userConfig) {
+            await loadUserConfig();
+        }
+        
+        // 从配置中获取相似度阈值和限制数量
+        const threshold = userConfig?.search?.similarity_threshold || 0.85;
+        const limit = userConfig?.search?.similar_photos_limit || 8;
+        
         // 显示加载状态
         showSimilarPhotosModal(photoId);
         
         // 调用第一层API快速筛选相似照片
-        const response = await fetch(`/api/v1/enhanced-search/similar/first-layer/${photoId}?threshold=0.5&limit=8`);
+        const response = await fetch(`/api/v1/enhanced-search/similar/first-layer/${photoId}?threshold=${threshold}&limit=${limit}`);
         const data = await response.json();
         
         if (data.success && data.data) {
@@ -492,7 +501,7 @@ function displaySimilarPhotosV2(similarPhotos, referencePhotoId) {
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-2">
-                            <img src="/${(referencePhoto?.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
+                            <img src="/photos_storage/${(referencePhoto?.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
                                  class="img-thumbnail" alt="${referencePhoto?.filename || '未知'}">
                         </div>
                         <div class="col-md-10">
@@ -514,7 +523,7 @@ function displaySimilarPhotosV2(similarPhotos, referencePhotoId) {
             <div class="col-md-3 col-sm-6 mb-3">
                 <div class="card h-100">
                     <div class="position-relative">
-                        <img src="/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
+                        <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
                              class="card-img-top" style="height: 200px; object-fit: cover;" 
                              alt="${photo.filename}">
                         <div class="position-absolute top-0 end-0 m-2">
@@ -578,7 +587,7 @@ function displaySimilarPhotos(data) {
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-2">
-                            <img src="/${(referencePhoto.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
+                            <img src="/photos_storage/${(referencePhoto.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
                                  class="img-thumbnail" alt="${referencePhoto.filename}">
                         </div>
                         <div class="col-md-8">
@@ -607,7 +616,7 @@ function displaySimilarPhotos(data) {
             <div class="col-md-3 col-sm-6 mb-3">
                 <div class="card h-100">
                     <div class="position-relative">
-                        <img src="/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
+                        <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
                              class="card-img-top" style="height: 200px; object-fit: cover;" 
                              alt="${photo.filename}">
                         <div class="position-absolute top-0 end-0 m-2">
@@ -665,7 +674,7 @@ function showPhotoEditModal(photo) {
     
     // 填充照片信息
     document.getElementById('editPhotoId').value = photo.id;
-    document.getElementById('editPhotoPreview').src = `/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}`;
+    document.getElementById('editPhotoPreview').src = `/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}`;
     document.getElementById('editPhotoFilename').textContent = photo.filename;
     
     // 填充元数据

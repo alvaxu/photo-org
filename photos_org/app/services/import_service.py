@@ -423,22 +423,26 @@ class ImportService:
         
         # 情况1：数据库有记录 + 物理文件存在 = 完全重复
         existing_photo = db_session.query(Photo).filter(Photo.file_hash == file_hash).first()
-        if existing_photo and existing_photo.original_path and Path(existing_photo.original_path).exists():
-            # 检查智能处理状态
-            if existing_photo.status == 'completed':
-                return {
-                    "is_duplicate": True,
-                    "message": "文件已存在且已完成智能处理",
-                    "duplicate_type": "full_duplicate_completed",
-                    "existing_photo": existing_photo
-                }
-            elif existing_photo.status in ['imported', 'analyzing', 'error']:
-                return {
-                    "is_duplicate": True,
-                    "message": "文件已存在但未完成智能处理",
-                    "duplicate_type": "full_duplicate_incomplete",
-                    "existing_photo": existing_photo
-                }
+        if existing_photo and existing_photo.original_path:
+            # 构建完整的文件路径
+            storage_base = Path(self.storage_base)
+            full_path = storage_base / existing_photo.original_path
+            if full_path.exists():
+                # 检查智能处理状态
+                if existing_photo.status == 'completed':
+                    return {
+                        "is_duplicate": True,
+                        "message": "文件已存在且已完成智能处理",
+                        "duplicate_type": "full_duplicate_completed",
+                        "existing_photo": existing_photo
+                    }
+                elif existing_photo.status in ['imported', 'analyzing', 'error']:
+                    return {
+                        "is_duplicate": True,
+                        "message": "文件已存在但未完成智能处理",
+                        "duplicate_type": "full_duplicate_incomplete",
+                        "existing_photo": existing_photo
+                    }
         
         # 情况2：数据库有记录 + 物理文件不存在 = 孤儿记录
         if existing_photo:
@@ -674,10 +678,28 @@ class ImportService:
         # 计算感知哈希
         perceptual_hash = self.calculate_perceptual_hash(file_path)
 
+        # 计算相对路径（相对于storage_base）
+        try:
+            relative_path = file_path_obj.relative_to(self.storage_base)
+        except ValueError:
+            # 如果路径不在storage_base下，使用绝对路径
+            relative_path = file_path_obj
+
+        # 处理缩略图路径
+        thumbnail_path = metadata.get('thumbnail_path', '')
+        if thumbnail_path:
+            try:
+                thumbnail_path_obj = Path(thumbnail_path)
+                thumbnail_relative = thumbnail_path_obj.relative_to(self.storage_base)
+                metadata['thumbnail_path'] = str(thumbnail_relative)
+            except ValueError:
+                # 如果缩略图路径不在storage_base下，保持原路径
+                pass
+
         # 合并元数据
         photo_data = {
             'filename': filename,
-            'original_path': file_path,
+            'original_path': str(relative_path),  # 存储相对路径
             'file_size': file_size,
             'width': width,
             'height': height,

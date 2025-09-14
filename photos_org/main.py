@@ -88,7 +88,23 @@ app.include_router(enhanced_search_router)
 
 # 挂载静态文件
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/photos_storage", StaticFiles(directory="photos_storage"), name="photos_storage")
+
+# 动态挂载照片存储目录（根据用户配置）
+from pathlib import Path
+photos_storage_path = Path(settings.storage.base_path)
+if photos_storage_path.exists():
+    app.mount("/photos_storage", StaticFiles(directory=str(photos_storage_path)), name="photos_storage")
+else:
+    # 如果配置的路径不存在，使用默认路径
+    app.mount("/photos_storage", StaticFiles(directory="photos_storage"), name="photos_storage")
+
+# 配置页面路由
+from fastapi.responses import FileResponse
+
+@app.get("/settings")
+async def settings_page():
+    """配置页面"""
+    return FileResponse("templates/settings.html")
 
 # 健康检查接口
 @app.get("/health")

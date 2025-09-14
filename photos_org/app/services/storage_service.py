@@ -317,7 +317,8 @@ class StorageService:
                 self._add_directory_to_zip(zipf, self.thumbnails_path, "thumbnails")
 
                 # 添加数据库文件
-                db_path = self.base_path / "photos.db"
+                from app.core.config import settings
+                db_path = Path(settings.database.path)
                 if db_path.exists():
                     zipf.write(db_path, "photos.db")
 
@@ -422,7 +423,14 @@ class StorageService:
 
                         if restore_type == "full" or restore_type == "database":
                             if file_name == "photos.db":
-                                zipf.extract(file_name, self.base_path)
+                                from app.core.config import settings
+                                db_path = Path(settings.database.path)
+                                zipf.extract(file_name, db_path.parent)
+                                # 如果配置的路径不是默认路径，需要重命名文件
+                                if db_path.name != "photos.db":
+                                    temp_db_path = db_path.parent / "photos.db"
+                                    if temp_db_path.exists():
+                                        temp_db_path.rename(db_path)
                                 restore_info["database_restored"] = True
 
                     except Exception as e:

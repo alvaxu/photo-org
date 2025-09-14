@@ -21,6 +21,9 @@ class DashScopeService:
         self.logger = get_logger(__name__)
         self.api_key = os.getenv("DASHSCOPE_API_KEY", settings.dashscope.api_key)
         self.base_url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
+        self.model = settings.dashscope.model
+        self.timeout = settings.dashscope.timeout
+        self.max_retry_count = settings.dashscope.max_retry_count
 
         if not self.api_key:
             self.logger.warning("未配置DASHSCOPE_API_KEY，将无法使用AI分析功能")
@@ -42,7 +45,7 @@ class DashScopeService:
             self.logger.error(f"图片编码失败 {image_path}: {str(e)}")
             raise Exception(f"图片编码失败: {str(e)}")
 
-    def _call_qwen_vl_api(self, image_base64: str, prompt: str, model: str = "qwen-vl-plus-latest") -> Dict[str, Any]:
+    def _call_qwen_vl_api(self, image_base64: str, prompt: str, model: str = None) -> Dict[str, Any]:
         """
         调用Qwen-VL API
 
@@ -55,6 +58,9 @@ class DashScopeService:
             API响应结果
         """
         try:
+            # 使用配置中的模型，如果传入了模型参数则使用传入的
+            model_name = model if model else self.model
+            
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.api_key}",
@@ -62,7 +68,7 @@ class DashScopeService:
             }
 
             data = {
-                "model": model,
+                "model": model_name,
                 "input": {
                     "messages": [
                         {

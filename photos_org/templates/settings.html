@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>系统配置 - 家庭单机版智能照片整理系统</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- 自定义样式 -->
+    <link href="/static/css/style.css?v=20250119_80" rel="stylesheet">
+    <link href="/static/css/settings.css?v=20250119_80" rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-images me-2"></i>
+                智能照片整理系统
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="../static/index.html" id="navPhotos" data-section="photos">
+                            <i class="bi bi-grid-3x3-gap"></i> 照片库
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" id="navSettings" data-section="settings">
+                            <i class="bi bi-gear"></i> 系统配置
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="d-flex">
+                    <button class="btn btn-outline-light me-2" id="resetConfigBtn">
+                        <i class="bi bi-arrow-clockwise"></i> 重置为默认
+                    </button>
+                    <button class="btn btn-outline-light me-2" id="exportConfigBtn">
+                        <i class="bi bi-download"></i> 导出配置
+                    </button>
+                    <button class="btn btn-outline-light" id="saveConfigBtn">
+                        <i class="bi bi-check-lg"></i> 保存配置
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <div class="container-fluid mt-4">
+
+        <!-- 配置表单 -->
+        <form id="userConfigForm">
+            <div class="row">
+                <!-- AI服务设置 -->
+                <div class="col-lg-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-robot me-2"></i>
+                                AI服务设置
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="mb-2">
+                                <label for="aiModel" class="form-label small">大模型选择</label>
+                                <select class="form-select form-select-sm" id="aiModel">
+                                    <!-- 选项将通过JavaScript动态加载 -->
+                                </select>
+                                <div class="form-text small">
+                                    选择用于图像分析的AI模型<br>
+                                    <span class="text-muted">当前值: <span id="aiModelCurrent">加载中...</span></span><br>
+                                    <span class="text-muted">默认值: <span id="aiModelDefault">qwen-vl-plus</span></span>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label for="apiKey" class="form-label small">API密钥</label>
+                                <input type="password" class="form-control form-control-sm" id="apiKey" 
+                                       placeholder="留空则使用环境变量">
+                                <div class="form-text small">
+                                    优先使用环境变量 DASHSCOPE_API_KEY<br>
+                                    <span class="text-muted">当前值: <span id="apiKeyCurrent">已设置</span></span><br>
+                                    <span class="text-muted">默认值: 使用环境变量</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 存储设置 -->
+                <div class="col-lg-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-folder me-2"></i>
+                                存储设置
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <!-- 文件路径设置 - 一行两列 -->
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label for="photosPath" class="form-label small">照片存储目录</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" id="photosPath" 
+                                               value="./photos_storage">
+                                        <button class="btn btn-outline-secondary" type="button" id="selectPhotosPath">
+                                            <i class="bi bi-folder"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text small">
+                                        照片文件的存储位置（点击文件夹图标选择目录）<br>
+                                        <span class="text-muted">当前值: <span id="photosPathCurrent">./photos_storage</span></span><br>
+                                        <span class="text-muted">默认值: ./photos_storage</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <label for="databasePath" class="form-label small">数据库文件位置</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" id="databasePath" 
+                                               value="./data/photos.db">
+                                        <button class="btn btn-outline-secondary" type="button" id="selectDatabasePath">
+                                            <i class="bi bi-file-earmark"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text small">
+                                        数据库文件的存储位置（点击文件图标选择文件）<br>
+                                        <span class="text-muted">当前值: <span id="databasePathCurrent">./data/photos.db</span></span><br>
+                                        <span class="text-muted">默认值: ./data/photos.db</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 缩略图设置 - 一行两列 -->
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label for="thumbnailQuality" class="form-label small">缩略图质量</label>
+                                    <input type="range" class="form-range" id="thumbnailQuality" 
+                                           min="1" max="100" value="85">
+                                    <div class="d-flex justify-content-between">
+                                        <small>1%</small>
+                                        <small id="thumbnailQualityValue">85%</small>
+                                        <small>100%</small>
+                                    </div>
+                                    <div class="form-text small">
+                                        <span class="text-muted">当前值: <span id="thumbnailQualityCurrent">85%</span></span><br>
+                                        <span class="text-muted">默认值: 85%</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <label for="thumbnailSize" class="form-label small">缩略图尺寸</label>
+                                    <input type="range" class="form-range" id="thumbnailSize" 
+                                           min="100" max="1000" value="300">
+                                    <div class="d-flex justify-content-between">
+                                        <small>100px</small>
+                                        <small id="thumbnailSizeValue">300px</small>
+                                        <small>1000px</small>
+                                    </div>
+                                    <div class="form-text small">
+                                        <span class="text-muted">当前值: <span id="thumbnailSizeCurrent">300px</span></span><br>
+                                        <span class="text-muted">默认值: 300px</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 文件大小限制 - 单独一行 -->
+                            <div class="row">
+                                <div class="col-6">
+                                    <label for="maxFileSize" class="form-label small">文件大小限制</label>
+                                    <select class="form-select form-select-sm" id="maxFileSize">
+                                        <option value="26214400">25MB</option>
+                                        <option value="52428800" selected>50MB</option>
+                                        <option value="104857600">100MB</option>
+                                        <option value="209715200">200MB</option>
+                                    </select>
+                                    <div class="form-text small">
+                                        <span class="text-muted">当前值: <span id="maxFileSizeCurrent">50MB</span></span><br>
+                                        <span class="text-muted">默认值: 50MB</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 界面设置 -->
+                <div class="col-lg-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header bg-warning text-dark py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-display me-2"></i>
+                                界面设置
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-2">
+                                        <label for="photosPerPage" class="form-label small">每页显示照片数</label>
+                                        <select class="form-select form-select-sm" id="photosPerPage">
+                                            <option value="6">6张</option>
+                                            <option value="12" selected>12张</option>
+                                            <option value="20">20张</option>
+                                            <option value="50">50张</option>
+                                        </select>
+                                        <div class="form-text small">
+                                            <span class="text-muted">当前值: <span id="photosPerPageCurrent">12张</span></span><br>
+                                            <span class="text-muted">默认值: 12张</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-2">
+                                        <label for="similarPhotosLimit" class="form-label small">相似照片显示数量</label>
+                                        <select class="form-select form-select-sm" id="similarPhotosLimit">
+                                            <option value="4">4张</option>
+                                            <option value="8" selected>8张</option>
+                                            <option value="12">12张</option>
+                                        </select>
+                                        <div class="form-text small">
+                                            <span class="text-muted">当前值: <span id="similarPhotosLimitCurrent">8张</span></span><br>
+                                            <span class="text-muted">默认值: 8张</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-2">
+                                        <label for="hotTagsLimit" class="form-label small">热门标签显示数量</label>
+                                        <select class="form-select form-select-sm" id="hotTagsLimit">
+                                            <option value="5">5个</option>
+                                            <option value="10" selected>10个</option>
+                                            <option value="20">20个</option>
+                                        </select>
+                                        <div class="form-text small">
+                                            <span class="text-muted">当前值: <span id="hotTagsLimitCurrent">10个</span></span><br>
+                                            <span class="text-muted">默认值: 10个</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-2">
+                                        <label for="hotCategoriesLimit" class="form-label small">热门分类显示数量</label>
+                                        <select class="form-select form-select-sm" id="hotCategoriesLimit">
+                                            <option value="5">5个</option>
+                                            <option value="10" selected>10个</option>
+                                            <option value="20">20个</option>
+                                        </select>
+                                        <div class="form-text small">
+                                            <span class="text-muted">当前值: <span id="hotCategoriesLimitCurrent">10个</span></span><br>
+                                            <span class="text-muted">默认值: 10个</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 搜索设置 -->
+                <div class="col-lg-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-search me-2"></i>
+                                搜索设置
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="mb-2">
+                                <label for="similarityThreshold" class="form-label small">相似度阈值</label>
+                                <input type="range" class="form-range" id="similarityThreshold" 
+                                       min="0" max="1" step="0.1" value="0.8">
+                                <div class="d-flex justify-content-between">
+                                    <small>0.0 (宽松)</small>
+                                    <small id="similarityThresholdValue">0.8</small>
+                                    <small>1.0 (严格)</small>
+                                </div>
+                                <div class="form-text small">
+                                    用于相似照片搜索的阈值<br>
+                                    <span class="text-muted">当前值: <span id="similarityThresholdCurrent">0.8</span></span><br>
+                                    <span class="text-muted">默认值: 0.8</span>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label for="duplicateThreshold" class="form-label small">重复检测阈值</label>
+                                <input type="range" class="form-range" id="duplicateThreshold" 
+                                       min="1" max="20" value="5">
+                                <div class="d-flex justify-content-between">
+                                    <small>1 (严格)</small>
+                                    <small id="duplicateThresholdValue">5</small>
+                                    <small>20 (宽松)</small>
+                                </div>
+                                <div class="form-text small">
+                                    用于重复照片检测的阈值<br>
+                                    <span class="text-muted">当前值: <span id="duplicateThresholdCurrent">5</span></span><br>
+                                    <span class="text-muted">默认值: 5</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- 配置状态提示 -->
+        <div class="row">
+            <div class="col-12">
+                <div id="configStatus" class="alert alert-info d-none">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <span id="configStatusText">配置已保存</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 配置确认模态框 -->
+    <div class="modal fade" id="configConfirmModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认配置更改</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>您确定要保存这些配置更改吗？</p>
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        某些配置更改可能需要重启系统才能完全生效。
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmSaveConfig">确认保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- 自定义JavaScript -->
+    <script src="/static/js/app-utils.js?v=20250119_80"></script>
+    <script src="/static/js/user-config-manager.js?v=20250119_80"></script>
+</body>
+</html>

@@ -237,7 +237,7 @@ async def get_photo_detail(
 @router.get("/similar/{photo_id}")
 async def search_similar_photos(
     photo_id: int,
-    threshold: float = Query(0.8, ge=0.0, le=1.0, description="相似度阈值"),
+    threshold: float = Query(None, ge=0.0, le=1.0, description="相似度阈值"),
     limit: int = Query(20, ge=1, le=100, description="返回数量"),
     db: Session = Depends(get_db)
 ):
@@ -247,6 +247,11 @@ async def search_similar_photos(
     基于感知哈希算法搜索与指定照片相似的照片
     """
     try:
+        # 使用配置中的默认相似度阈值
+        from app.core.config import settings
+        if threshold is None:
+            threshold = settings.search.similarity_threshold
+        
         # 获取参考照片
         photo = db.query(Photo).filter(Photo.id == photo_id).first()
         if not photo:

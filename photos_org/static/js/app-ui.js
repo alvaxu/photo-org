@@ -288,7 +288,7 @@ function createPhotoDetailModal(photo) {
         <div class="row">
             <div class="col-md-6">
                 <div class="text-center mb-3">
-                    <img src="/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
+                    <img src="/photos_storage/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
                          alt="${photo.filename}" 
                          class="img-fluid rounded" 
                          style="max-height: 500px; object-fit: contain;">

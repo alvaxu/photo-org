@@ -141,6 +141,10 @@ class SearchService:
     def _apply_keyword_filter(self, query, keyword: str, search_type: str = "all"):
         """应用关键词筛选"""
         try:
+            # 如果关键词为空，直接返回原查询
+            if not keyword or not keyword.strip():
+                return query
+                
             # 根据搜索类型选择不同的搜索策略
             if search_type == "all":
                 # 全部内容搜索，首先尝试使用全文搜索

@@ -6,10 +6,13 @@
 // 全局配置
 const CONFIG = {
     API_BASE_URL: '/api/v1',
-    PAGE_SIZE: 12,  // 改为12张/页
+    PAGE_SIZE: 12,  // 默认值，将从配置中动态加载
     DEBOUNCE_DELAY: 300,
     IMAGE_PLACEHOLDER: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTAwSDE0MEwxMjAgMTIwSDEwMFYxNDBIMTZWMTAwWiIgZmlsbD0iIzk3OTdhNyIvPgo8L3N2Zz4K'
 };
+
+// 用户配置缓存
+let userConfig = null;
 
 // 全局状态管理
 const AppState = {
@@ -50,6 +53,30 @@ const searchScopeHints = {
     'description': '搜索范围：用户照片描述和AI内容描述（如：生日聚会场景, 室内庆祝活动）',
     'ai_analysis': '搜索范围：所有AI分析结果（如：聚会, 蛋糕, 人物, 场景识别）'
 };
+
+// ============ 配置管理 ============
+
+/**
+ * 加载用户配置
+ */
+async function loadUserConfig() {
+    try {
+        const response = await fetch('/api/v1/config/user');
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                userConfig = result.data;
+                // 更新全局配置
+                CONFIG.PAGE_SIZE = userConfig.ui?.photos_per_page || 12;
+                console.log('用户配置加载成功:', userConfig);
+            }
+        }
+    } catch (error) {
+        console.error('加载用户配置失败:', error);
+        // 使用默认配置
+        CONFIG.PAGE_SIZE = 12;
+    }
+}
 
 // ============ 多选下拉组件 ============
 
@@ -245,10 +272,19 @@ async function initSearchMultiSelect() {
 
 async function loadHotData() {
     try {
+        // 确保配置已加载
+        if (!userConfig) {
+            await loadUserConfig();
+        }
+        
+        // 从配置中获取限制数量
+        const tagsLimit = userConfig?.ui?.hot_tags_limit || 10;
+        const categoriesLimit = userConfig?.ui?.hot_categories_limit || 8;
+        
         // 并行加载热门标签和分类
         const [tagsResponse, categoriesResponse] = await Promise.all([
-            fetch('/api/v1/tags/popular?limit=10'),
-            fetch('/api/v1/categories/popular?limit=10')
+            fetch(`/api/v1/tags/popular?limit=${tagsLimit}`),
+            fetch(`/api/v1/categories/popular?limit=${categoriesLimit}`)
         ]);
 
         if (tagsResponse.ok) {
@@ -284,6 +320,11 @@ async function loadStats() {
 async function loadPhotos(page = 1) {
     try {
         setLoading(true);
+
+        // 确保配置已加载
+        if (!userConfig) {
+            await loadUserConfig();
+        }
 
         const params = new URLSearchParams({
             offset: (page - 1) * CONFIG.PAGE_SIZE,
@@ -720,6 +761,18 @@ function handleSortChange() {
 }
 
 function clearAllFilters() {
+    // 先更新AppState
+    AppState.searchFilters = {
+        keyword: '',
+        searchType: 'all',
+        dateFilter: '',
+        qualityFilter: '',
+        sortBy: 'quality_score',
+        sortOrder: 'desc',
+        selectedTags: [],
+        selectedCategories: []
+    };
+    
     // 重置所有筛选条件
     elements.searchInput.value = '';
     elements.searchType.value = 'all';
@@ -747,18 +800,6 @@ function clearAllFilters() {
     if (categoryMultiSelect) {
         categoryMultiSelect.clearSelection();
     }
-    
-    // 更新AppState
-    AppState.searchFilters = {
-        keyword: '',
-        searchType: 'all',
-        dateFilter: '',
-        qualityFilter: '',
-        sortBy: 'quality_score',
-        sortOrder: 'desc',
-        selectedTags: [],
-        selectedCategories: []
-    };
     
     AppState.currentPage = 1;
     loadPhotos(1);
@@ -859,6 +900,7 @@ window.searchTypePlaceholders = searchTypePlaceholders;
 window.searchScopeHints = searchScopeHints;
 
 // 导出数据加载函数
+window.loadUserConfig = loadUserConfig;
 window.loadHotData = loadHotData;
 window.loadStats = loadStats;
 window.loadPhotos = loadPhotos;

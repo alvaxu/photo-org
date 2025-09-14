@@ -20,7 +20,7 @@ class PhotoManager {
         modalTitle.textContent = photo.filename;
 
         // 设置照片图片
-        modalImage.src = photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER;
+        modalImage.src = `/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}`;
         modalImage.alt = photo.filename;
 
         // 生成照片信息

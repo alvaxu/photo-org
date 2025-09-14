@@ -178,12 +178,19 @@ class PhotoService:
             # 删除物理文件
             if delete_file:
                 try:
-                    if Path(photo.original_path).exists():
-                        os.remove(photo.original_path)
+                    # 构建完整的文件路径
+                    from app.core.config import settings
+                    storage_base = Path(settings.storage.base_path)
+                    full_original_path = storage_base / photo.original_path
+                    
+                    if full_original_path.exists():
+                        os.remove(full_original_path)
 
                     # 删除缩略图
-                    if photo.thumbnail_path and Path(photo.thumbnail_path).exists():
-                        os.remove(photo.thumbnail_path)
+                    if photo.thumbnail_path:
+                        full_thumbnail_path = storage_base / photo.thumbnail_path
+                        if full_thumbnail_path.exists():
+                            os.remove(full_thumbnail_path)
 
                 except Exception as e:
                     self.logger.warning(f"删除物理文件失败: {str(e)}")

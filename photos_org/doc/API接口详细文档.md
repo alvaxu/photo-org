@@ -63,7 +63,7 @@
 ```json
 {
   "items": [...],
-  "total": 100,
+      "total": 100,
   "skip": 0,
   "limit": 20,
   "has_more": true
@@ -166,25 +166,25 @@
 **实际响应格式**：
 ```json
 {
-  "id": 1,
-  "filename": "IMG_001.jpg",
-  "original_path": "originals/2023/12/19/20231219_143025_IMG_001.jpg",
-  "thumbnail_path": "thumbnails/2023/12/19/1_IMG_001_thumb.jpg",
-  "taken_at": "2023-12-19T14:30:25Z",
-  "file_size": 2621440,
-  "width": 4032,
-  "height": 3024,
-  "format": "JPEG",
-  "camera_make": "Apple",
-  "camera_model": "iPhone 13 Pro",
-  "quality_score": 85,
-  "scene_type": "室内聚会",
-  "description": "家庭成员在客厅庆祝生日",
-  "categories": ["家庭", "生日"],
-  "tags": ["生日", "蛋糕", "蜡烛"],
-  "created_at": "2023-12-19T14:35:00Z",
-  "updated_at": "2023-12-19T14:40:00Z"
-}
+    "id": 1,
+    "filename": "IMG_001.jpg",
+    "original_path": "originals/2023/12/19/20231219_143025_IMG_001.jpg",
+    "thumbnail_path": "thumbnails/2023/12/19/1_IMG_001_thumb.jpg",
+    "taken_at": "2023-12-19T14:30:25Z",
+    "file_size": 2621440,
+    "width": 4032,
+    "height": 3024,
+    "format": "JPEG",
+    "camera_make": "Apple",
+    "camera_model": "iPhone 13 Pro",
+    "quality_score": 85,
+    "scene_type": "室内聚会",
+    "description": "家庭成员在客厅庆祝生日",
+    "categories": ["家庭", "生日"],
+    "tags": ["生日", "蛋糕", "蜡烛"],
+    "created_at": "2023-12-19T14:35:00Z",
+    "updated_at": "2023-12-19T14:40:00Z"
+  }
 ```
 
 ### 3.2 照片操作接口
@@ -387,13 +387,13 @@
 ```json
 {
   "message": "照片上传成功",
-  "uploaded": [
-    {
-      "id": 1,
-      "filename": "IMG_001.jpg",
-      "status": "processing"
-    }
-  ],
+    "uploaded": [
+      {
+        "id": 1,
+        "filename": "IMG_001.jpg",
+        "status": "processing"
+      }
+    ],
   "failed": [],
   "duplicate_detected": []
 }
@@ -614,20 +614,20 @@
 **实际响应格式**：
 ```json
 [
-  {
-    "id": 1,
-    "name": "家庭",
+      {
+        "id": 1,
+        "name": "家庭",
     "description": "家庭相关照片",
-    "photo_count": 45,
+        "photo_count": 45,
     "parent_id": null,
     "created_at": "2023-12-19T10:00:00Z",
     "updated_at": "2023-12-19T10:00:00Z"
-  },
-  {
-    "id": 2,
-    "name": "旅行",
+      },
+      {
+        "id": 2,
+        "name": "旅行",
     "description": "旅行相关照片",
-    "photo_count": 23,
+        "photo_count": 23,
     "parent_id": null,
     "created_at": "2023-12-19T10:05:00Z",
     "updated_at": "2023-12-19T10:05:00Z"
@@ -647,8 +647,8 @@
     "name": "家庭",
     "children": [
       {
-        "id": 3,
-        "name": "生日",
+    "id": 3,
+    "name": "生日",
         "children": []
       }
     ]
@@ -714,19 +714,19 @@
 **实际响应格式**：
 ```json
 [
-  {
-    "id": 1,
-    "name": "生日",
+      {
+        "id": 1,
+        "name": "生日",
     "description": "生日相关标签",
-    "photo_count": 12,
+        "photo_count": 12,
     "created_at": "2023-12-19T10:00:00Z",
     "updated_at": "2023-12-19T10:00:00Z"
-  },
-  {
-    "id": 2,
-    "name": "蛋糕",
+      },
+      {
+        "id": 2,
+        "name": "蛋糕",
     "description": "蛋糕相关标签",
-    "photo_count": 8,
+        "photo_count": 8,
     "created_at": "2023-12-19T10:05:00Z",
     "updated_at": "2023-12-19T10:05:00Z"
   }
@@ -864,10 +864,10 @@
 **实际响应格式**：
 ```json
 {
-  "tags": ["生日", "家庭", "庆祝", "室内"],
-  "categories": ["家庭", "庆祝", "聚会"],
-  "camera_makes": ["Canon", "Nikon", "Sony"],
-  "camera_models": ["EOS 80D", "D750", "A7R"]
+    "tags": ["生日", "家庭", "庆祝", "室内"],
+    "categories": ["家庭", "庆祝", "聚会"],
+    "camera_makes": ["Canon", "Nikon", "Sony"],
+    "camera_models": ["EOS 80D", "D750", "A7R"]
 }
 ```
 
@@ -878,19 +878,19 @@
 **实际响应格式**：
 ```json
 {
-  "total_photos": 150,
-  "total_tags": 45,
-  "total_categories": 12,
-  "photos_by_quality": {
-    "优秀": 25,
-    "良好": 85,
-    "一般": 35,
-    "较差": 5
-  },
-  "photos_by_date": {
-    "2023": 120,
-    "2024": 25,
-    "2025": 5
+    "total_photos": 150,
+    "total_tags": 45,
+    "total_categories": 12,
+    "photos_by_quality": {
+      "优秀": 25,
+      "良好": 85,
+      "一般": 35,
+      "较差": 5
+    },
+    "photos_by_date": {
+      "2023": 120,
+      "2024": 25,
+      "2025": 5
   }
 }
 ```
@@ -976,17 +976,17 @@
 **实际响应格式**：
 ```json
 {
-  "total_size": 1073741824,
-  "used_size": 536870912,
-  "free_size": 536870912,
-  "originals_size": 402653184,
-  "thumbnails_size": 134217728,
-  "temp_size": 1048576,
-  "backups_size": 67108864,
-  "photo_count": 1250,
-  "disk_info": {
-    "total": 100000000000,
-    "free": 30000000000
+    "total_size": 1073741824,
+    "used_size": 536870912,
+    "free_size": 536870912,
+    "originals_size": 402653184,
+    "thumbnails_size": 134217728,
+    "temp_size": 1048576,
+    "backups_size": 67108864,
+    "photo_count": 1250,
+    "disk_info": {
+      "total": 100000000000,
+      "free": 30000000000
   }
 }
 ```
@@ -1016,10 +1016,10 @@
 **实际响应格式**：
 ```json
 {
-  "backup_type": "incremental",
-  "backup_path": "backups/incremental_backup_20231219_143000.zip",
-  "backup_size": 104857600,
-  "backup_time": 45.2
+    "backup_type": "incremental",
+    "backup_path": "backups/incremental_backup_20231219_143000.zip",
+    "backup_size": 104857600,
+    "backup_time": 45.2
 }
 ```
 
@@ -1074,7 +1074,7 @@
 {
   "status": "healthy",
   "timestamp": "2025-01-01T00:00:00Z",
-  "version": "1.0.0",
+    "version": "1.0.0",
   "uptime": 3600
 }
 ```
@@ -1203,7 +1203,7 @@ async function searchPhotos(keyword, searchType = 'all') {
     const result = await response.json();
     
     if (response.ok) {
-      return result;
+    return result;
     } else {
       console.error('搜索失败:', result.detail);
       return null;
@@ -1249,7 +1249,7 @@ def search_photos(keyword, search_type='all'):
         
         response = requests.get('/api/v1/search/photos', params=params)
         response.raise_for_status()
-        return response.json()
+            return response.json()
     except Exception as e:
         print(f"搜索失败: {e}")
         return None
