@@ -18,6 +18,9 @@ numpy>=1.21.0,<2.0.0
 # AI服务
 dashscope==1.14.0
 
+# 节假日检测
+chinese_calendar==1.10.0
+
 # 数据验证和序列化
 pydantic==2.5.0
 pydantic-settings==2.1.0

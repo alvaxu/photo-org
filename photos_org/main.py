@@ -28,6 +28,10 @@ from app.services.storage_service import StorageService
 # 创建数据库表
 base.Base.metadata.create_all(bind=engine)
 
+# 初始化系统分类
+from utilities.init_system_categories import init_system_categories
+init_system_categories()
+
 # 设置日志
 setup_logging()
 

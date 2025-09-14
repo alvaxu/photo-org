@@ -82,6 +82,12 @@ async def get_categories(
         if search:
             query = query.filter(Category.name.ilike(f'%{search}%'))
 
+        # 排序：系统分类优先，然后按ID排序
+        query = query.order_by(
+            Category.name.in_(['家庭照片', '旅行照片', '工作照片', '社交活动', '日常生活']).desc(),
+            Category.id
+        )
+
         # 获取分类
         categories = query.offset(skip).limit(limit).all()
 

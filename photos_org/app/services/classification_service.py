@@ -21,26 +21,75 @@ class ClassificationService:
         """初始化分类标签服务"""
         self.logger = get_logger(__name__)
 
-        # 预定义分类规则
-        self.category_rules = {
-            'scene': {
-                '室内': ['室内', '房间', '客厅', '卧室', '厨房', '办公室'],
-                '室外': ['室外', '户外', '公园', '街道', '广场', '山脉', '海边'],
-                '风景': ['风景', '山水', '湖泊', '森林', '沙漠', '雪景'],
-                '城市': ['城市', '建筑', '街道', '广场', '桥梁', '摩天大楼']
+        # 新分类规则（5个主要分类，相册概念）
+        self.album_categories = {
+            '家庭照片': {
+                'keywords': ['家庭', '家人', '孩子', '父母', '夫妻', '亲子', '家庭聚会', '孩子玩耍', '亲子活动'],
+                'objects': ['人', '人物', '家庭', '孩子', '婴儿', '人像', '肖像', '自拍', '合影'],
+                'location': ['家庭', '家里', '客厅', '卧室', '厨房', '家庭家里'],
+                'activity': ['家庭聚会', '孩子玩耍', '亲子活动']
             },
-            'activity': {
-                '聚会': ['聚会', '派对', '庆祝', '生日', '婚礼', '节日'],
-                '旅行': ['旅行', '度假', '出游', '公路旅行', '自驾游'],
-                '运动': ['运动', '健身', '跑步', '游泳', '篮球', '足球'],
-                '学习': ['学习', '读书', '写作', '会议', '培训'],
-                '日常': ['日常', '家居', '生活', '工作', '购物']
+            '旅行照片': {
+                'keywords': ['旅行', '旅游', '度假', '出游', '景点', '风景', '旅行旅游', '度假出游', '景点观光'],
+                'objects': ['风景', '建筑', '地标', '景点', '酒店', '山水', '湖泊', '森林', '城市建筑', '桥梁'],
+                'location': ['户外', '景点', '酒店', '机场', '车站', '户外公园', '街道', '广场', '旅行景点'],
+                'activity': ['旅行旅游', '度假出游', '景点观光']
             },
-            'quality': {
+            '工作照片': {
+                'keywords': ['工作', '办公', '会议', '商务', '出差', '工作办公', '会议商务', '出差培训'],
+                'objects': ['办公室', '电脑', '文件', '会议室'],
+                'location': ['办公室', '会议室', '商务场所', '办公室', '会议室'],
+                'activity': ['工作办公', '会议商务', '出差培训']
+            },
+            '社交活动': {
+                'keywords': ['聚会', '派对', '聚餐', '庆祝', '生日', '婚礼', '社交聚会', '派对聚餐', '庆祝生日', '婚礼节日'],
+                'objects': ['蛋糕', '礼物', '装饰', '人群'],
+                'location': ['餐厅', '餐厅'],
+                'activity': ['社交聚会', '派对聚餐', '庆祝生日', '婚礼节日']
+            },
+            '日常生活': {
+                'keywords': ['日常', '生活', '购物', '休闲', '日常购物', '休闲娱乐', '运动健身', '学习读书'],
+                'objects': ['食物', '商品', '日常用品'],
+                'location': ['户外公园', '街道', '广场'],
+                'activity': ['日常购物', '休闲娱乐', '运动健身', '学习读书']
+            }
+        }
+
+        # 标签规则（多维度标签）
+        self.tag_rules = {
+            'scene_tags': {
+                '室内': ['室内房间', '客厅', '卧室', '厨房', '办公室'],
+                '室外': ['户外公园', '街道', '广场', '庭院', '阳台'],
+                '风景': ['山水', '湖泊', '森林', '沙漠', '雪景', '海滩', '山脉'],
+                '城市': ['建筑', '桥梁', '摩天大楼', '商业区', '住宅区'],
+                '人物': ['人像', '肖像', '自拍', '合影', '单人', '多人'],
+                '自然': ['植物', '动物', '花卉', '树木', '天空', '云朵', '星空']
+            },
+            'activity_tags': {
+                '聚会': ['派对', '聚餐', '宴会', '庆祝', '生日', '婚礼', '节日'],
+                '旅行': ['旅游', '度假', '出游', '公路旅行', '自驾游', '观光'],
+                '运动': ['健身', '跑步', '游泳', '篮球', '足球', '瑜伽', '骑行'],
+                '学习': ['读书', '写作', '研究', '考试', '上课', '图书馆'],
+                '工作': ['办公', '会议', '商务', '出差', '培训', '讲座'],
+                '休闲': ['放松', '休息', '娱乐', '游戏', '观影', '听音乐'],
+                '购物': ['逛街', '商场', '超市', '市场', '采购']
+            },
+            'time_tags': {
+                '季节': ['春季', '夏季', '秋季', '冬季'],
+                '时段': ['上午', '下午', '晚上', '深夜'],
+                '节假日': ['春节', '中秋', '国庆', '五一', '端午', '清明', '元旦', '情人节', '圣诞节']
+            },
+            'quality_tags': {
                 '优秀': lambda score: score >= 85,
                 '良好': lambda score: 70 <= score < 85,
                 '一般': lambda score: 50 <= score < 70,
                 '较差': lambda score: score < 50
+            },
+            'emotion_tags': {
+                '欢乐': ['开心', '快乐', '兴奋', '愉快'],
+                '宁静': ['安静', '平和', '放松', '舒适'],
+                '怀旧': ['回忆', '温馨', '感动', '怀念'],
+                '兴奋': ['激动', '刺激', '紧张', '期待']
             }
         }
 
@@ -161,171 +210,180 @@ class ClassificationService:
 
     def _analyze_and_classify(self, photo: Photo, analysis_results: List[PhotoAnalysis]) -> List[Dict[str, Any]]:
         """
-        基于AI分析结果进行分类
+        基于AI分析结果进行分类（多维度分类：内容分类 + 质量分类 + 设备分类）
 
         Args:
             photo: 照片对象
             analysis_results: AI分析结果列表
 
         Returns:
-            分类结果列表
+            分类结果列表（包含内容分类、质量分类、设备分类）
         """
         classifications = []
 
-        # 基于时间分类
-        if photo.taken_at:
-            time_classifications = self._classify_by_time(photo.taken_at)
-            classifications.extend(time_classifications)
+        # 1. 内容分类（相册概念，主要分类）
+        assigned_category = self._assign_to_category(photo, analysis_results)
+        if assigned_category:
+            classifications.append({
+                'name': assigned_category,
+                'type': 'content',
+                'confidence': 0.9
+            })
+        else:
+            # 默认分配到"日常生活"分类
+            classifications.append({
+                'name': '日常生活',
+                'type': 'content',
+                'confidence': 0.5
+            })
+        
+        # 2. 质量分类
+        quality_classification = self._classify_by_quality(analysis_results)
+        if quality_classification:
+            classifications.append(quality_classification)
+        
+        # 3. 设备分类
+        device_classification = self._classify_by_device(photo)
+        if device_classification:
+            classifications.append(device_classification)
 
-        # 基于AI分析结果分类
+        return classifications
+
+    def _assign_to_category(self, photo: Photo, analysis_results: List[PhotoAnalysis]) -> str:
+        """
+        基于AI分析结果分配分类
+
+        Args:
+            photo: 照片对象
+            analysis_results: AI分析结果列表
+
+        Returns:
+            分配的分类名称
+        """
+        # 按优先级匹配：家庭照片 → 旅行照片 → 工作照片 → 社交活动 → 日常生活
+        for category_name, rules in self.album_categories.items():
+            if self._matches_category_rules(photo, analysis_results, rules):
+                return category_name
+        return '日常生活'  # 默认分类
+
+    def _classify_by_quality(self, analysis_results: List[PhotoAnalysis]) -> Dict[str, Any]:
+        """
+        基于质量分析结果进行质量分类
+        
+        Args:
+            analysis_results: AI分析结果列表
+            
+        Returns:
+            质量分类结果
+        """
         for analysis in analysis_results:
-            if analysis.analysis_type == 'content':  # 修正：AI分析类型是'content'
-                content_classifications = self._classify_by_content(analysis.analysis_result)
-                classifications.extend(content_classifications)
-            elif analysis.analysis_type == 'quality':  # 修正：质量分析类型是'quality'
-                quality_classifications = self._classify_by_quality(analysis.analysis_result)
-                classifications.extend(quality_classifications)
-
-        # 基于设备信息分类
-        if photo.camera_make or photo.camera_model:
-            device_classifications = self._classify_by_device(photo)
-            classifications.extend(device_classifications)
-
-        # 去重和合并相同分类
-        unique_classifications = self._deduplicate_classifications(classifications)
-
-        return unique_classifications
-
-    def _classify_by_time(self, taken_at: datetime) -> List[Dict[str, Any]]:
-        """基于时间进行分类"""
-        classifications = []
-
-        # 按年分类
-        year_category = {
-            'name': f'{taken_at.year}年',
-            'type': 'time_year',
-            'confidence': 1.0
-        }
-        classifications.append(year_category)
-
-        # 按季节分类
-        season_names = {
-            'spring': '春季',
-            'summer': '夏季',
-            'autumn': '秋季',
-            'winter': '冬季'
-        }
-
-        month = taken_at.month
-        if month in [3, 4, 5]:
-            season = 'spring'
-        elif month in [6, 7, 8]:
-            season = 'summer'
-        elif month in [9, 10, 11]:
-            season = 'autumn'
-        else:
-            season = 'winter'
-
-        season_category = {
-            'name': season_names[season],
-            'type': 'time_season',
-            'confidence': 0.9
-        }
-        classifications.append(season_category)
-
-        # 按时间段分类
-        hour = taken_at.hour
-        if 6 <= hour < 12:
-            time_period = '上午'
-        elif 12 <= hour < 18:
-            time_period = '下午'
-        elif 18 <= hour < 22:
-            time_period = '晚上'
-        else:
-            time_period = '深夜'
-
-        time_category = {
-            'name': time_period,
-            'type': 'time_period',
-            'confidence': 0.8
-        }
-        classifications.append(time_category)
-
-        return classifications
-
-    def _classify_by_content(self, analysis_result: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """基于内容分析结果进行分类"""
-        classifications = []
-
-        if not analysis_result:
-            return classifications
-
-        # 场景分类
-        scene_type = analysis_result.get('scene_type', '')
-        if scene_type:
-            for category_name, keywords in self.category_rules['scene'].items():
-                if scene_type in keywords:
-                    classifications.append({
-                        'name': category_name,
-                        'type': 'scene',
+            if analysis.analysis_type == 'quality':
+                quality_score = analysis.analysis_result.get('quality_score', 0)
+                
+                if quality_score >= 85:
+                    return {
+                        'name': '优秀',
+                        'type': 'quality',
+                        'confidence': 0.9
+                    }
+                elif quality_score >= 70:
+                    return {
+                        'name': '良好',
+                        'type': 'quality',
                         'confidence': 0.8
-                    })
-                    break
+                    }
+                elif quality_score >= 50:
+                    return {
+                        'name': '一般',
+                        'type': 'quality',
+                        'confidence': 0.7
+                    }
+                else:
+                    return {
+                        'name': '较差',
+                        'type': 'quality',
+                        'confidence': 0.6
+                    }
+        
+        return None
 
-        # 活动分类
-        activity = analysis_result.get('activity', '')
-        if activity:
-            for category_name, keywords in self.category_rules['activity'].items():
-                if activity in keywords:
-                    classifications.append({
-                        'name': category_name,
-                        'type': 'activity',
-                        'confidence': 0.8
-                    })
-                    break
-
-        return classifications
-
-    def _classify_by_quality(self, analysis_result: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """基于质量评估进行分类"""
-        classifications = []
-
-        if not analysis_result:
-            return classifications
-
-        quality_score = analysis_result.get('quality_score', 0)
-        for quality_level, condition_func in self.category_rules['quality'].items():
-            if condition_func(quality_score):
-                classifications.append({
-                    'name': quality_level,
-                    'type': 'quality',
-                    'confidence': 0.9
-                })
-                break
-
-        return classifications
-
-    def _classify_by_device(self, photo: Photo) -> List[Dict[str, Any]]:
-        """基于设备信息进行分类"""
-        classifications = []
+    def _classify_by_device(self, photo: Photo) -> Dict[str, Any]:
+        """
+        基于EXIF信息进行设备分类
+        
+        Args:
+            photo: 照片对象
+            
+        Returns:
+            设备分类结果
+        """
+        device_info = []
 
         if photo.camera_make:
-            device_category = {
-                'name': photo.camera_make,
-                'type': 'device_make',
-                'confidence': 1.0
-            }
-            classifications.append(device_category)
-
+            device_info.append(photo.camera_make)
         if photo.camera_model:
-            model_category = {
-                'name': photo.camera_model,
-                'type': 'device_model',
+            device_info.append(photo.camera_model)
+        
+        if device_info:
+            device_name = ' '.join(device_info)
+            return {
+                'name': device_name,
+                'type': 'device',
                 'confidence': 1.0
             }
-            classifications.append(model_category)
+        
+        return None
 
-        return classifications
+    def _matches_category_rules(self, photo: Photo, analysis_results: List[PhotoAnalysis], rules: Dict) -> bool:
+        """
+        检查照片是否匹配分类规则
+
+        Args:
+            photo: 照片对象
+            analysis_results: AI分析结果列表
+            rules: 分类规则
+
+        Returns:
+            是否匹配
+        """
+        for analysis in analysis_results:
+            if analysis.analysis_type == 'content':
+                analysis_result = analysis.analysis_result
+                
+                # 检查关键词匹配
+                keywords = rules.get('keywords', [])
+                for keyword in keywords:
+                    if (keyword in analysis_result.get('description', '') or
+                        keyword in analysis_result.get('activity', '') or
+                        keyword in analysis_result.get('scene_type', '')):
+                        return True
+                
+                # 检查对象匹配
+                objects = rules.get('objects', [])
+                ai_objects = analysis_result.get('objects', [])
+                for obj in objects:
+                    if any(obj in ai_obj for ai_obj in ai_objects):
+                        return True
+                
+                # 检查地点匹配
+                locations = rules.get('location', [])
+                location_type = analysis_result.get('location_type', '')
+                for location in locations:
+                    if location in location_type:
+                        return True
+                
+                # 检查活动匹配
+                activities = rules.get('activity', [])
+                activity = analysis_result.get('activity', '')
+                for act in activities:
+                    if act in activity:
+                        return True
+        
+        return False
+
+
+
+
 
     def _deduplicate_classifications(self, classifications: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """去重和合并相同分类"""
@@ -342,14 +400,25 @@ class ClassificationService:
         return list(seen.values())
 
     def _generate_auto_tags(self, photo: Photo, analysis_results: List[PhotoAnalysis]) -> List[Dict[str, Any]]:
-        """生成自动标签"""
+        """生成自动标签（多维度标签）"""
         tags = []
 
         # 从AI分析结果中提取标签
         for analysis in analysis_results:
-            if analysis.analysis_type == 'content':  # 修正：AI分析类型是'content'
+            if analysis.analysis_type == 'content':
                 content_tags = self._extract_tags_from_content(analysis.analysis_result)
                 tags.extend(content_tags)
+
+        # 添加时间标签（包括节假日）
+        if photo.taken_at:
+            time_tags = self._extract_time_tags(photo.taken_at)
+            tags.extend(time_tags)
+
+        # 添加质量标签
+        for analysis in analysis_results:
+            if analysis.analysis_type == 'quality':
+                quality_tags = self._extract_quality_tags(analysis.analysis_result)
+                tags.extend(quality_tags)
 
         # 从EXIF信息生成标签
         exif_tags = self._extract_tags_from_exif(photo)
@@ -362,55 +431,26 @@ class ClassificationService:
         return normalized_tags
 
     def _extract_tags_from_content(self, analysis_result: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """从内容分析结果中提取标签"""
+        """从内容分析结果中提取标签（多维度标签）"""
         tags = []
 
         if not analysis_result:
             return tags
 
-        # 使用AI分析结果中已经存在的标签
-        ai_tags = analysis_result.get('tags', [])
-        self.logger.info(f"AI分析结果中的标签: {ai_tags}")
-        if ai_tags:
-            for tag_name in ai_tags:
+            # 场景标签
+            scene_type = analysis_result.get('scene_type', '')
+            if scene_type:
                 tags.append({
-                    'name': tag_name,
-                    'type': 'ai_generated',
-                    'confidence': 0.95
-                })
-        self.logger.info(f"从AI标签生成的标签: {[t['name'] for t in tags]}")
-
-        # 从其他字段生成额外标签（无论是否有AI标签都执行）
-        # 物体标签
-        objects = analysis_result.get('objects', [])
-        for obj in objects:
-            chinese_name = self.chinese_tag_mapping.get(obj.lower(), obj)
-            # 避免重复添加相同的标签
-            if not any(tag['name'] == chinese_name for tag in tags):
-                tags.append({
-                    'name': chinese_name,
-                    'type': 'object',
-                    'confidence': 0.8
-                })
-
-        # 场景标签
-        scene_type = analysis_result.get('scene_type', '')
-        if scene_type:
-            chinese_scene = self.chinese_tag_mapping.get(scene_type.lower(), scene_type)
-            if not any(tag['name'] == chinese_scene for tag in tags):
-                tags.append({
-                    'name': chinese_scene,
+                'name': scene_type,
                     'type': 'scene',
                     'confidence': 0.9
                 })
 
-        # 活动标签
-        activity = analysis_result.get('activity', '')
-        if activity:
-            chinese_activity = self.chinese_tag_mapping.get(activity.lower(), activity)
-            if not any(tag['name'] == chinese_activity for tag in tags):
+            # 活动标签
+            activity = analysis_result.get('activity', '')
+            if activity:
                 tags.append({
-                    'name': chinese_activity,
+                'name': activity,
                     'type': 'activity',
                     'confidence': 0.8
                 })
@@ -418,13 +458,20 @@ class ClassificationService:
         # 情感标签
         emotion = analysis_result.get('emotion', '')
         if emotion:
-            chinese_emotion = self.chinese_tag_mapping.get(emotion.lower(), emotion)
-            if not any(tag['name'] == chinese_emotion for tag in tags):
-                tags.append({
-                    'name': chinese_emotion,
-                    'type': 'emotion',
-                    'confidence': 0.85
-                })
+            tags.append({
+                'name': emotion,
+                'type': 'emotion',
+                'confidence': 0.85
+            })
+
+        # 物体标签
+        objects = analysis_result.get('objects', [])
+        for obj in objects:
+            tags.append({
+                'name': obj,
+                'type': 'object',
+                'confidence': 0.8
+            })
 
         return tags
 
@@ -701,3 +748,135 @@ class ClassificationService:
                 'success': False,
                 'error': str(e)
             }
+
+    def _extract_time_tags(self, taken_at: datetime) -> List[Dict[str, Any]]:
+        """从拍摄时间提取时间标签"""
+        tags = []
+        
+        # 季节标签
+        month = taken_at.month
+        if month in [3, 4, 5]:
+            season = '春季'
+        elif month in [6, 7, 8]:
+            season = '夏季'
+        elif month in [9, 10, 11]:
+            season = '秋季'
+        else:
+            season = '冬季'
+        
+        tags.append({
+            'name': season,
+            'type': 'time',
+            'confidence': 1.0
+        })
+        
+        # 时段标签
+        hour = taken_at.hour
+        if 6 <= hour < 12:
+            time_period = '上午'
+        elif 12 <= hour < 18:
+            time_period = '下午'
+        elif 18 <= hour < 22:
+            time_period = '晚上'
+        else:
+            time_period = '深夜'
+        
+        tags.append({
+            'name': time_period,
+            'type': 'time',
+            'confidence': 1.0
+        })
+        
+        # 节假日标签（使用chinese_calendar库）
+        try:
+            import chinese_calendar as cc  # type: ignore
+            if cc.is_holiday(taken_at.date()):
+                holiday_name = self._get_holiday_name_with_calendar(taken_at)
+                if holiday_name:
+                    tags.append({
+                        'name': holiday_name,
+                        'type': 'time',
+                        'confidence': 1.0
+                    })
+        except ImportError:
+            # 如果库不存在，使用简单的节假日判断
+            holiday_name = self._get_holiday_name_simple(taken_at)
+            if holiday_name:
+                tags.append({
+                    'name': holiday_name,
+                    'type': 'time',
+                    'confidence': 0.8
+                })
+        except Exception as e:
+            # 其他异常，使用简单方法
+            self.logger.warning(f"chinese_calendar库使用失败: {e}，使用简单方法")
+            holiday_name = self._get_holiday_name_simple(taken_at)
+            if holiday_name:
+                tags.append({
+                    'name': holiday_name,
+                    'type': 'time',
+                    'confidence': 0.8
+                })
+        
+        return tags
+
+    def _get_holiday_name_with_calendar(self, taken_at: datetime) -> str:
+        """使用chinese_calendar库获取节假日名称"""
+        try:
+            import chinese_calendar as cc  # type: ignore
+            
+            # chinese_calendar库没有get_holiday_name方法，直接使用简单方法
+            if cc.is_holiday(taken_at.date()):
+                return self._get_holiday_name_simple(taken_at)
+            
+            return None
+        except Exception as e:
+            self.logger.warning(f"获取节假日名称失败: {e}")
+            return self._get_holiday_name_simple(taken_at)
+
+    def _get_holiday_name_simple(self, taken_at: datetime) -> str:
+        """简单的节假日判断（备用方法）"""
+        month = taken_at.month
+        day = taken_at.day
+        
+        # 简单的节假日判断（可以根据需要扩展）
+        if month == 1 and day == 1:
+            return '元旦'
+        elif month == 2 and day == 14:
+            return '情人节'
+        elif month == 3 and day == 8:
+            return '妇女节'
+        elif month == 4 and day == 1:
+            return '愚人节'
+        elif month == 5 and day == 1:
+            return '劳动节'
+        elif month == 6 and day == 1:
+            return '儿童节'
+        elif month == 10 and day == 1:
+            return '国庆节'
+        elif month == 12 and day == 25:
+            return '圣诞节'
+        else:
+            return None
+
+    def _extract_quality_tags(self, analysis_result: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """从质量分析结果提取质量标签"""
+        tags = []
+        
+        quality_score = analysis_result.get('quality_score', 0)
+        if quality_score >= 85:
+            quality_level = '优秀'
+        elif quality_score >= 70:
+            quality_level = '良好'
+        elif quality_score >= 50:
+            quality_level = '一般'
+        else:
+            quality_level = '较差'
+        
+        tags.append({
+            'name': quality_level,
+            'type': 'quality',
+            'confidence': 0.9
+        })
+        
+        return tags
