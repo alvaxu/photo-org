@@ -692,8 +692,7 @@ function showPhotoEditModal(photo) {
     selectedTags = [...tags]; // 存储选中的标签
     renderSelectedTags();
     
-    // 加载分类选项和标签选项
-    loadCategoriesForEdit();
+    // 加载标签选项
     loadTagsForEdit();
     
     // 显示模态框
@@ -707,25 +706,6 @@ let selectedTags = [];
 /**
  * 加载分类选项
  */
-async function loadCategoriesForEdit() {
-    try {
-        const response = await fetch('/api/v1/categories');
-        if (response.ok) {
-            const data = await response.json();
-            const select = document.getElementById('editPhotoCategories');
-            select.innerHTML = '';
-            
-            data.forEach(category => {
-                const option = document.createElement('option');
-                option.value = category.id;
-                option.textContent = category.name;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('加载分类失败:', error);
-    }
-}
 
 /**
  * 加载标签选项
@@ -806,19 +786,14 @@ function removeTag(tagName) {
 async function savePhotoEdit() {
     const photoId = document.getElementById('editPhotoId').value;
     const description = document.getElementById('editPhotoDescription').value;
-    const categorySelect = document.getElementById('editPhotoCategories');
     
     // 使用选中的标签
     const tags = selectedTags;
     
-    // 处理分类
-    const categories = Array.from(categorySelect.selectedOptions).map(option => parseInt(option.value));
-    
     // 准备更新数据
     const updateData = {
         description: description || null,
-        tags: tags,
-        categories: categories
+        tags: tags
     };
     
     try {

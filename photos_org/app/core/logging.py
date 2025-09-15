@@ -56,9 +56,11 @@ def setup_logging():
     logger.addHandler(file_handler)
 
     # 设置第三方库的日志级别
-    logging.getLogger('uvicorn').setLevel(logging.INFO)
-    logging.getLogger('uvicorn.access').setLevel(logging.INFO)
+    uvicorn_level = getattr(logging, settings.logging.level.upper())
+    logging.getLogger('uvicorn').setLevel(uvicorn_level)
+    logging.getLogger('uvicorn.access').setLevel(uvicorn_level)
     logging.getLogger('sqlalchemy').setLevel(logging.WARNING)
+    logging.getLogger('httpx').setLevel(logging.WARNING)
 
     logger.info("日志系统初始化完成")
 

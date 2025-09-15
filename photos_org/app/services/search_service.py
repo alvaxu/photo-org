@@ -140,70 +140,101 @@ class SearchService:
 
     def _apply_keyword_filter(self, query, keyword: str, search_type: str = "all"):
         """应用关键词筛选"""
-        try:
-            # 如果关键词为空，直接返回原查询
-            if not keyword or not keyword.strip():
-                return query
-                
-            # 根据搜索类型选择不同的搜索策略
-            if search_type == "all":
-                # 全部内容搜索，首先尝试使用全文搜索
-                fts_query = f"""
-                SELECT rowid
-                FROM photos_fts
-                WHERE photos_fts MATCH '{keyword}'
-                """
+        # 如果关键词为空，直接返回原查询
+        if not keyword or not keyword.strip():
+            return query
+            
+        # 根据搜索类型选择不同的搜索策略
+        if search_type == "all":
+            # 检查FTS表是否存在
+            if self._check_fts_table_exists(query.session):
+                try:
+                    # 全部内容搜索，使用全文搜索
+                    fts_query = f"""
+                    SELECT photo_id
+                    FROM photos_fts
+                    WHERE photos_fts MATCH '{keyword}'
+                    """
 
-                # 获取匹配的照片ID
-                result = query.session.execute(text(fts_query)).fetchall()
-                photo_ids = [row[0] for row in result]
+                    # 获取匹配的照片ID
+                    result = query.session.execute(text(fts_query)).fetchall()
+                    photo_ids = [row[0] for row in result]
 
-                if photo_ids:
-                    query = query.filter(Photo.id.in_(photo_ids))
-                    return query
+                    # 如果FTS搜索没有结果，尝试前缀搜索（解决中文分词问题）
+                    if not photo_ids:
+                        # 处理多词搜索，将每个词都尝试前缀搜索
+                        words = keyword.split()
+                        if len(words) > 1:
+                            # 多词搜索：尝试每个词的前缀搜索，使用AND关系
+                            try:
+                                prefix_words = [f"{word}*" for word in words]
+                                fts_prefix_query = f"""
+                                SELECT photo_id
+                                FROM photos_fts
+                                WHERE photos_fts MATCH '{" AND ".join(prefix_words)}'
+                                """
+                                result = query.session.execute(text(fts_prefix_query)).fetchall()
+                                photo_ids = [row[0] for row in result]
+                            except Exception:
+                                pass
+                        elif len(keyword) <= 3:  # 单词且短词尝试前缀搜索
+                            try:
+                                fts_prefix_query = f"""
+                                SELECT photo_id
+                                FROM photos_fts
+                                WHERE photos_fts MATCH '{keyword}*'
+                                """
+                                result = query.session.execute(text(fts_prefix_query)).fetchall()
+                                photo_ids = [row[0] for row in result]
+                            except Exception:
+                                pass
 
-            elif search_type == "filename":
-                # 只搜索文件名
-                query = query.filter(
-                    or_(
-                        Photo.filename.ilike(f"%{keyword}%"),
-                        Photo.original_path.ilike(f"%{keyword}%")
-                    )
+                    if photo_ids:
+                        query = query.filter(Photo.id.in_(photo_ids))
+                        return query
+                except Exception as e:
+                    # FTS搜索失败，继续使用LIKE查询
+                    pass
+
+        elif search_type == "filename":
+            # 只搜索文件名
+            query = query.filter(
+                or_(
+                    Photo.filename.ilike(f"%{keyword}%"),
+                    Photo.original_path.ilike(f"%{keyword}%")
                 )
-                return query
+            )
+            return query
 
-            elif search_type == "tags":
-                # 只搜索标签
-                query = query.filter(
-                    Photo.tags.any(PhotoTag.tag.has(Tag.name.ilike(f"%{keyword}%")))
+        elif search_type == "tags":
+            # 只搜索标签
+            query = query.filter(
+                Photo.tags.any(PhotoTag.tag.has(Tag.name.ilike(f"%{keyword}%")))
+            )
+            return query
+
+        elif search_type == "categories":
+            # 只搜索分类
+            query = query.filter(
+                Photo.categories.any(PhotoCategory.category.has(Category.name.ilike(f"%{keyword}%")))
+            )
+            return query
+
+        elif search_type == "description":
+            # 搜索用户手动添加的照片描述
+            query = query.filter(
+                Photo.description.ilike(f"%{keyword}%")
+            )
+            return query
+
+        elif search_type == "ai_analysis":
+            # 搜索所有类型的AI分析结果（content, scene, objects, faces等）
+            query = query.filter(
+                Photo.analysis_results.any(
+                    PhotoAnalysis.analysis_result.ilike(f"%{keyword}%")
                 )
-                return query
-
-            elif search_type == "categories":
-                # 只搜索分类
-                query = query.filter(
-                    Photo.categories.any(PhotoCategory.category.has(Category.name.ilike(f"%{keyword}%")))
-                )
-                return query
-
-            elif search_type == "description":
-                # 搜索用户手动添加的照片描述
-                query = query.filter(
-                    Photo.description.ilike(f"%{keyword}%")
-                )
-                return query
-
-            elif search_type == "ai_analysis":
-                # 搜索所有类型的AI分析结果（content, scene, objects, faces等）
-                query = query.filter(
-                    Photo.analysis_results.any(
-                        PhotoAnalysis.analysis_result.ilike(f"%{keyword}%")
-                    )
-                )
-                return query
-
-        except Exception as e:
-            self.logger.warning(f"FTS搜索失败，使用LIKE查询: {e}")
+            )
+            return query
 
         # 如果FTS失败或search_type为all，使用传统的LIKE查询作为后备
         if search_type == "all":
@@ -521,3 +552,22 @@ class SearchService:
             self.logger.error(f"获取搜索统计失败: {e}")
 
         return stats
+
+    def _check_fts_table_exists(self, db: Session) -> bool:
+        """
+        检查FTS表是否存在
+        
+        :param db: 数据库会话
+        :return: 是否存在
+        """
+        try:
+            # 检查photos_fts表是否存在
+            result = db.execute(text("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='photos_fts'
+            """)).fetchone()
+            
+            return result is not None
+        except Exception as e:
+            self.logger.error(f"检查FTS表存在性失败: {e}")
+            return False

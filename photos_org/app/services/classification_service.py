@@ -426,7 +426,7 @@ class ClassificationService:
 
         # 去重和标准化
         normalized_tags = self._normalize_tags(tags)
-        self.logger.info(f"最终生成的标签: {[t['name'] for t in normalized_tags]}")
+        # 标签生成日志已移除，减少日志输出
 
         return normalized_tags
 

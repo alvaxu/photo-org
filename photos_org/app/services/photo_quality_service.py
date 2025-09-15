@@ -8,6 +8,14 @@ from PIL import Image
 import math
 from app.core.logging import get_logger
 
+# 导入HEIC支持
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    HEIC_SUPPORT = True
+except ImportError:
+    HEIC_SUPPORT = False
+
 
 class PhotoQualityService:
     """
@@ -31,6 +39,8 @@ class PhotoQualityService:
         """
         try:
             # 读取图片 - 处理中文文件名问题
+            image = None
+            
             # 首先尝试直接读取
             image = cv2.imread(image_path)
 
@@ -42,7 +52,10 @@ class PhotoQualityService:
                         image_data = np.frombuffer(f.read(), dtype=np.uint8)
                     image = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
                 except Exception as np_error:
-                    # 如果仍然失败，尝试使用PIL作为中间桥梁
+                    print(f"cv2.imdecode异常: {str(np_error)}")
+                
+                # 如果cv2.imdecode也失败或返回None，尝试使用PIL作为中间桥梁
+                if image is None:
                     try:
                         pil_image = Image.open(image_path)
                         # 转换为RGB格式
@@ -53,8 +66,9 @@ class PhotoQualityService:
                         # 转换为BGR格式（OpenCV默认格式）
                         image = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
                     except Exception as pil_error:
-                        raise Exception(f"无法读取图片文件，所有读取方法都失败: np_error={str(np_error)}, pil_error={str(pil_error)}")
+                        raise Exception(f"无法读取图片文件，所有读取方法都失败: pil_error={str(pil_error)}")
 
+            # 最终检查
             if image is None:
                 raise Exception("无法读取图片文件")
 

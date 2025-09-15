@@ -157,6 +157,27 @@ function createToastContainer() {
 // ============ 导入详情显示函数 ============
 
 function showImportDetails(detailsData) {
+    // 根据导入结果确定图标和颜色
+    const importedCount = detailsData.imported_photos || 0;
+    const skippedCount = detailsData.skipped_photos || 0;
+    const failedCount = detailsData.failed_photos || 0;
+    const totalFiles = detailsData.total_files || 0;
+    
+    let icon, alertClass, summaryText;
+    if (failedCount > 0) {
+        icon = '❌';
+        alertClass = 'alert-danger';
+        summaryText = `总共${totalFiles}张照片，${importedCount}张导入成功，${skippedCount}张无需导入，${failedCount}张导入失败`;
+    } else if (skippedCount > 0) {
+        icon = '⚠️';
+        alertClass = 'alert-warning';
+        summaryText = `总共${totalFiles}张照片，${importedCount}张导入成功，${skippedCount}张无需导入，${failedCount}张导入失败`;
+    } else {
+        icon = '✅';
+        alertClass = 'alert-success';
+        summaryText = `总共${totalFiles}张照片，${importedCount}张导入成功，${skippedCount}张无需导入，${failedCount}张导入失败`;
+    }
+    
     const modalHtml = `
         <div class="modal fade" id="importDetailsModal" tabindex="-1" aria-labelledby="importDetailsModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-lg">
@@ -166,6 +187,12 @@ function showImportDetails(detailsData) {
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                     </div>
                     <div class="modal-body">
+                        <!-- 导入结果摘要 -->
+                        <div class="alert ${alertClass} mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>${icon} ${summaryText}</strong><br>
+                            <small class="text-muted">请点击"智能处理"按钮完成智能分析</small>
+                        </div>
                         <div class="row mb-3">
                             <div class="col-md-3">
                                 <div class="card text-center">
@@ -247,6 +274,127 @@ function showImportDetails(detailsData) {
     modal.show();
 }
 
+// ============ 智能处理结果详情显示函数 ============
+
+function showBatchProcessDetails(detailsData) {
+    console.log('showBatchProcessDetails 被调用，数据:', detailsData);
+    
+    // 根据处理结果确定图标和颜色
+    const totalPhotos = detailsData.batch_total_photos || 0;
+    const completedPhotos = detailsData.batch_completed_photos || 0;
+    const failedPhotos = totalPhotos - completedPhotos;
+    
+    console.log('处理结果统计:', { totalPhotos, completedPhotos, failedPhotos });
+    
+    let icon, alertClass, summaryText;
+    if (failedPhotos > 0) {
+        icon = '❌';
+        alertClass = 'alert-danger';
+        summaryText = `智能处理完成：${totalPhotos}张照片，${completedPhotos}张成功，${failedPhotos}张失败`;
+    } else if (completedPhotos > 0) {
+        icon = '✅';
+        alertClass = 'alert-success';
+        summaryText = `智能处理完成：${totalPhotos}张照片全部处理成功`;
+    } else {
+        icon = '⚠️';
+        alertClass = 'alert-warning';
+        summaryText = `智能处理完成：没有照片被处理`;
+    }
+    
+    const modalHtml = `
+        <div class="modal fade" id="batchProcessDetailsModal" tabindex="-1" aria-labelledby="batchProcessDetailsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="batchProcessDetailsModalLabel">智能处理结果详情</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- 处理结果摘要 -->
+                        <div class="alert ${alertClass} mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>${icon} ${summaryText}</strong><br>
+                            <small class="text-muted">所有照片已完成AI分析、质量评估和智能分类</small>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-primary">${totalPhotos}</h5>
+                                        <p class="card-text">总照片数</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-success">${completedPhotos}</h5>
+                                        <p class="card-text">处理成功</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-danger">${failedPhotos}</h5>
+                                        <p class="card-text">处理失败</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${failedPhotos > 0 ? `
+                        <div class="mt-4">
+                            <h6>处理详情：</h6>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                有 ${failedPhotos} 张照片处理失败，请检查照片格式或网络连接后重试。
+                            </div>
+                        </div>
+                        ` : `
+                        <div class="mt-4">
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle me-2"></i>
+                               所有照片已成功完成智能处理，现在您可以搜索、查看和整理您的照片了！
+                            </div>
+                        </div>
+                        `}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                            <i class="bi bi-check-lg me-1"></i>
+                            完成
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 移除已存在的模态框
+    const existingModal = document.getElementById('batchProcessDetailsModal');
+    if (existingModal) {
+        console.log('移除已存在的模态框');
+        existingModal.remove();
+    }
+    
+    // 添加新的模态框
+    console.log('添加新的模态框到DOM');
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // 显示模态框
+    const modalElement = document.getElementById('batchProcessDetailsModal');
+    if (modalElement) {
+        console.log('模态框元素已创建，准备显示');
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        console.log('模态框显示命令已执行');
+    } else {
+        console.error('无法找到模态框元素');
+    }
+}
+
 // ============ 工具函数 ============
 
 function debounce(func, delay) {
@@ -294,6 +442,7 @@ window.showSuccess = showSuccess;
 window.showWarning = showWarning;
 window.createToastContainer = createToastContainer;
 window.showImportDetails = showImportDetails;
+window.showBatchProcessDetails = showBatchProcessDetails;
 window.debounce = debounce;
 window.setLoading = setLoading;
 window.showEmptyState = showEmptyState;

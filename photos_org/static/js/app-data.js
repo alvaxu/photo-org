@@ -40,7 +40,7 @@ const AppState = {
 
 // 搜索类型提示文字映射
 const searchTypePlaceholders = {
-    'all': '搜索照片名、用户照片描述、AI分析结果...',
+    'all': '支持搜索照片全部文本内容',
     'filename': '搜索照片文件名...',
     'description': '搜索用户照片描述...',
     'ai_analysis': '搜索AI分析结果...'
@@ -48,7 +48,7 @@ const searchTypePlaceholders = {
 
 // 搜索范围提示文字映射
 const searchScopeHints = {
-    'all': '支持搜索：照片名、用户照片描述、AI分析结果',
+    'all': '支持模糊查询、短语查询、前缀查询、任意查询、AND查询、OR查询、NOT查询',
     'filename': '搜索范围：照片文件名（如：IMG_001.jpg, 生日聚会.jpg）',
     'description': '搜索范围：用户照片描述和AI内容描述（如：生日聚会场景, 室内庆祝活动）',
     'ai_analysis': '搜索范围：所有AI分析结果（如：聚会, 蛋糕, 人物, 场景识别）'

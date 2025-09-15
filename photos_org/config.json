@@ -1,6 +1,6 @@
 {
   "system": {
-    "max_file_size": 52428800,
+    "max_file_size": 104857600,
     "timeout": 10,
     "max_concurrent": 2,
     "temp_file_max_age": 24
@@ -9,10 +9,11 @@
     "path": "D:/photo_data/db/photos.db"
   },
   "dashscope": {
-    "api_key": "sk-bfff6cdc92e84b2f89064cd382fdbe4a",
+    "api_key": "",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
     "model": "qwen-vl-plus-2025-08-15",
     "available_models": [
+      "qwen-vl-plus",
       "qwen-vl-plus-latest",
       "qwen-vl-plus-2025-08-15",
       "qwen-vl-plus-2025-05-07",
@@ -28,7 +29,7 @@
     "temp_path": "temp",
     "backups_path": "backups",
     "thumbnail_size": 300,
-    "thumbnail_quality": 85
+    "thumbnail_quality": 42
   },
   "analysis": {
     "duplicate_threshold": 5,
@@ -49,7 +50,7 @@
     "debug": false
   },
   "ui": {
-    "photos_per_page": 12,
+    "photos_per_page": 24,
     "similar_photos_limit": 8,
     "hot_tags_limit": 10,
     "hot_categories_limit": 10
@@ -116,7 +117,9 @@
       ".tiff",
       ".webp",
       ".bmp",
-      ".gif"
+      ".gif",
+      ".heic",
+      ".heif"
     ],
     "max_upload_files": 50,
     "scan_batch_size": 100

@@ -12,6 +12,14 @@ from app.core.logging import get_logger
 from app.db.session import get_db
 from app.models.photo import Photo, DuplicateGroup, DuplicateGroupPhoto
 
+# 导入HEIC支持
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    HEIC_SUPPORT = True
+except ImportError:
+    HEIC_SUPPORT = False
+
 
 class DuplicateDetectionService:
     """

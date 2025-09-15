@@ -10,9 +10,26 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 from app.core.logging import get_logger
+import importlib
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+async def reload_config():
+    """重新加载配置"""
+    try:
+        # 重新导入配置模块
+        import app.core.config
+        importlib.reload(app.core.config)
+        
+        # 更新全局配置实例
+        global settings
+        settings = app.core.config.settings
+        
+        logger.info("配置重新加载成功")
+    except Exception as e:
+        logger.error(f"配置重新加载失败: {str(e)}")
+        raise e
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -68,6 +85,9 @@ async def update_user_config(request: ConfigUpdateRequest):
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(current_config, f, indent=2, ensure_ascii=False)
         
+        # 重新加载配置
+        await reload_config()
+        
         logger.info("用户配置更新成功")
         return {
             "success": True,
@@ -98,6 +118,9 @@ async def reset_user_config():
         config_path = "config.json"
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(default_config, f, indent=2, ensure_ascii=False)
+        
+        # 重新加载配置
+        await reload_config()
         
         logger.info("用户配置重置成功")
         return {
@@ -136,6 +159,9 @@ async def update_full_config(config_data: Dict[str, Any]):
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(config_data, f, indent=2, ensure_ascii=False)
         
+        # 重新加载配置
+        await reload_config()
+        
         logger.info("完整配置更新成功")
         return {
             "success": True,
@@ -147,6 +173,24 @@ async def update_full_config(config_data: Dict[str, Any]):
         return {
             "success": False,
             "message": f"更新完整配置失败: {str(e)}"
+        }
+
+
+@router.post("/reload")
+async def reload_config_endpoint():
+    """手动重新加载配置"""
+    try:
+        await reload_config()
+        return {
+            "success": True,
+            "message": "配置重新加载成功",
+            "data": settings.get_user_config()
+        }
+    except Exception as e:
+        logger.error(f"重新加载配置失败: {str(e)}")
+        return {
+            "success": False,
+            "message": f"重新加载配置失败: {str(e)}"
         }
 
 
@@ -197,9 +241,13 @@ async def select_directory():
         import tkinter as tk
         from tkinter import filedialog
         
-        # 创建隐藏的根窗口
+        # 创建根窗口
         root = tk.Tk()
         root.withdraw()  # 隐藏主窗口
+        
+        # 设置窗口属性
+        root.attributes('-topmost', True)  # 置顶显示
+        root.state('withdrawn')  # 完全隐藏主窗口
         
         # 选择目录
         directory = filedialog.askdirectory(
@@ -235,8 +283,13 @@ async def select_database_file():
         import tkinter as tk
         from tkinter import filedialog
         
+        # 创建根窗口
         root = tk.Tk()
-        root.withdraw()
+        root.withdraw()  # 隐藏主窗口
+        
+        # 设置窗口属性
+        root.attributes('-topmost', True)  # 置顶显示
+        root.state('withdrawn')  # 完全隐藏主窗口
         
         # 选择数据库文件
         file_path = filedialog.askopenfilename(
@@ -249,7 +302,7 @@ async def select_database_file():
             initialdir="C:\\"
         )
         
-        root.destroy()
+        root.destroy()  # 销毁窗口
         
         if file_path:
             return {

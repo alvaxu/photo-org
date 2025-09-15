@@ -355,7 +355,7 @@ async def batch_process_photos(
     db: Session = Depends(get_db)
 ):
     """
-    批量处理照片
+    智能处理照片
 
     对所有照片进行AI分析、质量评估和智能分类
     """
@@ -402,8 +402,8 @@ async def batch_process_photos(
         }
 
     except Exception as e:
-        logger.error(f"批量处理照片失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"批量处理失败: {str(e)}")
+        logger.error(f"智能处理照片失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"智能处理失败: {str(e)}")
 
 
 @router.post("/batch-delete", response_model=BatchDeleteResponse)
@@ -551,7 +551,7 @@ async def get_photos_by_tag(
 
 async def process_photos_background(photos, enable_ai, enable_quality, enable_classification, db):
     """
-    后台批量处理照片
+    后台智能处理照片
 
     :param photos: 照片列表
     :param enable_ai: 是否启用AI分析
@@ -620,9 +620,9 @@ async def process_photos_background(photos, enable_ai, enable_quality, enable_cl
                 logger.error(f"处理照片 {photo.filename} 失败: {str(e)}")
                 continue
 
-        logger.info(f"批量处理完成，共处理 {processed_count}/{len(photos)} 张照片")
+        logger.info(f"智能处理完成，共处理 {processed_count}/{len(photos)} 张照片")
 
     except Exception as e:
-        logger.error(f"批量处理过程中发生错误: {str(e)}")
+        logger.error(f"智能处理过程中发生错误: {str(e)}")
 
     return processed_count

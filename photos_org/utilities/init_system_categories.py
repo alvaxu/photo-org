@@ -23,9 +23,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 import logging
 
-# 配置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# 使用应用配置的日志系统
+from app.core.logging import get_logger
+logger = get_logger(__name__)
 
 def init_system_categories():
     """
@@ -65,6 +65,17 @@ def init_system_categories():
     try:
         # 获取数据库会话
         db: Session = next(get_db())
+        
+        # 检查是否已有系统分类，如果有则跳过初始化
+        existing_categories = db.query(Category).count()
+        if existing_categories >= 5:  # 系统分类数量
+            # 静默跳过，不输出日志
+            return {
+                "success": True,
+                "message": "系统分类已存在，无需初始化",
+                "created_count": 0,
+                "updated_count": 0
+            }
         
         logger.info("开始初始化系统分类...")
         

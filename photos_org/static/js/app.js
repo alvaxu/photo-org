@@ -118,7 +118,7 @@ function cacheElements() {
         browseFolderBtn: document.getElementById('browseFolderBtn'),
         recursiveScan: document.getElementById('recursiveScan'),
 
-        // 批量处理相关
+        // 智能处理相关
         startBatchBtn: document.getElementById('startBatchBtn'),
         batchProgress: document.getElementById('batchProgress'),
         batchProgressBar: document.getElementById('batchProgressBar'),
@@ -231,7 +231,7 @@ function setupAutoRefresh() {
 
 // 注意：所有导入相关函数已移至 app-import.js
 
-// ============ 批量处理功能 ============
+// ============ 智能处理功能 ============
 
 // 注意：startBatchProcess 函数已移至 app-import.js
 

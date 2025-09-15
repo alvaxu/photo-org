@@ -15,7 +15,7 @@ function initializeUI() {
 
     // 设置搜索范围提示
     if (elements.searchScopeHint) {
-        elements.searchScopeHint.textContent = searchScopeHints['all'] || '支持搜索：照片名、用户照片描述、AI分析结果';
+        elements.searchScopeHint.textContent = searchScopeHints['all'] || '支持搜索照片全部文本内容';
     }
 
     // 初始化Bootstrap模态框
@@ -288,10 +288,27 @@ function createPhotoDetailModal(photo) {
         <div class="row">
             <div class="col-md-6">
                 <div class="text-center mb-3">
-                    <img src="/photos_storage/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
-                         alt="${photo.filename}" 
-                         class="img-fluid rounded" 
-                         style="max-height: 500px; object-fit: contain;">
+                    <div id="photoImageContainer">
+                        <img src="/photos_storage/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
+                             alt="${photo.filename}" 
+                             class="img-fluid rounded" 
+                             style="max-height: 500px; object-fit: contain;"
+                             data-thumbnail="${photo.thumbnail_path ? '/photos_storage/' + photo.thumbnail_path.replace(/\\/g, '/') : ''}"
+                             data-original-format="${photo.filename.toLowerCase().endsWith('.heic') || photo.filename.toLowerCase().endsWith('.heif') ? 'heic' : 'other'}"
+                             onerror="handleImageError(this);"
+                             onload="handleImageLoad(this);">
+                        <!-- HEIC格式提示 -->
+                        <div id="heicFormatTip" class="alert alert-info mt-2" style="display: none;">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>HEIC 格式提示：</strong>您的浏览器可能无法直接显示 HEIC 格式图片。
+                            <br>
+                            <small class="text-muted">
+                                • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a><br>
+                                • Safari 浏览器：通常原生支持 HEIC 格式<br>
+                                • 其他浏览器：建议转换为 JPG 格式后导入
+                            </small>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="col-md-6">
@@ -430,3 +447,312 @@ window.createPhotoDetailModal = createPhotoDetailModal;
 
 // 导出标签功能
 window.toggleTags = toggleTags;
+
+// ============ HEIC 格式图片处理 ============
+
+/**
+ * 处理图片加载错误（防止无限重试）
+ * @param {HTMLImageElement} img - 图片元素
+ */
+function handleImageError(img) {
+    console.log('图片加载失败:', img.src);
+    
+    // 防止重复处理
+    if (img.errorHandled) {
+        return;
+    }
+    
+    // 检查是否为 HEIC 格式
+    const isHeicFormat = img.src.toLowerCase().includes('.heic') || img.src.toLowerCase().includes('.heif');
+    
+    if (isHeicFormat) {
+        // HEIC 格式：显示初始提示，尝试缩略图
+        showHeicFormatTipInitial();
+        tryThumbnailFallback(img);
+    } else {
+        // 非 HEIC 格式：直接显示占位符
+        showGenericPlaceholder(img);
+    }
+}
+
+/**
+ * 处理图片加载成功
+ * @param {HTMLImageElement} img - 图片元素
+ */
+function handleImageLoad(img) {
+    console.log('图片加载成功:', img.src);
+    
+    const isOriginalPhotoHeic = img.dataset.originalFormat === 'heic';
+    const isCurrentlyShowingThumbnail = img.src.includes('/thumbnails/') || img.src.includes('_thumb.');
+    const isHeicPluginActive = img.dataset.heicOverlay === 'true';
+    
+    if (isOriginalPhotoHeic && isHeicPluginActive) {
+        // 原始 HEIC 图片，且插件已激活（说明原图通过插件成功显示）
+        hideAllHeicTips();
+    } else if (isOriginalPhotoHeic && isCurrentlyShowingThumbnail && !isHeicPluginActive) {
+        // 原始图片是 HEIC，显示缩略图，且插件未激活（说明原图加载失败，降级显示）
+        showThumbnailFallbackTip();
+    } else {
+        // 其他情况：非 HEIC 格式，或 HEIC 原图直接成功加载
+        hideAllHeicTips();
+    }
+}
+
+/**
+ * 显示 HEIC 格式初始提示
+ */
+function showHeicFormatTipInitial() {
+    const tipElement = document.getElementById('heicFormatTip');
+    if (tipElement) {
+        // 设置初始提示内容
+        tipElement.innerHTML = `
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>HEIC 格式提示：</strong>您的浏览器可能无法直接显示 HEIC 格式图片。
+            <br>
+            <small class="text-muted">
+                • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a><br>
+                • Safari 浏览器：通常原生支持 HEIC 格式<br>
+                • 其他浏览器：建议转换为 JPG 格式后导入
+            </small>
+        `;
+        tipElement.style.display = 'block';
+        console.log('HEIC 格式初始提示已显示');
+    } else {
+        console.error('未找到 heicFormatTip 元素');
+    }
+}
+
+/**
+ * 显示 HEIC 格式提示
+ */
+function showHeicFormatTip() {
+    const tipElement = document.getElementById('heicFormatTip');
+    if (tipElement) {
+        tipElement.style.display = 'block';
+        console.log('HEIC 格式提示已显示');
+    } else {
+        console.error('未找到 heicFormatTip 元素');
+    }
+}
+
+/**
+ * 隐藏 HEIC 格式提示
+ */
+function hideHeicFormatTip() {
+    const tipElement = document.getElementById('heicFormatTip');
+    if (tipElement) {
+        tipElement.style.display = 'none';
+        console.log('HEIC 格式提示已隐藏');
+    }
+}
+
+/**
+ * 显示缩略图降级提示
+ */
+function showThumbnailFallbackTip() {
+    const tipElement = document.getElementById('heicFormatTip');
+    if (tipElement) {
+        // 修改提示内容
+        tipElement.innerHTML = `
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>HEIC 格式提示：</strong>您的浏览器无法直接显示 HEIC 格式原图，当前显示的是 JPEG 缩略图。
+            <br>
+            <small class="text-muted">
+                • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图<br>
+                • Safari 浏览器：通常原生支持 HEIC 格式<br>
+                • 其他浏览器：建议转换为 JPG 格式后导入
+            </small>
+        `;
+        tipElement.style.display = 'block';
+        console.log('缩略图降级提示已显示');
+    } else {
+        console.error('未找到 heicFormatTip 元素');
+    }
+}
+
+/**
+ * 隐藏缩略图降级提示
+ */
+function hideThumbnailFallbackTip() {
+    const tipElement = document.getElementById('heicFormatTip');
+    if (tipElement) {
+        tipElement.style.display = 'none';
+        console.log('缩略图降级提示已隐藏');
+    }
+}
+
+/**
+ * 隐藏所有 HEIC 格式提示
+ */
+function hideAllHeicTips() {
+    const tipElement = document.getElementById('heicFormatTip');
+    if (tipElement) {
+        tipElement.style.display = 'none';
+        console.log('所有 HEIC 格式提示已隐藏');
+    }
+}
+
+/**
+ * 尝试显示缩略图作为备用
+ * @param {HTMLImageElement} img - 图片元素
+ */
+function tryThumbnailFallback(img) {
+    const originalSrc = img.src;
+    
+    // 从图片元素获取缩略图路径（如果存在）
+    let thumbnailSrc = null;
+    
+    // 检查是否有 data-thumbnail 属性
+    if (img.dataset.thumbnail) {
+        thumbnailSrc = img.dataset.thumbnail;
+    } else {
+        // 尝试从原始路径构建缩略图路径
+        if (originalSrc.includes('/originals/')) {
+            // 从 /photos_storage/originals/ 替换为 /photos_storage/thumbnails/
+            thumbnailSrc = originalSrc.replace('/photos_storage/originals/', '/photos_storage/thumbnails/');
+        } else {
+            // 从 /photos_storage/ 替换为 /photos_storage/thumbnails/
+            thumbnailSrc = originalSrc.replace('/photos_storage/', '/photos_storage/thumbnails/');
+        }
+    }
+    
+    console.log('尝试缩略图备用方案:', { originalSrc, thumbnailSrc });
+    
+    if (thumbnailSrc !== originalSrc) {
+        // 设置新的错误处理器，避免循环
+        img.onerror = function() {
+            console.log('缩略图也加载失败，显示占位符');
+            this.errorHandled = true;
+            
+            // 使用 SVG 占位符
+            const svgPlaceholder = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+                <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100%" height="100%" fill="#f8f9fa"/>
+                    <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#6c757d" font-family="Arial, sans-serif" font-size="16">
+                        Image Not Available
+                    </text>
+                </svg>
+            `)}`;
+            
+            this.src = svgPlaceholder;
+            this.onerror = null; // 移除错误处理器
+        };
+        
+        // 设置新的加载成功处理器
+        img.onload = function() {
+            handleImageLoad(this);
+        };
+        
+        img.src = thumbnailSrc;
+    } else {
+        // 没有缩略图，直接显示占位符
+        console.log('没有缩略图，直接显示占位符');
+        showGenericPlaceholder(img);
+    }
+}
+
+/**
+ * 显示通用占位符
+ * @param {HTMLImageElement} img - 图片元素
+ */
+function showGenericPlaceholder(img) {
+    console.log('显示通用占位符');
+    img.errorHandled = true;
+    
+    // 使用一个简单的 SVG 占位符，避免 404 错误
+    const svgPlaceholder = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+        <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" fill="#f8f9fa"/>
+            <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#6c757d" font-family="Arial, sans-serif" font-size="16">
+                Image Not Available
+            </text>
+        </svg>
+    `)}`;
+    
+    img.src = svgPlaceholder;
+    img.onerror = null; // 移除错误处理器，避免无限循环
+}
+
+// 导出 HEIC 处理函数
+window.handleImageError = handleImageError;
+window.handleImageLoad = handleImageLoad;
+
+// ============ 调试和测试函数 ============
+
+/**
+ * 测试 HEIC 图片加载
+ * @param {string} imagePath - 图片路径
+ */
+function testHeicImageLoad(imagePath) {
+    console.log('🧪 开始测试 HEIC 图片加载:', imagePath);
+    
+    // 创建测试图片元素
+    const testImg = document.createElement('img');
+    testImg.style.maxWidth = '200px';
+    testImg.style.border = '2px solid red';
+    
+    // 添加事件监听器
+    testImg.onload = function() {
+        console.log('✅ 测试图片加载成功:', this.src);
+        document.body.appendChild(this);
+    };
+    
+    testImg.onerror = function() {
+        console.log('❌ 测试图片加载失败:', this.src);
+        console.log('错误详情:', this.error);
+        
+        // 检查浏览器支持
+        checkBrowserHeicSupport();
+    };
+    
+    // 设置图片源
+    testImg.src = imagePath;
+    
+    // 添加到页面
+    document.body.appendChild(testImg);
+}
+
+/**
+ * 检查浏览器 HEIC 支持
+ */
+function checkBrowserHeicSupport() {
+    console.log('🔍 检查浏览器 HEIC 支持...');
+    
+    // 检查用户代理
+    const userAgent = navigator.userAgent;
+    console.log('用户代理:', userAgent);
+    
+    // 检查是否为 Edge
+    const isEdge = userAgent.includes('Edg');
+    const isChrome = userAgent.includes('Chrome') && !userAgent.includes('Edg');
+    const isSafari = userAgent.includes('Safari') && !userAgent.includes('Chrome');
+    
+    console.log('浏览器类型:', { isEdge, isChrome, isSafari });
+    
+    // 检查插件支持
+    if (isEdge) {
+        console.log('🌐 Edge 浏览器检测到，请确认：');
+        console.log('1. 已安装 HEIC 插件');
+        console.log('2. 插件已启用');
+        console.log('3. 插件权限已授予');
+    }
+}
+
+/**
+ * 手动测试 HEIC 提示显示
+ */
+function testHeicTipDisplay() {
+    console.log('🧪 测试 HEIC 提示显示...');
+    showHeicFormatTip();
+    
+    // 3秒后隐藏
+    setTimeout(() => {
+        hideHeicFormatTip();
+        console.log('HEIC 提示已隐藏');
+    }, 3000);
+}
+
+// 导出测试函数
+window.testHeicImageLoad = testHeicImageLoad;
+window.checkBrowserHeicSupport = checkBrowserHeicSupport;
+window.testHeicTipDisplay = testHeicTipDisplay;

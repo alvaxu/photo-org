@@ -152,13 +152,13 @@ class DashScopeService:
             result = self._call_qwen_vl_api(image_base64, prompt)
 
             # 解析响应
-            self.logger.info(f"API响应: {json.dumps(result, indent=2, ensure_ascii=False)}")
+            # API响应日志已移除，减少日志输出
 
             if "output" in result and "text" in result["output"]:
                 try:
                     # 尝试解析JSON响应
                     text_content = result["output"]["text"]
-                    self.logger.info(f"AI原始响应: {text_content}")
+                    # AI原始响应日志已移除，减少日志输出
 
                     # 清理可能的markdown格式
                     if text_content.startswith("```json"):
@@ -202,7 +202,7 @@ class DashScopeService:
                     else:
                         text_content = str(content)
 
-                    self.logger.info(f"AI响应内容: {text_content}")
+                    # AI响应内容日志已移除，减少日志输出
 
                     # 清理可能的markdown格式
                     if text_content.startswith("```json"):

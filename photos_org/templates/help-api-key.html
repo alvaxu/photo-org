@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>如何获取API密钥 - 家庭单机版智能照片整理系统</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- 自定义样式 -->
+    <link href="/static/css/style.css?v=20250119_80" rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+
+    <style>
+        .help-content {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .help-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            margin: 1rem 0;
+        }
+        .step-card {
+            border-left: 4px solid #0d6efd;
+            background-color: #f8f9fa;
+        }
+        .warning-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .info-box {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-images me-2"></i>
+                智能照片整理系统
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="../static/index.html">
+                            <i class="bi bi-grid-3x3-gap"></i> 照片库
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="settings.html">
+                            <i class="bi bi-gear"></i> 系统配置
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="d-flex">
+                    <button class="btn btn-outline-light" onclick="window.close()">
+                        <i class="bi bi-x-lg"></i> 关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <div class="container-fluid mt-4">
+        <div class="help-content">
+            <h1 class="mb-4">
+                <i class="bi bi-key me-2"></i>
+                获取API Key
+            </h1>
+
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                本系统使用使用阿里云百炼的大模型qwen-VL系列进行智能图像处理，因此使用应用前，请先开通阿里云百炼，并获取API Key作为鉴权凭证。
+            </div>
+
+            <!-- 一、开通阿里云百炼的模型服务 -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">一、开通阿里云百炼的模型服务</h2>
+                
+                <p>使用阿里云主账号访问<a href="https://bailian.console.aliyun.com/?tab=model#/model-market" target="_blank" class="text-decoration-none">阿里云百炼大模型服务平台</a>，如果页面顶部显示开通提示，您需开通阿里云百炼模型服务，以获得<a href="https://help.aliyun.com/zh/model-studio/new-free-quota" target="_blank" class="text-decoration-none">新人免费额度</a>。</p>
+                
+                <div class="warning-box">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>重要提示：</strong>开通阿里云百炼不会产生费用，仅模型调用（超出免费额度后）、模型部署、模型调优会产生相应<a href="https://help.aliyun.com/zh/model-studio/billing-for-model-studio" target="_blank" class="text-decoration-none">计费</a>。如果页面顶部未显示开通提示，则表示您已经开通。
+                </div>
+
+                <div class="info-box">
+                    <i class="bi bi-info-circle me-2"></i>
+                    如果开通服务时提示"您尚未进行实名认证"，请先进行<a href="https://help.aliyun.com/zh/account/verify-your-identity-individual-account" target="_blank" class="text-decoration-none">实名认证</a>。
+                </div>
+            </section>
+
+            <!-- 二、获取API Key -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">二、获取API Key</h2>
+                
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>重要：</strong>需使用<a href="https://help.aliyun.com/zh/model-studio/permission-management-overview#24ca2dad7djzs" target="_blank" class="text-decoration-none">主账号</a>，或具备<code>管理员</code>或<code>API-Key</code><a href="https://help.aliyun.com/zh/model-studio/member-management#febd776ce5lbx" target="_blank" class="text-decoration-none">页面权限</a>的<a href="https://help.aliyun.com/zh/model-studio/permission-management-overview#24ca2dad7djzs" target="_blank" class="text-decoration-none">子账号</a>操作。
+                </div>
+
+                <p>开通阿里云百炼后，您需要手动创建API Key，系统不会自动生成。</p>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤1：前往密钥管理页面</h4>
+                    <p>前往<a href="https://bailian.console.aliyun.com/?tab=model#/api-key" target="_blank" class="text-decoration-none">密钥管理</a>页面，在<strong>API-Key</strong>页签下单击<strong>创建API-KEY</strong>。</p>
+                    
+                    <div class="text-center">
+                        <img src="/static/images/help/api-key-1.png" alt="创建API Key页面" class="help-image">
+                        <p class="text-muted small">图1：创建API Key页面</p>
+                    </div>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤2：填写API Key信息</h4>
+                    <p>在<strong>创建API-KEY</strong>弹窗中，选择API Key的<strong>归属账号</strong>及<strong>归属业务空间</strong>，填写<strong>描述信息</strong>，并单击<strong>确定</strong>。</p>
+                    
+                    <ul>
+                        <li><strong>归属账号：</strong>可选择主账号或子账号（当人员离职或岗位变动时，只需将其子账号<a href="https://help.aliyun.com/zh/model-studio/member-management#baa5507e10prj" target="_blank" class="text-decoration-none">移出业务空间</a>，对应API Key将自动失效，不再具备调用权限）。</li>
+                        <li><strong>归属业务空间：</strong>通常选择<strong><a href="https://help.aliyun.com/zh/model-studio/use-workspace#0358d9b5079ck" target="_blank" class="text-decoration-none">默认业务空间</a></strong>（即主账号空间）。若需管控某类用户可调用的模型，或对模型调用的费用进行分账，请创建/选择列表中的<a href="https://help.aliyun.com/zh/model-studio/use-workspace#0358d9b5079ck" target="_blank" class="text-decoration-none">子业务空间</a>。详见<a href="https://help.aliyun.com/zh/model-studio/model-calling-in-sub-workspace" target="_blank" class="text-decoration-none">子业务空间的模型调用</a>。</li>
+                    </ul>
+
+                    <div class="info-box">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>说明：</strong>API Key的调用权限完全由其<strong>归属业务空间</strong>决定。<strong>同一空间内的API Key权限相同</strong>，无需为不同模型（如文生文、文生图、语音合成）创建不同的API Key。
+                        <ul class="mt-2">
+                            <li><strong>默认业务空间下的API Key：</strong>可调用所有<a href="https://help.aliyun.com/zh/model-studio/models" target="_blank" class="text-decoration-none">标准模型</a>，以及默认业务空间内的<a href="https://help.aliyun.com/zh/model-studio/application-introduction" target="_blank" class="text-decoration-none">应用</a>。</li>
+                            <li><strong>子业务空间下的API Key：</strong>可调用该子业务空间已获得<a href="https://help.aliyun.com/zh/model-studio/use-workspace#f2e68d7ba7ubk" target="_blank" class="text-decoration-none">授权</a>的标准模型，以及该子业务空间内的应用。</li>
+                        </ul>
+                        <p class="mt-2"><strong>调用在阿里云百炼<a href="https://help.aliyun.com/zh/model-studio/model-training-overview" target="_blank" class="text-decoration-none">调优后的模型</a>：</strong>此类模型部署成功后，仅能用其所在业务空间的API Key调用，无需<a href="https://help.aliyun.com/zh/model-studio/use-workspace#f2e68d7ba7ubk" target="_blank" class="text-decoration-none">授权</a>。</p>
+                    </div>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤3：获取API Key</h4>
+                    <p>点击API Key旁的图标获取该API Key。</p>
+                    
+                    <div class="text-center">
+                        <img src="/static/images/help/api-key-2.png" alt="获取API Key" class="help-image">
+                        <p class="text-muted small">图2：获取API Key</p>
+                    </div>
+                    
+                    <div class="info-box">
+                        <i class="bi bi-info-circle me-2"></i>
+                        主账号可以查看全部API Key，子账号仅能查看自己创建的API Key。
+                    </div>
+                </div>
+            </section>
+
+            <!-- 三、API Key时效性说明 -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">三、API Key时效性说明</h2>
+                <p>通过<a href="https://bailian.console.aliyun.com/?tab=model#/api-key" target="_blank" class="text-decoration-none">API-Key</a>页面创建的API Key永久有效，手动删除后即失效。</p>
+            </section>
+
+            <!-- 四、配置API Key到环境变量 -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">四、配置API Key到环境变量</h2>
+                
+                <div class="info-box">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>说明：</strong>
+                    <ul class="mb-0">
+                        <li>此方式配置的环境变量永久生效。</li>
+                        <li>修改系统环境变量需具备管理员权限。</li>
+                        <li>配置环境变量后不会立即影响已经打开的命令窗口、IDE或其他正在运行的应用程序。您需要重新启动这些程序或者打开新的命令行使环境变量生效。</li>
+                    </ul>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤1：打开系统属性</h4>
+                    <p>在Windows系统桌面中按<kbd>Win+Q</kbd>键，在搜索框中搜索<strong>编辑系统环境变量</strong>，单击打开<strong>系统属性</strong>界面。</p>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤2：添加环境变量</h4>
+                    <p>在<strong>系统属性</strong>窗口，单击<strong>环境变量</strong>，然后在<strong>系统变量</strong>区域下单击<strong>新建</strong>，<strong>变量名</strong>填入<code>DASHSCOPE_API_KEY</code>，<strong>变量值</strong>填入您的DashScope API Key。</p>
+                    
+                    <div class="text-center">
+                        <img src="/static/images/help/api-key-3.png" alt="添加环境变量" class="help-image">
+                        <p class="text-muted small">图3：添加环境变量</p>
+                    </div>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤3：确认配置</h4>
+                    <p>依次单击三个窗口的<strong>确定</strong>，关闭系统属性配置页面，完成环境变量配置。</p>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤4：验证配置</h4>
+                    <p>打开CMD（命令提示符）窗口或Windows PowerShell窗口，执行如下命令检查环境变量是否生效。</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>CMD查询命令：</h6>
+                            <div class="code-block">
+                                echo %DASHSCOPE_API_KEY%
+                            </div>
+                            
+                            <div class="text-center">
+                                <img src="/static/images/help/api-key-4.png" alt="CMD验证" class="help-image">
+                                <p class="text-muted small">图4：CMD验证结果</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Windows PowerShell查询命令：</h6>
+                            <div class="code-block">
+                                echo $env:DASHSCOPE_API_KEY
+                            </div>
+                            
+                            <div class="text-center">
+                                <img src="/static/images/help/api-key-5.png" alt="PowerShell验证" class="help-image">
+                                <p class="text-muted small">图5：PowerShell验证结果</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 五、在系统中使用API Key -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">五、在系统中使用API Key</h2>
+                
+                <p>配置好API Key后，您可以通过以下方式在系统中使用：</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">方式1：使用环境变量（推荐）</h6>
+                            </div>
+                            <div class="card-body">
+                                <p>在API密钥输入框中留空，系统会自动使用环境变量<code>DASHSCOPE_API_KEY</code>的值。</p>
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    这是推荐的方式，更安全且便于管理。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-secondary text-white">
+                                <h6 class="mb-0">方式2：直接输入</h6>
+                            </div>
+                            <div class="card-body">
+                                <p>在API密钥输入框中直接输入您的API Key。</p>
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    这种方式会将API Key保存在配置文件中，请注意安全性。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 底部操作按钮 -->
+            <div class="text-center mt-5">
+                <button class="btn btn-primary me-2" onclick="window.close()">
+                    <i class="bi bi-check-lg me-1"></i>
+                    完成
+                </button>
+                <a href="settings.html" class="btn btn-outline-secondary">
+                    <i class="bi bi-gear me-1"></i>
+                    返回设置页面
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

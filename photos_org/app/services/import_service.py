@@ -17,6 +17,14 @@ import mimetypes
 from PIL import Image, ExifTags
 import imagehash
 
+# 导入HEIC支持
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    HEIC_SUPPORT = True
+except ImportError:
+    HEIC_SUPPORT = False
+
 from app.core.config import settings
 from app.models.photo import Photo
 from app.schemas.photo import PhotoCreate
@@ -32,7 +40,8 @@ class ImportService:
         'TIFF': ['.tiff', '.tif'],
         'WebP': ['.webp'],
         'BMP': ['.bmp'],
-        'GIF': ['.gif']
+        'GIF': ['.gif'],
+        'HEIC': ['.heic', '.heif']
     }
 
     # 支持的MIME类型
@@ -42,7 +51,9 @@ class ImportService:
         'image/tiff',
         'image/webp',
         'image/bmp',
-        'image/gif'
+        'image/gif',
+        'image/heic',
+        'image/heif'
     ]
 
     def __init__(self):
@@ -90,6 +101,15 @@ class ImportService:
 
         # 检查文件格式
         mime_type, _ = mimetypes.guess_type(str(file_path))
+        
+        # 特殊处理HEIC格式
+        if file_path.suffix.lower() in ['.heic', '.heif']:
+            if not HEIC_SUPPORT:
+                return False, "HEIC格式需要安装pillow-heif库支持", None
+            # HEIC格式的MIME类型可能不准确，手动设置
+            mime_type = 'image/heic'
+        
+        # 检查MIME类型是否支持
         if mime_type not in self.SUPPORTED_MIMETYPES:
             return False, f"不支持的文件格式: {mime_type}", None
 
@@ -174,59 +194,65 @@ class ImportService:
 
         try:
             with Image.open(file_path) as img:
-                # 获取EXIF数据
-                exif_data = img._getexif()
-
+                # 获取EXIF数据 - 使用现代方法
+                exif_data = {}
+                
+                # 尝试使用现代方法获取EXIF数据
+                if hasattr(img, 'getexif'):
+                    exif_data = img.getexif()
+                elif hasattr(img, '_getexif'):
+                    exif_data = img._getexif()
+                
                 if exif_data:
                     # 创建EXIF标签映射
                     exif_tags = {v: k for k, v in ExifTags.TAGS.items()}
 
-                for tag, value in exif_data.items():
-                    tag_name = exif_tags.get(tag, tag)
+                    for tag, value in exif_data.items():
+                        tag_name = exif_tags.get(tag, tag)
 
-                    # 处理常见标签（使用标准名称）
-                    if tag_name == 'DateTimeOriginal':
-                        metadata['taken_at'] = self._parse_exif_datetime(value)
-                    elif tag_name == 'Make':
-                        metadata['camera_make'] = value
-                    elif tag_name == 'Model':
-                        metadata['camera_model'] = value
-                    elif tag_name == 'LensModel':
-                        metadata['lens_model'] = value
-                    elif tag_name == 'FocalLength':
-                        metadata['focal_length'] = float(value) if isinstance(value, (int, float)) else None
-                    elif tag_name == 'FNumber':
-                        metadata['aperture'] = float(value) if isinstance(value, (int, float)) else None
-                    elif tag_name == 'ExposureTime':
-                        metadata['shutter_speed'] = str(value)
-                    elif tag_name == 'ISOSpeedRatings':
-                        metadata['iso'] = value if isinstance(value, int) else None
-                    elif tag_name == 'Flash':
-                        metadata['flash'] = str(value)
-                    elif tag_name == 'WhiteBalance':
-                        metadata['white_balance'] = str(value)
-                    elif tag_name == 'ExposureMode':
-                        metadata['exposure_mode'] = str(value)
-                    elif tag_name == 'MeteringMode':
-                        metadata['metering_mode'] = str(value)
-                    elif tag_name == 'Orientation':
-                        metadata['orientation'] = value if isinstance(value, int) else None
+                        # 处理常见标签（使用标准名称）
+                        if tag_name == 'DateTimeOriginal':
+                            metadata['taken_at'] = self._parse_exif_datetime(value)
+                        elif tag_name == 'Make':
+                            metadata['camera_make'] = value
+                        elif tag_name == 'Model':
+                            metadata['camera_model'] = value
+                        elif tag_name == 'LensModel':
+                            metadata['lens_model'] = value
+                        elif tag_name == 'FocalLength':
+                            metadata['focal_length'] = float(value) if isinstance(value, (int, float)) else None
+                        elif tag_name == 'FNumber':
+                            metadata['aperture'] = float(value) if isinstance(value, (int, float)) else None
+                        elif tag_name == 'ExposureTime':
+                            metadata['shutter_speed'] = str(value)
+                        elif tag_name == 'ISOSpeedRatings':
+                            metadata['iso'] = value if isinstance(value, int) else None
+                        elif tag_name == 'Flash':
+                            metadata['flash'] = str(value)
+                        elif tag_name == 'WhiteBalance':
+                            metadata['white_balance'] = str(value)
+                        elif tag_name == 'ExposureMode':
+                            metadata['exposure_mode'] = str(value)
+                        elif tag_name == 'MeteringMode':
+                            metadata['metering_mode'] = str(value)
+                        elif tag_name == 'Orientation':
+                            metadata['orientation'] = value if isinstance(value, int) else None
 
-                    # 处理实际标签ID（针对不同相机厂商的特殊情况）
-                    elif tag == 271:  # 相机品牌
-                        metadata['camera_make'] = value
-                    elif tag == 272:  # 相机型号
-                        metadata['camera_model'] = value
-                    elif tag == 306:  # 拍摄时间
-                        metadata['taken_at'] = self._parse_exif_datetime(value)
-                    elif tag == 36867:  # 另一种拍摄时间格式
-                        metadata['taken_at'] = self._parse_exif_datetime(value)
-                    elif tag == 37377:  # 光圈
-                        metadata['aperture'] = float(value) if isinstance(value, (int, float)) else None
-                    elif tag == 37378:  # 快门速度
-                        metadata['shutter_speed'] = str(value)
-                    elif tag == 33437:  # ISO
-                        metadata['iso'] = int(value) if isinstance(value, (int, float)) else None
+                        # 处理实际标签ID（针对不同相机厂商的特殊情况）
+                        elif tag == 271:  # 相机品牌
+                            metadata['camera_make'] = value
+                        elif tag == 272:  # 相机型号
+                            metadata['camera_model'] = value
+                        elif tag == 306:  # 拍摄时间
+                            metadata['taken_at'] = self._parse_exif_datetime(value)
+                        elif tag == 36867:  # 另一种拍摄时间格式
+                            metadata['taken_at'] = self._parse_exif_datetime(value)
+                        elif tag == 37377:  # 光圈
+                            metadata['aperture'] = float(value) if isinstance(value, (int, float)) else None
+                        elif tag == 37378:  # 快门速度
+                            metadata['shutter_speed'] = str(value)
+                        elif tag == 33437:  # ISO
+                            metadata['iso'] = int(value) if isinstance(value, (int, float)) else None
 
                     # 处理GPS信息
                     gps_info = self._extract_gps_info(exif_data)
@@ -262,7 +288,7 @@ class ImportService:
 
         try:
             gps_data = exif_data.get(34853)  # GPS IFD
-            if gps_data:
+            if gps_data and isinstance(gps_data, dict):
                 # GPS纬度
                 lat = self._convert_gps_coordinate(gps_data.get(2), gps_data.get(1))
                 if lat is not None:
@@ -793,17 +819,6 @@ class ImportService:
             
             # 4. 正常处理流程（适用于情况2和情况4）
             success, message, photo_data, duplicate_info = self._handle_new_file(file_path, file_hash, move_file, db_session)
-            
-            # 如果有数据库会话且处理成功，保存到数据库
-            if success and photo_data and db_session:
-                try:
-                    from app.services.photo_service import PhotoService
-                    photo_service = PhotoService()
-                    saved_photo = photo_service.create_photo(db_session, photo_data)
-                    print(f"照片已保存到数据库: {saved_photo.filename}")
-                except Exception as e:
-                    print(f"保存照片到数据库失败: {e}")
-                    return False, f"保存照片失败: {str(e)}", None, None
             
             return success, message, photo_data, duplicate_info
             

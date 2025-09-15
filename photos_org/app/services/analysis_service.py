@@ -53,9 +53,6 @@ class AnalysisService:
             if db is None:
                 db = next(get_db())
                 should_close_db = True
-                self.logger.info(f"照片 {photo_id}: 创建了新的数据库会话")
-            else:
-                self.logger.info(f"照片 {photo_id}: 使用提供的数据库会话")
                 
             photo = db.query(Photo).filter(Photo.id == photo_id).first()
 
@@ -72,10 +69,9 @@ class AnalysisService:
             if not full_path.exists():
                 raise Exception(f"照片文件不存在: {full_path}")
 
-            self.logger.info(f"=== 开始分析照片 {photo_id}: {photo.filename} ===")
+            self.logger.info(f"开始分析照片 {photo_id}: {photo.filename}")
 
             # 并发执行各项分析
-            self.logger.info(f"照片 {photo_id}: 开始并发分析...")
             tasks = [
                 self._analyze_content_async(str(full_path)),
                 self._analyze_quality_async(str(full_path)),
@@ -90,16 +86,12 @@ class AnalysisService:
             quality_result = results[1] if not isinstance(results[1], Exception) else None
             hash_result = results[2] if not isinstance(results[2], Exception) else None
 
-            self.logger.info(f"照片 {photo_id}: 分析结果 - 内容分析: {'成功' if content_result else '失败'}, 质量评估: {'成功' if quality_result else '失败'}, 哈希: {'成功' if hash_result else '失败'}")
-
             # 保存分析结果到数据库
-            self.logger.info(f"照片 {photo_id}: 开始保存分析结果...")
             analysis_result = self._save_analysis_results(
                 photo_id, content_result, quality_result, hash_result, db
             )
-            self.logger.info(f"照片 {photo_id}: 分析结果保存完成")
 
-            self.logger.info(f"=== 照片 {photo_id} 分析完成 ===")
+            self.logger.info(f"照片 {photo_id} 分析完成")
             return analysis_result
 
         except Exception as e:
@@ -178,11 +170,8 @@ class AnalysisService:
             保存的分析结果
         """
         try:
-            self.logger.info(f"照片 {photo_id}: 开始保存分析结果到数据库...")
-            
             # 保存内容分析结果
             if content_result:
-                self.logger.info(f"照片 {photo_id}: 保存内容分析结果...")
                 analysis_record = PhotoAnalysis(
                     photo_id=photo_id,
                     analysis_type="content",
@@ -190,11 +179,9 @@ class AnalysisService:
                     confidence_score=content_result.get("confidence", 0.0)
                 )
                 db.add(analysis_record)
-                self.logger.info(f"照片 {photo_id}: 内容分析结果已添加")
 
             # 保存质量分析结果
             if quality_result:
-                self.logger.info(f"照片 {photo_id}: 保存质量分析结果...")
                 quality_record = PhotoQuality(
                     photo_id=photo_id,
                     quality_score=quality_result.get("quality_score"),
@@ -207,7 +194,6 @@ class AnalysisService:
                     technical_issues=quality_result.get("technical_issues", [])
                 )
                 db.add(quality_record)
-                self.logger.info(f"照片 {photo_id}: 质量分析结果已添加")
 
             # 更新照片的哈希值和状态
             photo = db.query(Photo).filter(Photo.id == photo_id).first()
@@ -219,17 +205,13 @@ class AnalysisService:
                 photo.updated_at = datetime.now()
 
             # 先提交AI分析结果到数据库，确保分类服务能查询到
-            self.logger.info(f"照片 {photo_id}: 先提交AI分析结果到数据库...")
             db.commit()
-            self.logger.info(f"照片 {photo_id}: AI分析结果已提交")
 
             # 调用分类服务生成完整的标签和分类
             try:
-                self.logger.info(f"照片 {photo_id}: 开始调用分类服务...")
                 from app.services.classification_service import ClassificationService
                 classification_service = ClassificationService()
                 classification_result = classification_service.classify_photo(photo_id, db)
-                self.logger.info(f"照片 {photo_id}: 分类服务完成: {classification_result.get('message', '')}")
             except Exception as e:
                 self.logger.error(f"照片 {photo_id}: 分类服务失败: {str(e)}")
                 import traceback
@@ -237,9 +219,7 @@ class AnalysisService:
                 raise
 
             # 提交分类服务的数据库操作
-            self.logger.info(f"照片 {photo_id}: 开始提交分类服务结果...")
             db.commit()
-            self.logger.info(f"照片 {photo_id}: 分类服务结果已提交")
 
             # 返回综合结果
             return {
@@ -268,9 +248,7 @@ class AnalysisService:
             批量分析结果
         """
         try:
-            self.logger.info(f"=== AnalysisService.batch_analyze_photos 开始 ===")
-            self.logger.info(f"照片ID列表: {photo_ids}")
-            self.logger.info(f"数据库会话: {'已提供' if db else '未提供'}")
+            self.logger.info(f"开始批量分析 {len(photo_ids)} 张照片")
             
             # 验证输入参数
             if not photo_ids:
@@ -294,14 +272,12 @@ class AnalysisService:
 
             # 限制并发数量，避免资源耗尽
             semaphore = asyncio.Semaphore(2)
-            self.logger.info(f"设置并发限制: 2")
+            # 设置并发限制
 
             async def analyze_with_semaphore(photo_id: int):
                 async with semaphore:
                     try:
-                        self.logger.info(f"开始分析照片 {photo_id}...")
                         result = await self.analyze_photo(photo_id, db)
-                        self.logger.info(f"照片 {photo_id} 分析成功")
                         return {"photo_id": photo_id, "status": "success", "result": result}
                     except Exception as e:
                         self.logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
@@ -310,13 +286,11 @@ class AnalysisService:
                         return {"photo_id": photo_id, "status": "error", "error": str(e)}
 
             # 并发执行分析任务
-            self.logger.info(f"开始并发执行 {len(photo_ids)} 个分析任务...")
+            # 开始并发执行分析任务
             try:
                 tasks = [analyze_with_semaphore(photo_id) for photo_id in photo_ids]
-                self.logger.info(f"创建了 {len(tasks)} 个异步任务")
                 
                 task_results = await asyncio.gather(*tasks)
-                self.logger.info(f"所有异步任务执行完成，共 {len(task_results)} 个结果")
                 
             except Exception as e:
                 self.logger.error(f"并发执行任务时出错: {str(e)}")
@@ -325,13 +299,11 @@ class AnalysisService:
                 raise
 
             # 处理结果
-            self.logger.info("开始处理任务结果...")
-            for i, result in enumerate(task_results):
-                self.logger.info(f"处理结果 {i+1}/{len(task_results)}: 照片 {result['photo_id']}, 状态: {result['status']}")
+            # 处理任务结果
+            for result in task_results:
                 if result["status"] == "success":
                     results["successful_analyses"] += 1
                     results["results"].append(result)
-                    self.logger.info(f"照片 {result['photo_id']} 分析成功")
                 else:
                     results["failed_analyses"] += 1
                     results["errors"].append(result)
@@ -339,8 +311,7 @@ class AnalysisService:
 
             results["completed_at"] = datetime.now().isoformat()
 
-            self.logger.info(f"=== 批量分析完成: {results['successful_analyses']}/{results['total_photos']} ===")
-            self.logger.info(f"成功: {results['successful_analyses']}, 失败: {results['failed_analyses']}")
+            self.logger.info(f"批量分析完成: {results['successful_analyses']}/{results['total_photos']} 成功")
             return results
 
         except Exception as e:

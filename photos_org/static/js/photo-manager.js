@@ -213,7 +213,7 @@ class PhotoManager {
         }
     }
 
-    // 批量处理照片
+    // 智能处理照片
     async batchProcessPhotos(options) {
         try {
             const params = new URLSearchParams({
@@ -233,13 +233,13 @@ class PhotoManager {
                 window.PhotoApp.loadPhotos(1);
                 window.PhotoApp.loadStats();
 
-                // 已删除批量处理完成通知，避免冗余（模态框已有状态显示）
+                // 已删除智能处理完成通知，避免冗余（模态框已有状态显示）
             } else {
-                throw new Error(result.message || '批量处理失败');
+                throw new Error(result.message || '智能处理失败');
             }
         } catch (error) {
-            console.error('批量处理失败:', error);
-            this.showToast(`批量处理失败: ${error.message}`, 'error');
+            console.error('智能处理失败:', error);
+            this.showToast(`智能处理失败: ${error.message}`, 'error');
         }
     }
 

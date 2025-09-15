@@ -18,6 +18,14 @@ from datetime import datetime
 import jieba
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+# 导入HEIC支持
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    HEIC_SUPPORT = True
+except ImportError:
+    HEIC_SUPPORT = False
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger

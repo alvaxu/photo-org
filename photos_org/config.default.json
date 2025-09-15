@@ -13,6 +13,7 @@
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
     "model": "qwen-vl-plus-latest",
     "available_models": [
+      "qwen-vl-plus",
       "qwen-vl-plus-latest",
       "qwen-vl-plus-2025-08-15",
       "qwen-vl-plus-2025-05-07",

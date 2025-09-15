@@ -14,6 +14,7 @@ Pillow==10.1.0                      # Python图像处理库（PIL）
 opencv-python==4.8.1.78            # 计算机视觉库
 imagehash==4.3.2                    # 图像感知哈希算法
 numpy>=1.21.0,<2.0.0               # 数值计算库（OpenCV依赖）
+pillow-heif==0.13.0                 # HEIC/HEIF格式支持（Pillow插件）
 
 # ==================== AI服务 ====================
 dashscope==1.14.0                   # 阿里云DashScope大模型服务

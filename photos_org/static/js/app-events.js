@@ -49,12 +49,12 @@ function bindBasicEvents() {
         folderFilesInput.addEventListener('change', handleFolderSelection);
     }
 
-    // 批量处理事件
+    // 智能处理事件
     // 注意：batchBtn 使用 data-bs-toggle="modal" 自动处理，不需要手动监听
     window.elements.startBatchBtn.addEventListener('click', startBatchProcess);
     
     // 添加调试信息
-    console.log('批量处理按钮绑定状态:', {
+    console.log('智能处理按钮绑定状态:', {
         batchBtn: !!window.elements.batchBtn,
         startBatchBtn: !!window.elements.startBatchBtn
     });

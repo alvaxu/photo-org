@@ -64,6 +64,14 @@ class UserConfigManager {
         document.getElementById('selectDatabasePath').addEventListener('click', () => {
             this.selectFile('databasePath');
         });
+
+        // 帮助按钮
+        const helpBtn = document.getElementById('helpApiKeyBtn');
+        if (helpBtn) {
+            helpBtn.addEventListener('click', () => {
+                this.openHelpPage();
+            });
+        }
     }
 
     /**
@@ -597,6 +605,19 @@ class UserConfigManager {
         } catch (error) {
             console.error('选择数据库文件失败:', error);
             alert('选择数据库文件失败: ' + error.message);
+        }
+    }
+
+    /**
+     * 打开帮助页面
+     */
+    openHelpPage() {
+        // 在新窗口中打开帮助页面
+        const helpWindow = window.open('/help-api-key', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+        
+        if (!helpWindow) {
+            // 如果弹窗被阻止，则直接跳转
+            window.location.href = '/help-api-key';
         }
     }
 }

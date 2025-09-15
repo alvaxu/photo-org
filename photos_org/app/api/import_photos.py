@@ -133,7 +133,13 @@ async def upload_photos(
 
         for file in files:
             # 验证文件类型
-            if not file.content_type or not file.content_type.startswith('image/'):
+            file_ext = Path(file.filename).suffix.lower()
+            
+            # 特殊处理HEIC格式
+            if file_ext in ['.heic', '.heif']:
+                # HEIC格式的content_type可能为空，需要特殊处理
+                pass
+            elif not file.content_type or not file.content_type.startswith('image/'):
                 failed_files.append(f"{file.filename}: 不支持的文件类型")
                 failed_count += 1
                 continue
@@ -337,7 +343,7 @@ async def get_import_status():
 
 async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, int, int, List[str]]:
     """
-    批量处理照片文件
+    智能处理照片文件
 
     :param photo_files: 照片文件路径列表
     :param db: 数据库会话
@@ -380,7 +386,7 @@ async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, int, in
                     status_text = f"文件已存在但未完成智能处理 - 将重新处理"
                     print(f"继续处理重复文件: {file_path} - {status_text}")
                     # 注意：这里不需要创建新的数据库记录，因为记录已存在
-                    # 只需要确保状态正确，让后续的批量处理来处理
+                    # 只需要确保状态正确，让后续的智能处理来处理
                     imported_count += 1  # 计入处理数量
                     
                 elif duplicate_type == 'orphan_cleaned':
@@ -450,16 +456,16 @@ async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, int, in
     
     print(f"\n导入完成: 成功 {imported_count}/{len(photo_files)} 张照片，跳过 {skipped_count} 张，失败 {failed_count} 张")
     
-    # 导入完成，通知用户手动点击批量处理
+    # 导入完成，通知用户手动点击智能处理
     if imported_count > 0:
-        print(f"导入完成: {imported_count} 张照片已导入，请手动点击批量处理按钮进行智能分析")
+        print(f"导入完成: {imported_count} 张照片已导入，请手动点击智能处理按钮进行智能分析")
     
     return imported_count, skipped_count, failed_count, failed_files
 
 
 async def process_photos_batch_with_status(photo_files: List[str], db, task_id: str):
     """
-    带状态跟踪的批量处理照片文件
+    带状态跟踪的智能处理照片文件
     
     :param photo_files: 照片文件路径列表
     :param db: 数据库会话
@@ -522,7 +528,7 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                             status_text = f"文件已存在但未完成智能处理 - 将重新处理"
                             print(f"继续处理重复文件: {file_path} - {status_text}")
                             # 注意：这里不需要创建新的数据库记录，因为记录已存在
-                            # 只需要确保状态正确，让后续的批量处理来处理
+                            # 只需要确保状态正确，让后续的智能处理来处理
                             imported_count += 1  # 计入处理数量
                             
                         elif duplicate_type == 'orphan_cleaned':
@@ -622,7 +628,6 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                 "error": str(e)
             })
             print(f"后台导入失败: {str(e)}")
-            
     except Exception as e:
         # 处理整个函数级别的异常
         task_status[task_id] = {
@@ -630,7 +635,7 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
             "error": str(e),
             "end_time": datetime.now().isoformat()
         }
-        print(f"批量处理函数异常: {str(e)}")
+        print(f"智能处理函数异常: {str(e)}")
 
 
 @router.get("/scan-status/{task_id}")
