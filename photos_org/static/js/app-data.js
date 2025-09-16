@@ -27,7 +27,7 @@ const AppState = {
         searchType: 'all',
         dateFilter: '',
         qualityFilter: '',
-        sortBy: 'quality_score',
+        sortBy: 'created_at',
         sortOrder: 'desc',
         selectedTags: [],
         selectedCategories: []

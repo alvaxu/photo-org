@@ -922,21 +922,39 @@
 **实际响应格式**：
 ```json
 {
-  "reference_photo": {
-    "id": 1,
-    "filename": "IMG_001.jpg"
-  },
-  "similar_photos": [
-    {
-      "id": 5,
-      "filename": "IMG_005.jpg",
-      "similarity": 0.95,
-      "thumbnail_path": "/thumbnails/photo5.jpg"
-    }
-  ],
-  "total_found": 3
+  "success": true,
+  "data": {
+    "reference_photo_id": 1,
+    "reference_filename": "IMG_001.jpg",
+    "total": 3,
+    "similar_photos": [
+      {
+        "id": 5,
+        "filename": "IMG_005.jpg",
+        "thumbnail_path": "thumbnails/photo5.jpg",
+        "original_path": "originals/photo5.jpg",
+        "width": 4032,
+        "height": 3024,
+        "format": "JPEG",
+        "taken_at": "2023-11-25T12:49:33",
+        "created_at": "2025-01-20T10:30:00",
+        "similarity": 0.95,
+        "similarities": {
+          "perceptual_hash": 0.92,
+          "description": 0.88,
+          "objects": 0.85
+        }
+      }
+    ],
+    "threshold": 0.8
+  }
 }
 ```
+
+**响应字段说明**：
+- `width`、`height`：照片尺寸，用于前端动态比例显示
+- `format`：照片格式（JPEG、HEIC、PNG等）
+- `similarities`：详细相似度分析结果
 
 #### 7.2.2 智能推荐照片 ❌ 待开发
 **接口路径**：`GET /api/v1/search/recommend/{photo_id}`

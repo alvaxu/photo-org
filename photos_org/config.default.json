@@ -6,7 +6,7 @@
     "temp_file_max_age": 24
   },
   "database": {
-    "path": "./data/photos.db"
+    "path": "D:/photo_data/db/photos.db"
   },
   "dashscope": {
     "api_key": "",
@@ -23,7 +23,7 @@
     "max_retry_count": 3
   },
   "storage": {
-    "base_path": "./photos_storage",
+    "base_path": "D:/photo_data/storage",
     "originals_path": "originals",
     "thumbnails_path": "thumbnails",
     "temp_path": "temp",

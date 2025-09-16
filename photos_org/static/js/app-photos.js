@@ -9,6 +9,50 @@
  */
 
 /**
+ * 处理触摸延迟点击
+ * @param {Event} event - 点击事件
+ * @param {string} functionName - 要执行的函数名
+ * @param {number} photoId - 照片ID
+ */
+function handleTouchDelay(event, functionName, photoId) {
+    event.stopPropagation();
+    
+    // 检测是否为触摸设备
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    if (isTouchDevice) {
+        // 触摸设备：添加延迟和视觉反馈
+        const button = event.target.closest('button');
+        if (button) {
+            // 添加延迟状态
+            button.classList.add('touch-delay');
+            
+            // 延迟执行
+            setTimeout(() => {
+                // 添加执行状态
+                button.classList.remove('touch-delay');
+                button.classList.add('touch-executing');
+                
+                // 执行函数
+                if (window[functionName]) {
+                    window[functionName](photoId);
+                }
+                
+                // 恢复按钮状态
+                setTimeout(() => {
+                    button.classList.remove('touch-executing');
+                }, 200);
+            }, 1800); // 1800ms延迟
+        }
+    } else {
+        // 桌面设备：立即执行
+        if (window[functionName]) {
+            window[functionName](photoId);
+        }
+    }
+}
+
+/**
  * 创建照片卡片
  * 
  * @param {Object} photo - 照片对象
@@ -32,48 +76,64 @@ function createPhotoCard(photo) {
     const qualityClass = getQualityClass(qualityLevel);
     const qualityText = getQualityText(qualityLevel);
 
+    // 根据照片尺寸判断方向并添加CSS类
+    let containerClass = 'photo-card';
+    if (photo.width && photo.height) {
+        if (photo.height > photo.width) {
+            containerClass += ' portrait';  // 竖版
+        } else if (photo.height === photo.width) {
+            containerClass += ' square';    // 正方形
+        } else {
+            containerClass += ' landscape'; // 横版
+        }
+    }
+
     return `
-        <div class="photo-card" data-photo-id="${photo.id}">
+        <div class="${containerClass}" data-photo-id="${photo.id}">
             <div class="photo-image-container">
                 <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
                      alt="${photo.filename}"
                      class="photo-image"
                      loading="lazy">
                 <div class="photo-overlay">
-                    <button class="btn btn-light btn-sm" onclick="event.stopPropagation(); viewPhotoDetail(${photo.id})" title="查看详情">
+                    <button class="btn btn-light btn-sm" onclick="handleTouchDelay(event, 'viewPhotoDetail', ${photo.id})" title="查看详情">
                         <i class="bi bi-eye"></i>
                     </button>
-                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); editPhoto(${photo.id})" title="编辑">
+                    <button class="btn btn-warning btn-sm" onclick="handleTouchDelay(event, 'editPhoto', ${photo.id})" title="编辑">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deletePhoto(${photo.id})" title="删除">
+                    <button class="btn btn-danger btn-sm" onclick="handleTouchDelay(event, 'deletePhoto', ${photo.id})" title="删除">
                         <i class="bi bi-trash"></i>
                     </button>
-                    <button class="btn btn-info btn-sm" onclick="event.stopPropagation(); searchSimilarPhotos(${photo.id})" title="相似照片">
+                    <button class="btn btn-info btn-sm" onclick="handleTouchDelay(event, 'searchSimilarPhotos', ${photo.id})" title="相似照片">
                         <i class="bi bi-search"></i>
                     </button>
                 </div>
             </div>
             <div class="photo-info">
-                <div class="photo-title">${photo.filename}</div>
+                <div class="photo-header">
+                    <div class="photo-title">${photo.filename}</div>
+                    <div class="photo-quality ${qualityClass}">
+                        ${qualityText}
+                    </div>
+                </div>
                 <div class="photo-meta">
                     <i class="bi bi-calendar me-1"></i>${formatDate(photo.taken_at)} (拍摄日期)
                 </div>
                 <div class="photo-tags">
                     <div class="visible-tags">
                         ${visibleTagsHtml}
+                        ${hiddenTagsCount > 0 ? `
+                            <span class="tag-toggle" onclick="toggleTags(this, event)" data-photo-id="${photo.id}">
+                                +${hiddenTagsCount} 更多
+                            </span>
+                        ` : ''}
                     </div>
                     ${hiddenTagsCount > 0 ? `
                         <div class="hidden-tags" style="display: none;">
                             ${hiddenTagsHtml}
                         </div>
-                        <span class="tag-toggle" onclick="toggleTags(this, event)" data-photo-id="${photo.id}">
-                            +${hiddenTagsCount} 更多
-                        </span>
                     ` : ''}
-                </div>
-                <div class="photo-quality ${qualityClass}">
-                    ${qualityText}
                 </div>
             </div>
         </div>
@@ -102,6 +162,18 @@ function createPhotoListItem(photo) {
     const qualityClass = getQualityClass(photo.quality?.level || '');
     const qualityText = getQualityText(photo.quality?.level || '');
 
+    // 根据照片尺寸判断方向并添加CSS类
+    let containerClass = 'photo-list-item';
+    if (photo.width && photo.height) {
+        if (photo.height > photo.width) {
+            containerClass += ' portrait';  // 竖版
+        } else if (photo.height === photo.width) {
+            containerClass += ' square';    // 正方形
+        } else {
+            containerClass += ' landscape'; // 横版
+        }
+    }
+
     // 格式化文件大小
     const formatFileSize = (bytes) => {
         if (!bytes) return '未知';
@@ -119,31 +191,34 @@ function createPhotoListItem(photo) {
     const resolution = photo.width && photo.height ? `${photo.width} × ${photo.height}` : '未知';
 
     return `
-        <div class="photo-list-item" data-photo-id="${photo.id}">
+        <div class="${containerClass}" data-photo-id="${photo.id}">
             <div class="photo-thumbnail-container">
                 <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
                      alt="${photo.filename}"
                      class="photo-thumbnail">
                 <div class="photo-overlay">
-                    <button class="btn btn-light btn-sm" onclick="event.stopPropagation(); viewPhotoDetail(${photo.id})" title="查看详情">
+                    <button class="btn btn-light btn-sm" onclick="handleTouchDelay(event, 'viewPhotoDetail', ${photo.id})" title="查看详情">
                         <i class="bi bi-eye"></i>
                     </button>
-                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); editPhoto(${photo.id})" title="编辑">
+                    <button class="btn btn-warning btn-sm" onclick="handleTouchDelay(event, 'editPhoto', ${photo.id})" title="编辑">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deletePhoto(${photo.id})" title="删除">
+                    <button class="btn btn-danger btn-sm" onclick="handleTouchDelay(event, 'deletePhoto', ${photo.id})" title="删除">
                         <i class="bi bi-trash"></i>
                     </button>
-                    <button class="btn btn-info btn-sm" onclick="event.stopPropagation(); searchSimilarPhotos(${photo.id})" title="相似照片">
+                    <button class="btn btn-info btn-sm" onclick="handleTouchDelay(event, 'searchSimilarPhotos', ${photo.id})" title="相似照片">
                         <i class="bi bi-search"></i>
                     </button>
                 </div>
             </div>
             <div class="photo-details">
                 <div class="photo-header">
-                    <div class="photo-title">${photo.filename}</div>
+                    <div class="photo-title-container">
+                        <div class="photo-title">${photo.filename}</div>
+                        <span class="badge ${qualityClass} photo-quality-badge">${qualityText}</span>
+                    </div>
                     <div class="photo-actions">
-                        <span class="badge ${qualityClass}">${qualityText}</span>
+                        <!-- 操作按钮可以在这里添加 -->
                     </div>
                 </div>
                 <div class="photo-meta">
@@ -479,90 +554,6 @@ function createSimilarPhotosModal() {
 }
 
 /**
- * 显示相似照片结果（V2 API格式）
- * @param {Array} similarPhotos - 相似照片数组
- * @param {number} referencePhotoId - 参考照片ID
- */
-function displaySimilarPhotosV2(similarPhotos, referencePhotoId) {
-    const resultsContainer = document.getElementById('similarPhotosResults');
-    
-    if (!similarPhotos || similarPhotos.length === 0) {
-        resultsContainer.innerHTML = '<div class="col-12 text-center"><p class="text-muted">没有找到相似照片</p></div>';
-        return;
-    }
-    
-    // 获取参考照片信息
-    const referencePhoto = AppState.photos.find(p => p.id === referencePhotoId);
-    
-    let html = `
-        <div class="col-12 mb-3">
-            <h6>参考照片</h6>
-            <div class="card">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-2">
-                            <img src="/photos_storage/${(referencePhoto?.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
-                                 class="img-thumbnail" alt="${referencePhoto?.filename || '未知'}">
-                        </div>
-                        <div class="col-md-10">
-                            <h6>${referencePhoto?.filename || '未知'}</h6>
-                            <p class="text-muted mb-0">找到 ${similarPhotos.length} 张相似照片</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // 显示相似照片
-    html += '<div class="col-12"><h6>相似照片</h6></div>';
-    
-    similarPhotos.forEach(photo => {
-        const similarityPercent = Math.round(photo.similarity * 100);
-        html += `
-            <div class="col-md-3 col-sm-6 mb-3">
-                <div class="card h-100">
-                    <div class="position-relative">
-                        <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
-                             class="card-img-top" style="height: 200px; object-fit: cover;" 
-                             alt="${photo.filename}">
-                        <div class="position-absolute top-0 end-0 m-2">
-                            <span class="badge bg-primary">${similarityPercent}%</span>
-                        </div>
-                    </div>
-                    <div class="card-body p-2">
-                        <h6 class="card-title small">${photo.filename}</h6>
-                        <p class="card-text small text-muted">相似度: ${similarityPercent}%</p>
-                        ${photo.similarities ? `
-                            <div class="small text-muted">
-                                <div>感知哈希: ${Math.round(photo.similarities.perceptual_hash * 100)}%</div>
-                                <div>描述相似: ${Math.round(photo.similarities.description * 100)}%</div>
-                                <div>对象相似: ${Math.round(photo.similarities.objects * 100)}%</div>
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="card-footer p-2">
-                        <div class="btn-group w-100" role="group">
-                            <button class="btn btn-outline-primary btn-sm" onclick="viewPhotoDetail(${photo.photo_id})" title="查看详情">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                            <button class="btn btn-outline-warning btn-sm" onclick="editPhoto(${photo.photo_id})" title="编辑">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-outline-danger btn-sm" onclick="deletePhoto(${photo.photo_id})" title="删除">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    resultsContainer.innerHTML = html;
-}
-
-/**
  * 显示相似照片结果（V1 API格式，保留兼容性）
  * @param {Object} data - API返回的数据
  */
@@ -612,12 +603,25 @@ function displaySimilarPhotos(data) {
     
     data.similar_photos.forEach(photo => {
         const similarityPercent = Math.round(photo.similarity * 100);
+        
+        // 根据照片尺寸判断方向并添加CSS类
+        let containerClass = 'similar-photo-card';
+        if (photo.width && photo.height) {
+            if (photo.height > photo.width) {
+                containerClass += ' portrait';  // 竖版
+            } else if (photo.height === photo.width) {
+                containerClass += ' square';    // 正方形
+            } else {
+                containerClass += ' landscape'; // 横版
+            }
+        }
+        
         html += `
             <div class="col-md-3 col-sm-6 mb-3">
                 <div class="card h-100">
-                    <div class="position-relative">
+                    <div class="position-relative similar-photo-image-container ${containerClass}">
                         <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
-                             class="card-img-top" style="height: 200px; object-fit: cover;" 
+                             class="card-img-top similar-photo-image" 
                              alt="${photo.filename}">
                         <div class="position-absolute top-0 end-0 m-2">
                             <span class="badge bg-primary">${similarityPercent}%</span>
@@ -839,7 +843,6 @@ window.viewPhotoDetail = viewPhotoDetail;
 window.editPhoto = editPhoto;
 window.deletePhoto = deletePhoto;
 window.searchSimilarPhotos = searchSimilarPhotos;
-window.displaySimilarPhotosV2 = displaySimilarPhotosV2;
 window.displaySimilarPhotos = displaySimilarPhotos;
 window.showPhotoEditModal = showPhotoEditModal;
 window.savePhotoEdit = savePhotoEdit;

@@ -259,14 +259,14 @@ class UserConfigManager {
         this.updateCurrentValue('apiKeyCurrent', apiKey ? '已设置' : '使用环境变量');
 
         // 存储配置
-        const photosPath = this.config.storage?.base_path || './photos_storage';
+        const photosPath = this.config.storage?.base_path || 'D:/photo_data/storage';
         const photosPathInput = document.getElementById('photosPath');
         if (photosPathInput) {
             photosPathInput.value = photosPath;
         }
         this.updateCurrentValue('photosPathCurrent', photosPath);
         
-        const databasePath = this.config.database?.path || './data/photos.db';
+        const databasePath = this.config.database?.path || 'D:/photo_data/db/photos.db';
         const databasePathInput = document.getElementById('databasePath');
         if (databasePathInput) {
             databasePathInput.value = databasePath;
@@ -624,5 +624,8 @@ class UserConfigManager {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
-    window.configManager = new UserConfigManager();
+    // 避免重复初始化
+    if (!window.configManager) {
+        window.configManager = new UserConfigManager();
+    }
 });

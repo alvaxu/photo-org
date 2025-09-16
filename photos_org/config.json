@@ -9,7 +9,7 @@
     "path": "D:/photo_data/db/photos.db"
   },
   "dashscope": {
-    "api_key": "",
+    "api_key": "sk-bfff6cdc92e84b2f89064cd382fdbe4a",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
     "model": "qwen-vl-plus-2025-08-15",
     "available_models": [
@@ -45,18 +45,18 @@
     "backup_count": 5
   },
   "server": {
-    "host": "127.0.0.1",
+    "host": "0.0.0.0",
     "port": 8000,
     "debug": false
   },
   "ui": {
-    "photos_per_page": 24,
+    "photos_per_page": 18,
     "similar_photos_limit": 8,
     "hot_tags_limit": 10,
     "hot_categories_limit": 10
   },
   "search": {
-    "similarity_threshold": 0.8,
+    "similarity_threshold": 0.6,
     "timeout": 5,
     "default_page_size": 20,
     "max_page_size": 100,
