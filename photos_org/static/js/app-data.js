@@ -33,9 +33,7 @@ const AppState = {
         selectedCategories: []
     },
     photos: [],
-    stats: {},
-    hotTags: [],
-    hotCategories: []
+    stats: {}
 };
 
 // 搜索类型提示文字映射
@@ -48,10 +46,10 @@ const searchTypePlaceholders = {
 
 // 搜索范围提示文字映射
 const searchScopeHints = {
-    'all': '支持模糊查询、短语查询、前缀查询、任意查询、AND查询、OR查询、NOT查询',
-    'filename': '搜索范围：照片文件名（如：IMG_001.jpg, 生日聚会.jpg）',
-    'description': '搜索范围：用户照片描述和AI内容描述（如：生日聚会场景, 室内庆祝活动）',
-    'ai_analysis': '搜索范围：所有AI分析结果（如：聚会, 蛋糕, 人物, 场景识别）'
+    'all': '',
+    'filename': '',
+    'description': '',
+    'ai_analysis': ''
 };
 
 // ============ 配置管理 ============
@@ -270,37 +268,7 @@ async function initSearchMultiSelect() {
 
 // ============ 数据加载函数 ============
 
-async function loadHotData() {
-    try {
-        // 确保配置已加载
-        if (!userConfig) {
-            await loadUserConfig();
-        }
-        
-        // 从配置中获取限制数量
-        const tagsLimit = userConfig?.ui?.hot_tags_limit || 10;
-        const categoriesLimit = userConfig?.ui?.hot_categories_limit || 8;
-        
-        // 并行加载热门标签和分类
-        const [tagsResponse, categoriesResponse] = await Promise.all([
-            fetch(`/api/v1/tags/popular?limit=${tagsLimit}`),
-            fetch(`/api/v1/categories/popular?limit=${categoriesLimit}`)
-        ]);
-
-        if (tagsResponse.ok) {
-            AppState.hotTags = await tagsResponse.json();
-        }
-
-        if (categoriesResponse.ok) {
-            AppState.hotCategories = await categoriesResponse.json();
-        }
-        
-        // 数据加载完成后，更新搜索建议
-        updateSearchSuggestions(AppState.searchFilters.searchType);
-    } catch (error) {
-        console.error('加载热门数据失败:', error);
-    }
-}
+// loadHotData 函数已移除，因为热门标签和分类配置已从用户界面移除
 
 async function loadStats() {
     try {
@@ -400,41 +368,28 @@ async function loadPhotos(page = 1) {
 function renderStats() {
     const stats = AppState.stats;
     const statsHtml = `
-        <div class="d-flex align-items-center mb-2">
-            <div class="stats-icon me-2">
-                <i class="bi bi-images text-primary"></i>
-            </div>
-            <div class="flex-grow-1">
-                <div class="stats-value">${stats.total_photos || 0}</div>
-                <div class="stats-label">总照片数</div>
-            </div>
+        <div class="stats-item">
+            <i class="bi bi-images text-primary me-1"></i>
+            <span class="stats-value">${stats.total_photos || 0}</span>
+            <span class="stats-label">照片</span>
         </div>
-        <div class="d-flex align-items-center mb-2">
-            <div class="stats-icon me-2">
-                <i class="bi bi-tags text-success"></i>
-            </div>
-            <div class="flex-grow-1">
-                <div class="stats-value">${stats.total_tags || 0}</div>
-                <div class="stats-label">标签数量</div>
-            </div>
+        <div class="stats-divider"></div>
+        <div class="stats-item">
+            <i class="bi bi-tags text-success me-1"></i>
+            <span class="stats-value">${stats.total_tags || 0}</span>
+            <span class="stats-label">标签</span>
         </div>
-        <div class="d-flex align-items-center mb-2">
-            <div class="stats-icon me-2">
-                <i class="bi bi-collection text-info"></i>
-            </div>
-            <div class="flex-grow-1">
-                <div class="stats-value">${stats.total_categories || 0}</div>
-                <div class="stats-label">分类数量</div>
-            </div>
+        <div class="stats-divider"></div>
+        <div class="stats-item">
+            <i class="bi bi-collection text-info me-1"></i>
+            <span class="stats-value">${stats.total_categories || 0}</span>
+            <span class="stats-label">分类</span>
         </div>
-        <div class="d-flex align-items-center">
-            <div class="stats-icon me-2">
-                <i class="bi bi-star text-warning"></i>
-            </div>
-            <div class="flex-grow-1">
-                <div class="stats-value">${Object.keys(stats.quality_distribution || {}).length}</div>
-                <div class="stats-label">质量等级</div>
-            </div>
+        <div class="stats-divider"></div>
+        <div class="stats-item">
+            <i class="bi bi-star text-warning me-1"></i>
+            <span class="stats-value">${Object.keys(stats.quality_distribution || {}).length}</span>
+            <span class="stats-label">质量等级</span>
         </div>
     `;
 
@@ -473,6 +428,17 @@ function renderGridView(photos) {
         
         // 绑定点击事件 - 支持选择和查看详情
         card.addEventListener('click', (event) => {
+            // 检查是否是触摸设备，如果是触摸设备且不是按钮区域，则忽略
+            if (window.HybridInputManager && window.HybridInputManager.getCurrentInputType() === 'touch') {
+                const photoImage = event.target.closest('.photo-image, .photo-thumbnail');
+                const photoOverlay = event.target.closest('.photo-overlay');
+                
+                // 如果是触摸图片区域，不处理点击事件（由混合交互管理器处理）
+                if (photoImage && !photoOverlay) {
+                    return;
+                }
+            }
+            
             // 如果按住了Ctrl键，则切换选择状态
             if (event.ctrlKey || event.metaKey) {
                 event.preventDefault();
@@ -499,6 +465,17 @@ function renderListView(photos) {
         
         // 绑定点击事件 - 支持选择和查看详情
         item.addEventListener('click', (event) => {
+            // 检查是否是触摸设备，如果是触摸设备且不是按钮区域，则忽略
+            if (window.HybridInputManager && window.HybridInputManager.getCurrentInputType() === 'touch') {
+                const photoImage = event.target.closest('.photo-image, .photo-thumbnail');
+                const photoOverlay = event.target.closest('.photo-overlay');
+                
+                // 如果是触摸图片区域，不处理点击事件（由混合交互管理器处理）
+                if (photoImage && !photoOverlay) {
+                    return;
+                }
+            }
+            
             // 如果按住了Ctrl键，则切换选择状态
             if (event.ctrlKey || event.metaKey) {
                 event.preventDefault();
@@ -676,8 +653,31 @@ function handleSearchTypeChange() {
     // 更新搜索框提示文字
     elements.searchInput.placeholder = searchTypePlaceholders[searchType] || searchTypePlaceholders['all'];
     
-    // 更新搜索范围提示
-    elements.searchScopeHint.textContent = searchScopeHints[searchType] || searchScopeHints['all'];
+    // 更新搜索框tooltip（只在全部内容时显示高级语法）
+    if (searchType === 'all') {
+        elements.searchInput.title = '支持关键词搜索、精确搜索、前缀搜索等';
+    } else {
+        elements.searchInput.title = '';
+    }
+    
+    // 隐藏搜索范围提示
+    elements.searchScopeHint.style.display = 'none';
+    
+    // 显示或隐藏搜索语法提示
+    const searchSyntax = document.getElementById('searchSyntax');
+    if (searchSyntax) {
+        if (searchType === 'all') {
+            searchSyntax.style.display = 'block';
+        } else {
+            searchSyntax.style.display = 'none';
+        }
+    }
+    
+    // 如果搜索帮助面板打开，也关闭它
+    const searchHelpPanel = document.getElementById('searchHelpPanel');
+    if (searchHelpPanel && searchHelpPanel.style.display !== 'none') {
+        searchHelpPanel.style.display = 'none';
+    }
     
     // 显示或隐藏搜索建议
     updateSearchSuggestions(searchType);
@@ -689,6 +689,36 @@ function handleSearchTypeChange() {
     }
     
     updateFilterStatus();
+}
+
+// 搜索帮助功能
+function toggleSearchHelp() {
+    const helpPanel = document.getElementById('searchHelpPanel');
+    if (helpPanel) {
+        if (helpPanel.style.display === 'none' || helpPanel.style.display === '') {
+            helpPanel.style.display = 'block';
+        } else {
+            helpPanel.style.display = 'none';
+        }
+    }
+}
+
+function hideSearchHelp() {
+    const helpPanel = document.getElementById('searchHelpPanel');
+    if (helpPanel) {
+        helpPanel.style.display = 'none';
+    }
+}
+
+// 搜索建议功能
+function searchSuggestion(text) {
+    if (elements.searchInput) {
+        elements.searchInput.value = text;
+        AppState.searchFilters.keyword = text;
+        AppState.currentPage = 1;
+        loadPhotos(1);
+        hideSearchHelp();
+    }
 }
 
 function updateSearchSuggestions(searchType) {
@@ -901,7 +931,7 @@ window.searchScopeHints = searchScopeHints;
 
 // 导出数据加载函数
 window.loadUserConfig = loadUserConfig;
-window.loadHotData = loadHotData;
+// window.loadHotData 已移除
 window.loadStats = loadStats;
 window.loadPhotos = loadPhotos;
 window.initSearchMultiSelect = initSearchMultiSelect;

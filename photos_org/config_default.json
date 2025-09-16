@@ -6,12 +6,12 @@
     "temp_file_max_age": 24
   },
   "database": {
-    "path": "D:/photo_data/db/photos.db"
+    "path": "./photo_db/photos.db"
   },
   "dashscope": {
-    "api_key": "",
+    "api_key": "sk-bfff6cdc92e84b2f89064cd382fdbe4a",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
-    "model": "qwen-vl-plus-latest",
+    "model": "qwen-vl-plus",
     "available_models": [
       "qwen-vl-plus",
       "qwen-vl-plus-latest",
@@ -23,13 +23,13 @@
     "max_retry_count": 3
   },
   "storage": {
-    "base_path": "D:/photo_data/storage",
+    "base_path": "./storage",
     "originals_path": "originals",
     "thumbnails_path": "thumbnails",
     "temp_path": "temp",
     "backups_path": "backups",
     "thumbnail_size": 300,
-    "thumbnail_quality": 85
+    "thumbnail_quality": 50
   },
   "analysis": {
     "duplicate_threshold": 5,
@@ -45,7 +45,7 @@
     "backup_count": 5
   },
   "server": {
-    "host": "127.0.0.1",
+    "host": "0.0.0.0",
     "port": 8000,
     "debug": false
   },
@@ -56,7 +56,7 @@
     "hot_categories_limit": 10
   },
   "search": {
-    "similarity_threshold": 0.8,
+    "similarity_threshold": 0.6,
     "timeout": 5,
     "default_page_size": 20,
     "max_page_size": 100,
@@ -69,14 +69,14 @@
       "objects": 0.15,
       "time": 0.15,
       "color_histogram": 0.15,
-      "scene_type": 0.10,
-      "location": 0.10,
-      "description": 0.10,
+      "scene_type": 0.1,
+      "location": 0.1,
+      "description": 0.1,
       "emotion": 0.05,
       "activity": 0.05,
       "tags": 0.05,
       "camera": 0.05,
-      "structural": 0.10
+      "structural": 0.1
     },
     "first_layer_thresholds": {
       "perceptual_hash": 0.6,
@@ -95,7 +95,10 @@
     },
     "algorithms": {
       "primary_algorithm": "perceptual_hash",
-      "fallback_algorithms": ["color_histogram", "structural"],
+      "fallback_algorithms": [
+        "color_histogram",
+        "structural"
+      ],
       "ai_enabled": true,
       "exif_enabled": true
     },
@@ -107,7 +110,17 @@
     }
   },
   "import": {
-    "supported_formats": [".jpg", ".jpeg", ".png", ".tiff", ".webp", ".bmp", ".gif"],
+    "supported_formats": [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".tiff",
+      ".webp",
+      ".bmp",
+      ".gif",
+      ".heic",
+      ".heif"
+    ],
     "max_upload_files": 50,
     "scan_batch_size": 100
   },

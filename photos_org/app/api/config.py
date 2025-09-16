@@ -4,7 +4,7 @@
 import json
 import os
 from typing import Dict, Any
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -14,6 +14,13 @@ import importlib
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+def is_local_access(request: Request) -> bool:
+    """检测是否为本地访问"""
+    client_ip = request.client.host
+    # 检查是否为本地IP
+    local_ips = ['127.0.0.1', 'localhost', '::1', '0.0.0.0']
+    return client_ip in local_ips or client_ip.startswith('127.') or client_ip.startswith('192.168.') or client_ip.startswith('10.')
 
 async def reload_config():
     """重新加载配置"""
@@ -58,19 +65,23 @@ async def get_user_config():
 
 
 @router.put("/user")
-async def update_user_config(request: ConfigUpdateRequest):
+async def update_user_config(request: ConfigUpdateRequest, http_request: Request):
     """更新用户配置"""
     try:
+        # 检查存储目录修改是否为本地访问
+        if request.storage and 'base_path' in request.storage:
+            if not is_local_access(http_request):
+                raise HTTPException(status_code=403, detail="存储目录修改仅限本地访问")
+        
         # 获取当前配置
         current_config = settings.get_full_config()
         
-        # 更新用户配置部分
+        # 更新用户配置部分（数据库路径已从用户界面移除）
         if request.dashscope:
             current_config["dashscope"].update(request.dashscope)
         if request.storage:
             current_config["storage"].update(request.storage)
-        if request.database:
-            current_config["database"].update(request.database)
+        # 数据库路径不再通过用户界面更新
         if request.system:
             current_config["system"].update(request.system)
         if request.ui:
@@ -235,8 +246,11 @@ async def get_available_models():
 
 
 @router.post("/select-directory")
-async def select_directory():
+async def select_directory(request: Request):
     """选择目录API"""
+    # 检查是否为本地访问
+    if not is_local_access(request):
+        raise HTTPException(status_code=403, detail="此操作仅限本地访问")
     try:
         import tkinter as tk
         from tkinter import filedialog
@@ -321,3 +335,52 @@ async def select_database_file():
             "success": False,
             "message": f"选择数据库文件失败: {str(e)}"
         }
+
+
+@router.get("/defaults")
+async def get_default_config():
+    """获取系统默认配置值"""
+    try:
+        # 读取 config_default.json 文件
+        default_config_path = "config_default.json"
+        if not os.path.exists(default_config_path):
+            raise HTTPException(status_code=404, detail="默认配置文件不存在")
+        
+        with open(default_config_path, 'r', encoding='utf-8') as f:
+            default_config = json.load(f)
+        
+        # 只返回用户可配置的部分（数据库路径已从用户界面移除）
+        user_defaults = {
+            "dashscope": {
+                "model": default_config.get("dashscope", {}).get("model", ""),
+                "api_key": default_config.get("dashscope", {}).get("api_key", ""),
+                "available_models": default_config.get("dashscope", {}).get("available_models", [])
+            },
+            "storage": {
+                "base_path": default_config.get("storage", {}).get("base_path", ""),
+                "thumbnail_quality": default_config.get("storage", {}).get("thumbnail_quality", 85),
+                "thumbnail_size": default_config.get("storage", {}).get("thumbnail_size", 300)
+            },
+            # 数据库路径已从用户界面移除
+            "system": {
+                "max_file_size": default_config.get("system", {}).get("max_file_size", 52428800)
+            },
+            "ui": {
+                "photos_per_page": default_config.get("ui", {}).get("photos_per_page", 12),
+                "similar_photos_limit": default_config.get("ui", {}).get("similar_photos_limit", 8)
+            },
+            "search": {
+                "similarity_threshold": default_config.get("search", {}).get("similarity_threshold", 0.6)
+            },
+            "analysis": {
+                "duplicate_threshold": default_config.get("analysis", {}).get("duplicate_threshold", 5)
+            }
+        }
+        
+        return {
+            "success": True,
+            "data": user_defaults
+        }
+    except Exception as e:
+        logger.error(f"获取默认配置失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取默认配置失败: {str(e)}")

@@ -28,8 +28,7 @@ function initializeApp() {
     // 初始化UI组件
     initializeUI();
     
-    // 加载热门数据
-    loadHotData();
+    // 热门数据加载已移除，因为相关配置已从用户界面移除
 
     // 初始化搜索式多选组件
     initSearchMultiSelect();
@@ -44,6 +43,30 @@ function initializeApp() {
     setTimeout(() => {
         if (elements.searchInput && searchTypePlaceholders) {
             elements.searchInput.placeholder = searchTypePlaceholders['all'] || '搜索照片、文件名、描述...';
+        }
+        
+        // 初始化搜索语法提示
+        const searchSyntax = document.getElementById('searchSyntax');
+        if (searchSyntax && elements.searchType) {
+            if (elements.searchType.value === 'all') {
+                searchSyntax.style.display = 'block';
+            } else {
+                searchSyntax.style.display = 'none';
+            }
+        }
+        
+        // 初始化搜索范围提示（隐藏）
+        if (elements.searchScopeHint) {
+            elements.searchScopeHint.style.display = 'none';
+        }
+        
+        // 初始化搜索框tooltip（只在全部内容时显示）
+        if (elements.searchInput && elements.searchType) {
+            if (elements.searchType.value === 'all') {
+                elements.searchInput.title = '支持关键词搜索、精确搜索、前缀搜索等';
+            } else {
+                elements.searchInput.title = '';
+            }
         }
     }, 100);
 }

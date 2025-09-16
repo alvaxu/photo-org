@@ -6,6 +6,7 @@
 class UserConfigManager {
     constructor() {
         this.config = {};
+        this.defaultConfig = {}; // 添加默认配置缓存
         this.originalConfig = {};
         this.isLoading = false;
         this.hasChanges = false;
@@ -17,8 +18,35 @@ class UserConfigManager {
      * 初始化配置管理器
      */
     init() {
+        this.checkRemoteAccess();
         this.bindEvents();
         this.loadConfig();
+    }
+
+    /**
+     * 检测是否为远程访问
+     */
+    checkRemoteAccess() {
+        const hostname = window.location.hostname;
+        const isLocalAccess = hostname === 'localhost' || 
+                             hostname === '127.0.0.1' || 
+                             hostname === '0.0.0.0' ||
+                             hostname === '' ||
+                             window.location.protocol === 'file:';
+        
+        if (!isLocalAccess) {
+            // 隐藏存储目录配置区域
+            const storagePathSection = document.getElementById('storagePathSection');
+            if (storagePathSection) {
+                storagePathSection.style.display = 'none';
+            }
+            
+            // 显示远程访问提示
+            const remoteAccessNotice = document.getElementById('remoteAccessNotice');
+            if (remoteAccessNotice) {
+                remoteAccessNotice.style.display = 'block';
+            }
+        }
     }
 
     /**
@@ -59,10 +87,6 @@ class UserConfigManager {
         // 路径选择按钮
         document.getElementById('selectPhotosPath').addEventListener('click', () => {
             this.selectDirectory('photosPath');
-        });
-        
-        document.getElementById('selectDatabasePath').addEventListener('click', () => {
-            this.selectFile('databasePath');
         });
 
         // 帮助按钮
@@ -114,8 +138,7 @@ class UserConfigManager {
      */
     bindSelectBoxes() {
         const selects = [
-            'aiModel', 'maxFileSize', 'photosPerPage', 'similarPhotosLimit', 
-            'hotTagsLimit', 'hotCategoriesLimit'
+            'aiModel', 'maxFileSize', 'photosPerPage', 'similarPhotosLimit'
         ];
         
         selects.forEach(id => {
@@ -131,8 +154,6 @@ class UserConfigManager {
                             currentValueDisplay.textContent = this.formatFileSize(parseInt(value));
                         } else if (id === 'photosPerPage' || id === 'similarPhotosLimit') {
                             currentValueDisplay.textContent = value + '张';
-                        } else if (id === 'hotTagsLimit' || id === 'hotCategoriesLimit') {
-                            currentValueDisplay.textContent = value + '个';
                         } else if (id === 'aiModel') {
                             currentValueDisplay.textContent = value || '未设置';
                         } else {
@@ -179,9 +200,10 @@ class UserConfigManager {
         try {
             this.showLoading(true);
             
-            // 并行加载用户配置和可用模型列表
-            const [configResponse, modelsResponse] = await Promise.all([
+            // 并行加载用户配置、默认配置和可用模型列表
+            const [configResponse, defaultsResponse, modelsResponse] = await Promise.all([
                 fetch('/api/v1/config/user'),
+                fetch('/api/v1/config/defaults'), // 新增：加载默认配置
                 fetch('/api/v1/config/models')
             ]);
             
@@ -194,6 +216,14 @@ class UserConfigManager {
                 this.config = result.data;
                 this.originalConfig = JSON.parse(JSON.stringify(result.data));
                 
+                // 加载默认配置
+                if (defaultsResponse.ok) {
+                    const defaultsResult = await defaultsResponse.json();
+                    if (defaultsResult.success) {
+                        this.defaultConfig = defaultsResult.data;
+                    }
+                }
+                
                 // 加载可用模型列表
                 if (modelsResponse.ok) {
                     const modelsResult = await modelsResponse.json();
@@ -203,6 +233,7 @@ class UserConfigManager {
                 }
                 
                 this.populateForm();
+                this.populateDefaultValues(); // 新增：填充默认值显示
                 this.hasChanges = false;
                 this.updateSaveButton();
             } else {
@@ -266,12 +297,7 @@ class UserConfigManager {
         }
         this.updateCurrentValue('photosPathCurrent', photosPath);
         
-        const databasePath = this.config.database?.path || 'D:/photo_data/db/photos.db';
-        const databasePathInput = document.getElementById('databasePath');
-        if (databasePathInput) {
-            databasePathInput.value = databasePath;
-        }
-        this.updateCurrentValue('databasePathCurrent', databasePath);
+        // 数据库路径已从用户界面移除，但保留在配置中
         
         const thumbnailQuality = this.config.storage?.thumbnail_quality || 85;
         this.setRangeValue('thumbnailQuality', thumbnailQuality);
@@ -294,13 +320,7 @@ class UserConfigManager {
         this.setSelectValue('similarPhotosLimit', similarPhotosLimit);
         this.updateCurrentValue('similarPhotosLimitCurrent', similarPhotosLimit + '张');
         
-        const hotTagsLimit = this.config.ui?.hot_tags_limit || 10;
-        this.setSelectValue('hotTagsLimit', hotTagsLimit);
-        this.updateCurrentValue('hotTagsLimitCurrent', hotTagsLimit + '个');
-        
-        const hotCategoriesLimit = this.config.ui?.hot_categories_limit || 10;
-        this.setSelectValue('hotCategoriesLimit', hotCategoriesLimit);
-        this.updateCurrentValue('hotCategoriesLimitCurrent', hotCategoriesLimit + '个');
+        // 热门标签和分类配置已移除
 
         // 搜索配置
         const similarityThreshold = this.config.search?.similarity_threshold || 0.8;
@@ -310,6 +330,59 @@ class UserConfigManager {
         const duplicateThreshold = this.config.analysis?.duplicate_threshold || 5;
         this.setRangeValue('duplicateThreshold', duplicateThreshold);
         this.updateCurrentValue('duplicateThresholdCurrent', duplicateThreshold.toString());
+    }
+
+    /**
+     * 填充默认值显示
+     */
+    populateDefaultValues() {
+        // AI服务配置
+        const defaultModel = this.defaultConfig.dashscope?.model || 'qwen-vl-plus';
+        this.updateDefaultValue('aiModelDefault', defaultModel);
+        
+        const defaultApiKey = this.defaultConfig.dashscope?.api_key ? '已设置' : '使用环境变量';
+        this.updateDefaultValue('apiKeyDefault', defaultApiKey);
+
+        // 存储配置
+        const defaultPhotosPath = this.defaultConfig.storage?.base_path || './storage';
+        this.updateDefaultValue('photosPathDefault', defaultPhotosPath);
+        
+        // 数据库路径默认值已从用户界面移除
+        
+        const defaultThumbnailQuality = this.defaultConfig.storage?.thumbnail_quality || 42;
+        this.updateDefaultValue('thumbnailQualityDefault', defaultThumbnailQuality + '%');
+        
+        const defaultThumbnailSize = this.defaultConfig.storage?.thumbnail_size || 300;
+        this.updateDefaultValue('thumbnailSizeDefault', defaultThumbnailSize + 'px');
+        
+        const defaultMaxFileSize = this.defaultConfig.system?.max_file_size || 52428800;
+        this.updateDefaultValue('maxFileSizeDefault', this.formatFileSize(defaultMaxFileSize));
+
+        // 界面配置
+        const defaultPhotosPerPage = this.defaultConfig.ui?.photos_per_page || 18;
+        this.updateDefaultValue('photosPerPageDefault', defaultPhotosPerPage + '张');
+        
+        const defaultSimilarPhotosLimit = this.defaultConfig.ui?.similar_photos_limit || 8;
+        this.updateDefaultValue('similarPhotosLimitDefault', defaultSimilarPhotosLimit + '张');
+        
+        // 热门标签和分类默认值已移除
+
+        // 搜索配置
+        const defaultSimilarityThreshold = this.defaultConfig.search?.similarity_threshold || 0.6;
+        this.updateDefaultValue('similarityThresholdDefault', defaultSimilarityThreshold.toString());
+        
+        const defaultDuplicateThreshold = this.defaultConfig.analysis?.duplicate_threshold || 5;
+        this.updateDefaultValue('duplicateThresholdDefault', defaultDuplicateThreshold.toString());
+    }
+
+    /**
+     * 更新默认值显示
+     */
+    updateDefaultValue(elementId, value) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.textContent = value;
+        }
     }
 
     /**
@@ -370,17 +443,13 @@ class UserConfigManager {
                 thumbnail_quality: parseInt(document.getElementById('thumbnailQuality').value),
                 thumbnail_size: parseInt(document.getElementById('thumbnailSize').value)
             },
-            database: {
-                path: document.getElementById('databasePath').value
-            },
+            // 数据库路径已从用户界面移除，使用配置中的默认值
             system: {
                 max_file_size: parseInt(document.getElementById('maxFileSize').value)
             },
             ui: {
                 photos_per_page: parseInt(document.getElementById('photosPerPage').value),
-                similar_photos_limit: parseInt(document.getElementById('similarPhotosLimit').value),
-                hot_tags_limit: parseInt(document.getElementById('hotTagsLimit').value),
-                hot_categories_limit: parseInt(document.getElementById('hotCategoriesLimit').value)
+                similar_photos_limit: parseInt(document.getElementById('similarPhotosLimit').value)
             },
             search: {
                 similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value)
@@ -575,38 +644,7 @@ class UserConfigManager {
         }
     }
     
-    /**
-     * 选择文件
-     */
-    async selectFile(inputId) {
-        const input = document.getElementById(inputId);
-        
-        try {
-            const response = await fetch('/api/v1/config/select-database-file', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                input.value = result.path;
-                this.markAsChanged();
-                this.updateCurrentValue(inputId + 'Current', result.path);
-                console.log('选择的数据库文件:', result.path);
-            } else {
-                if (result.message === '用户取消选择') {
-                    console.log('用户取消选择数据库文件');
-                } else {
-                    console.error('选择数据库文件失败:', result.message);
-                    alert('选择数据库文件失败: ' + result.message);
-                }
-            }
-        } catch (error) {
-            console.error('选择数据库文件失败:', error);
-            alert('选择数据库文件失败: ' + error.message);
-        }
-    }
+    // selectFile 方法已移除，因为数据库文件位置已从用户界面移除
 
     /**
      * 打开帮助页面

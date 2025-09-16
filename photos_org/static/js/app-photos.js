@@ -8,49 +8,7 @@
  * 4. 页面导航和显示
  */
 
-/**
- * 处理触摸延迟点击
- * @param {Event} event - 点击事件
- * @param {string} functionName - 要执行的函数名
- * @param {number} photoId - 照片ID
- */
-function handleTouchDelay(event, functionName, photoId) {
-    event.stopPropagation();
-    
-    // 检测是否为触摸设备
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    
-    if (isTouchDevice) {
-        // 触摸设备：添加延迟和视觉反馈
-        const button = event.target.closest('button');
-        if (button) {
-            // 添加延迟状态
-            button.classList.add('touch-delay');
-            
-            // 延迟执行
-            setTimeout(() => {
-                // 添加执行状态
-                button.classList.remove('touch-delay');
-                button.classList.add('touch-executing');
-                
-                // 执行函数
-                if (window[functionName]) {
-                    window[functionName](photoId);
-                }
-                
-                // 恢复按钮状态
-                setTimeout(() => {
-                    button.classList.remove('touch-executing');
-                }, 200);
-            }, 1800); // 1800ms延迟
-        }
-    } else {
-        // 桌面设备：立即执行
-        if (window[functionName]) {
-            window[functionName](photoId);
-        }
-    }
-}
+// 旧的触摸延迟处理函数已移除，现在使用新的混合设备交互管理器
 
 /**
  * 创建照片卡片
@@ -96,16 +54,16 @@ function createPhotoCard(photo) {
                      class="photo-image"
                      loading="lazy">
                 <div class="photo-overlay">
-                    <button class="btn btn-light btn-sm" onclick="handleTouchDelay(event, 'viewPhotoDetail', ${photo.id})" title="查看详情">
+                    <button class="btn btn-light btn-sm" data-photo-id="${photo.id}" data-action="view" title="查看详情">
                         <i class="bi bi-eye"></i>
                     </button>
-                    <button class="btn btn-warning btn-sm" onclick="handleTouchDelay(event, 'editPhoto', ${photo.id})" title="编辑">
+                    <button class="btn btn-warning btn-sm" data-photo-id="${photo.id}" data-action="edit" title="编辑">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-danger btn-sm" onclick="handleTouchDelay(event, 'deletePhoto', ${photo.id})" title="删除">
+                    <button class="btn btn-danger btn-sm" data-photo-id="${photo.id}" data-action="delete" title="删除">
                         <i class="bi bi-trash"></i>
                     </button>
-                    <button class="btn btn-info btn-sm" onclick="handleTouchDelay(event, 'searchSimilarPhotos', ${photo.id})" title="相似照片">
+                    <button class="btn btn-info btn-sm" data-photo-id="${photo.id}" data-action="similar" title="相似照片">
                         <i class="bi bi-search"></i>
                     </button>
                 </div>
@@ -197,16 +155,16 @@ function createPhotoListItem(photo) {
                      alt="${photo.filename}"
                      class="photo-thumbnail">
                 <div class="photo-overlay">
-                    <button class="btn btn-light btn-sm" onclick="handleTouchDelay(event, 'viewPhotoDetail', ${photo.id})" title="查看详情">
+                    <button class="btn btn-light btn-sm" data-photo-id="${photo.id}" data-action="view" title="查看详情">
                         <i class="bi bi-eye"></i>
                     </button>
-                    <button class="btn btn-warning btn-sm" onclick="handleTouchDelay(event, 'editPhoto', ${photo.id})" title="编辑">
+                    <button class="btn btn-warning btn-sm" data-photo-id="${photo.id}" data-action="edit" title="编辑">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-danger btn-sm" onclick="handleTouchDelay(event, 'deletePhoto', ${photo.id})" title="删除">
+                    <button class="btn btn-danger btn-sm" data-photo-id="${photo.id}" data-action="delete" title="删除">
                         <i class="bi bi-trash"></i>
                     </button>
-                    <button class="btn btn-info btn-sm" onclick="handleTouchDelay(event, 'searchSimilarPhotos', ${photo.id})" title="相似照片">
+                    <button class="btn btn-info btn-sm" data-photo-id="${photo.id}" data-action="similar" title="相似照片">
                         <i class="bi bi-search"></i>
                     </button>
                 </div>
@@ -394,6 +352,17 @@ function viewPhotoDetail(photoId) {
 function editPhoto(photoId) {
     console.log('编辑照片:', photoId);
     
+    // 检查是否有相似照片模态框显示，如果有则先隐藏并标记
+    const similarModal = document.getElementById('similarPhotosModal');
+    let wasSimilarModalVisible = false;
+    if (similarModal && similarModal.classList.contains('show')) {
+        const similarModalInstance = bootstrap.Modal.getInstance(similarModal);
+        if (similarModalInstance) {
+            similarModalInstance.hide();
+            wasSimilarModalVisible = true;
+        }
+    }
+    
     // 从当前显示的照片中找到对应的照片对象
     const photo = AppState.photos.find(p => p.id === photoId);
     if (!photo) {
@@ -404,6 +373,22 @@ function editPhoto(photoId) {
     
     // 显示编辑模态框
     showPhotoEditModal(photo);
+    
+    // 监听编辑模态框关闭事件，如果之前有相似搜索页显示，则重新显示
+    if (wasSimilarModalVisible) {
+        const editModal = document.getElementById('editPhotoModal');
+        if (editModal) {
+            editModal.addEventListener('hidden.bs.modal', function onEditModalHidden() {
+                // 重新显示相似搜索页
+                if (similarModal) {
+                    const similarModalInstance = new bootstrap.Modal(similarModal);
+                    similarModalInstance.show();
+                }
+                // 移除事件监听器，避免重复绑定
+                editModal.removeEventListener('hidden.bs.modal', onEditModalHidden);
+            }, { once: true });
+        }
+    }
 }
 
 /**
@@ -508,6 +493,17 @@ function triggerPreciseMatch() {
  * @param {number} photoId - 照片ID
  */
 function showSimilarPhotosModal(photoId) {
+    // 检查是否有详情模态框显示，如果有则先隐藏并标记
+    const photoModal = document.getElementById('photoModal');
+    let wasPhotoModalVisible = false;
+    if (photoModal && photoModal.classList.contains('show')) {
+        const photoModalInstance = bootstrap.Modal.getInstance(photoModal);
+        if (photoModalInstance) {
+            photoModalInstance.hide();
+            wasPhotoModalVisible = true;
+        }
+    }
+    
     // 创建或获取相似照片模态框
     let modal = document.getElementById('similarPhotosModal');
     if (!modal) {
@@ -518,6 +514,19 @@ function showSimilarPhotosModal(photoId) {
     // 显示模态框
     const modalInstance = new bootstrap.Modal(modal);
     modalInstance.show();
+    
+    // 监听相似搜索模态框关闭事件，如果之前有详情页显示，则重新显示
+    if (wasPhotoModalVisible) {
+        modal.addEventListener('hidden.bs.modal', function onSimilarModalHidden() {
+            // 重新显示详情页
+            if (photoModal) {
+                const photoModalInstance = new bootstrap.Modal(photoModal);
+                photoModalInstance.show();
+            }
+            // 移除事件监听器，避免重复绑定
+            modal.removeEventListener('hidden.bs.modal', onSimilarModalHidden);
+        }, { once: true });
+    }
     
     // 显示加载状态
     const resultsContainer = modal.querySelector('#similarPhotosResults');

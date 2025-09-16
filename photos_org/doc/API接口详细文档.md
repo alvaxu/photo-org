@@ -22,6 +22,7 @@
 | 系统管理API | ✅ 完全实现 | 1个 | 健康检查 |
 | 导入管理API | ✅ 完全实现 | 6个 | 文件上传、文件夹扫描 |
 | FTS管理API | ✅ 完全实现 | 6个 | FTS表管理、数据同步、搜索测试 |
+| 配置管理API | ✅ 完全实现 | 7个 | 用户配置管理、默认配置获取、文件选择、远程访问限制 |
 
 ### 2.2 API设计原则
 
@@ -1185,7 +1186,396 @@
 }
 ```
 
-## 十一、错误码定义
+## 十一、配置管理API ✅ 完全实现
+
+### 11.1 用户配置管理接口
+
+#### 11.1.1 获取用户配置 ✅ 已实现
+**接口路径**：`GET /api/v1/config/user`
+**功能描述**：获取用户可配置的参数
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "data": {
+    "dashscope": {
+      "model": "qwen-vl-plus-2025-08-15",
+      "api_key": "sk-xxx...",
+      "available_models": ["qwen-vl-plus", "qwen-vl-plus-latest", "qwen-vl-plus-2025-08-15"]
+    },
+    "storage": {
+      "base_path": "./storage",
+      "thumbnail_quality": 86,
+      "thumbnail_size": 300
+    },
+    "database": {
+      "path": "./photo_db/photos.db"
+    },
+    "system": {
+      "max_file_size": 52428800
+    },
+    "ui": {
+      "photos_per_page": 18,
+      "similar_photos_limit": 8
+    },
+    "search": {
+      "similarity_threshold": 0.6
+    },
+    "analysis": {
+      "duplicate_threshold": 5
+    }
+  }
+}
+```
+
+#### 11.1.2 更新用户配置 ✅ 已实现
+**接口路径**：`PUT /api/v1/config/user`
+**功能描述**：更新用户配置
+
+**安全限制**：
+- 存储目录修改（`storage.base_path`）仅限本地访问
+- 远程访问时返回403错误："存储目录修改仅限本地访问"
+
+**请求体**：
+```json
+{
+  "dashscope": {
+    "model": "qwen-vl-plus-latest",
+    "api_key": "sk-new-key"
+  },
+  "storage": {
+    "base_path": "./new_storage",
+    "thumbnail_quality": 90,
+    "thumbnail_size": 400
+  },
+  "ui": {
+    "photos_per_page": 24,
+    "similar_photos_limit": 12
+  }
+}
+```
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "message": "用户配置更新成功",
+  "data": {
+    // 更新后的配置数据
+  }
+}
+```
+
+#### 11.1.3 重置用户配置 ✅ 已实现
+**接口路径**：`POST /api/v1/config/user/reset`
+**功能描述**：重置用户配置为默认值
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "message": "用户配置重置成功",
+  "data": {
+    // 重置后的配置数据
+  }
+}
+```
+
+#### 11.1.4 获取默认配置 ✅ 已实现
+**接口路径**：`GET /api/v1/config/defaults`
+**功能描述**：获取系统默认配置值（用于配置页面显示默认值）
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "data": {
+    "dashscope": {
+      "model": "qwen-vl-plus-2025-08-15",
+      "api_key": "sk-bfff6cdc92e84b2f89064cd382fdbe4a",
+      "available_models": ["qwen-vl-plus", "qwen-vl-plus-latest", "qwen-vl-plus-2025-08-15"]
+    },
+    "storage": {
+      "base_path": "./storage",
+      "thumbnail_quality": 42,
+      "thumbnail_size": 300
+    },
+    "database": {
+      "path": "./photo_db/photos.db"
+    },
+    "system": {
+      "max_file_size": 52428800
+    },
+    "ui": {
+      "photos_per_page": 18,
+      "similar_photos_limit": 8
+    },
+    "search": {
+      "similarity_threshold": 0.6
+    },
+    "analysis": {
+      "duplicate_threshold": 5
+    }
+  }
+}
+```
+
+#### 11.1.5 获取可用模型列表 ✅ 已实现
+**接口路径**：`GET /api/v1/config/models`
+**功能描述**：获取可用的AI模型列表
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "data": {
+    "available_models": [
+      "qwen-vl-plus",
+      "qwen-vl-plus-latest", 
+      "qwen-vl-plus-2025-08-15",
+      "qwen-vl-plus-2025-05-07",
+      "qwen-vl-plus-2025-01-25"
+    ],
+    "current_model": "qwen-vl-plus-2025-08-15"
+  }
+}
+```
+
+### 11.2 高级配置管理接口
+
+#### 11.2.1 获取完整配置 ✅ 已实现
+**接口路径**：`GET /api/v1/config/full`
+**功能描述**：获取完整系统配置（包含高级参数）
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "data": {
+    "system": {
+      "max_file_size": 52428800,
+      "timeout": 10,
+      "max_concurrent": 2,
+      "temp_file_max_age": 24
+    },
+    "database": {
+      "path": "./photo_db/photos.db"
+    },
+    "dashscope": {
+      "api_key": "sk-bfff6cdc92e84b2f89064cd382fdbe4a",
+      "base_url": "https://dashscope.aliyuncs.com/api/v1",
+      "model": "qwen-vl-plus-2025-08-15",
+      "available_models": ["qwen-vl-plus", "qwen-vl-plus-latest", "qwen-vl-plus-2025-08-15"],
+      "timeout": 30,
+      "max_retry_count": 3
+    },
+    "storage": {
+      "base_path": "./storage",
+      "originals_path": "originals",
+      "thumbnails_path": "thumbnails",
+      "temp_path": "temp",
+      "backups_path": "backups",
+      "thumbnail_size": 300,
+      "thumbnail_quality": 42
+    },
+    "analysis": {
+      "duplicate_threshold": 5,
+      "quality_threshold": 0,
+      "concurrent": 2,
+      "timeout": 30,
+      "batch_size": 10
+    },
+    "logging": {
+      "level": "INFO",
+      "file_path": "./logs/app.log",
+      "max_size": "10MB",
+      "backup_count": 5
+    },
+    "server": {
+      "host": "0.0.0.0",
+      "port": 8000,
+      "debug": false
+    },
+    "ui": {
+      "photos_per_page": 18,
+      "similar_photos_limit": 8
+    },
+    "search": {
+      "similarity_threshold": 0.6,
+      "timeout": 5,
+      "default_page_size": 20,
+      "max_page_size": 100,
+      "suggestion_limit": 10,
+      "history_limit": 50
+    },
+    "similarity": {
+      "first_layer_weights": {
+        "perceptual_hash": 0.25,
+        "objects": 0.15,
+        "time": 0.15,
+        "color_histogram": 0.15,
+        "scene_type": 0.1,
+        "location": 0.1,
+        "description": 0.1,
+        "emotion": 0.05,
+        "activity": 0.05,
+        "tags": 0.05,
+        "camera": 0.05,
+        "structural": 0.1
+      },
+      "first_layer_thresholds": {
+        "perceptual_hash": 0.6,
+        "color_histogram": 0.7,
+        "structural": 0.8,
+        "scene_type": 1.0,
+        "objects": 0.5,
+        "emotion": 0.6,
+        "activity": 0.6,
+        "description": 0.5,
+        "tags": 0.5,
+        "time": 0.8,
+        "location": 0.9,
+        "camera": 0.7,
+        "combined": 0.55
+      },
+      "algorithms": {
+        "primary_algorithm": "perceptual_hash",
+        "fallback_algorithms": ["color_histogram", "structural"],
+        "ai_enabled": true,
+        "exif_enabled": true
+      },
+      "performance": {
+        "batch_size": 100,
+        "cache_enabled": true,
+        "cache_ttl": 3600,
+        "max_concurrent": 5
+      }
+    },
+    "import": {
+      "supported_formats": [".jpg", ".jpeg", ".png", ".tiff", ".webp", ".bmp", ".gif", ".heic", ".heif"],
+      "max_upload_files": 50,
+      "scan_batch_size": 100
+    },
+    "quality": {
+      "weights": {
+        "sharpness": 0.3,
+        "brightness": 0.2,
+        "contrast": 0.2,
+        "color": 0.15,
+        "composition": 0.15
+      },
+      "thresholds": {
+        "excellent": 80,
+        "good": 60,
+        "fair": 40,
+        "poor": 20
+      }
+    }
+  }
+}
+```
+
+#### 11.2.2 更新完整配置 ✅ 已实现
+**接口路径**：`PUT /api/v1/config/full`
+**功能描述**：更新完整系统配置
+
+**请求体**：
+```json
+{
+  "system": {
+    "max_file_size": 104857600,
+    "timeout": 15
+  },
+  "ui": {
+    "photos_per_page": 24,
+    "similar_photos_limit": 12
+  }
+}
+```
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "message": "完整配置更新成功",
+  "data": {
+    // 更新后的完整配置数据
+  }
+}
+```
+
+#### 11.2.3 导出配置 ✅ 已实现
+**接口路径**：`GET /api/v1/config/export`
+**功能描述**：导出完整配置文件
+
+**实际响应格式**：
+- Content-Type: application/json
+- Content-Disposition: attachment; filename="config.json"
+- 返回完整的配置文件内容
+
+#### 11.2.4 重新加载配置 ✅ 已实现
+**接口路径**：`POST /api/v1/config/reload`
+**功能描述**：手动重新加载配置
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "message": "配置重新加载成功",
+  "data": {
+    // 重新加载后的用户配置数据
+  }
+}
+```
+
+### 11.3 文件选择接口
+
+#### 11.3.1 选择目录 ✅ 已实现
+**接口路径**：`POST /api/v1/config/select-directory`
+**功能描述**：打开系统目录选择对话框
+
+**安全限制**：
+- 仅限本地访问
+- 远程访问时返回403错误："此操作仅限本地访问"
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "path": "D:/photos"
+}
+```
+
+**错误响应格式**：
+```json
+{
+  "success": false,
+  "message": "用户取消选择"
+}
+```
+
+#### 11.3.2 选择数据库文件 ✅ 已实现
+**接口路径**：`POST /api/v1/config/select-database-file`
+**功能描述**：打开系统文件选择对话框
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "path": "D:/data/photos.db"
+}
+```
+
+**错误响应格式**：
+```json
+{
+  "success": false,
+  "message": "用户取消选择"
+}
+```
+
+## 十二、错误码定义
 
 ### 11.1 FastAPI标准错误码
 
@@ -1225,21 +1615,31 @@
 2. **利用现有批量操作接口**：`POST /api/v1/photos/batch-delete`、`PUT /api/v1/photos/{photo_id}`
 3. **前端界面参考**：`doc/搜索检索模块详细设计文档.md` 第8.2节
 
-### 12.2 设置管理页面开发
+### 12.2 设置管理页面开发 ✅ 已完成
 
-#### 12.2.1 可用的现有接口
+#### 12.2.1 可用的现有接口 ✅ 全部实现
+- `GET /api/v1/config/user` - 获取用户配置（已实现）
+- `PUT /api/v1/config/user` - 更新用户配置（已实现）
+- `POST /api/v1/config/user/reset` - 重置用户配置（已实现）
+- `GET /api/v1/config/defaults` - 获取默认配置（已实现）
+- `GET /api/v1/config/models` - 获取可用模型列表（已实现）
+- `POST /api/v1/config/select-directory` - 选择目录（已实现）
+- `POST /api/v1/config/select-database-file` - 选择文件（已实现）
 - `GET /api/v1/storage/info` - 存储信息（已实现）
 - `GET /api/v1/health` - 系统状态（已实现）
 - `POST /api/v1/storage/cleanup` - 清理存储（已实现）
 
-#### 12.2.2 需要开发的新接口
-- `GET /api/v1/system/config` - 获取系统配置
-- `PUT /api/v1/system/config` - 更新系统配置
-- `GET /api/v1/system/logs` - 获取系统日志
+#### 12.2.2 高级配置接口 ✅ 已实现
+- `GET /api/v1/config/full` - 获取完整配置（已实现）
+- `PUT /api/v1/config/full` - 更新完整配置（已实现）
+- `GET /api/v1/config/export` - 导出配置（已实现）
+- `POST /api/v1/config/reload` - 重新加载配置（已实现）
 
-#### 12.2.3 开发建议
-1. **基于现有配置系统**：`app/core/config.py` 已实现
-2. **前端界面参考**：`doc/前端界面设计文档.md` 第2.2节（未实现部分）
+#### 12.2.3 实现状态 ✅ 已完成
+1. **配置管理页面**：`templates/settings.html` 已实现
+2. **前端配置逻辑**：`static/js/user-config-manager.js` 已实现
+3. **动态默认值显示**：基于 `/api/v1/config/defaults` 接口实现
+4. **配置保存/重置功能**：完全实现
 
 ### 12.3 相册管理页面开发
 
@@ -1398,6 +1798,14 @@ def search_photos(keyword, search_type='all'):
 - FTS搜索功能测试和验证
 - 为全文搜索功能提供管理支持
 
+**配置管理API**：
+- 用户配置获取/更新/重置
+- 默认配置动态读取
+- 可用模型列表获取
+- 目录/文件选择对话框
+- 配置导出/重新加载
+- 为设置管理页面提供完整支持
+
 ### **🚀 待开发的功能**
 
 **高级搜索页面**：
@@ -1405,10 +1813,10 @@ def search_photos(keyword, search_type='all'):
 - 搜索历史管理、保存搜索条件
 - 搜索结果处理功能
 
-**设置管理页面**：
-- 系统配置管理
-- 日志查看和管理
-- 性能监控
+**设置管理页面**：✅ 已完成
+- 系统配置管理（已实现）
+- 动态默认值显示（已实现）
+- 配置保存/重置功能（已实现）
 
 **相册管理页面**：
 - 相册CRUD操作
@@ -1422,8 +1830,8 @@ def search_photos(keyword, search_type='all'):
 2. 开发搜索结果处理功能（利用现有批量操作接口）
 3. 完善高级搜索界面
 
-**优先级2（中期）**：
-1. 实现设置管理页面（基于现有配置系统）
+**优先级2（中期）**：✅ 已完成
+1. ✅ 实现设置管理页面（基于现有配置系统）
 2. 开发相册管理功能（基于现有分类系统）
 3. 添加搜索历史管理功能
 

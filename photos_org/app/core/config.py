@@ -271,17 +271,13 @@ class Settings(BaseSettings):
                 "thumbnail_quality": self.storage.thumbnail_quality,
                 "thumbnail_size": self.storage.thumbnail_size
             },
-            "database": {
-                "path": self.database.path
-            },
+            # 数据库路径已从用户界面移除，但保留在完整配置中
             "system": {
                 "max_file_size": self.system.max_file_size
             },
             "ui": {
                 "photos_per_page": self.ui.photos_per_page,
-                "similar_photos_limit": self.ui.similar_photos_limit,
-                "hot_tags_limit": self.ui.hot_tags_limit,
-                "hot_categories_limit": self.ui.hot_categories_limit
+                "similar_photos_limit": self.ui.similar_photos_limit
             },
             "search": {
                 "similarity_threshold": self.search.similarity_threshold

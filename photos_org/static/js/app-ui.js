@@ -177,6 +177,17 @@ function switchView(viewType) {
 function showPhotoDetail(photo) {
     console.log('显示照片详情:', photo);
     
+    // 检查是否有相似照片模态框显示，如果有则先隐藏并标记
+    const similarModal = document.getElementById('similarPhotosModal');
+    let wasSimilarModalVisible = false;
+    if (similarModal && similarModal.classList.contains('show')) {
+        const similarModalInstance = bootstrap.Modal.getInstance(similarModal);
+        if (similarModalInstance) {
+            similarModalInstance.hide();
+            wasSimilarModalVisible = true;
+        }
+    }
+    
     // 创建详情模态框内容
     const modalContent = createPhotoDetailModal(photo);
     
@@ -196,6 +207,19 @@ function showPhotoDetail(photo) {
     // 显示模态框
     const modal = new bootstrap.Modal(elements.photoModal);
     modal.show();
+    
+    // 监听详情模态框关闭事件，如果之前有相似搜索页显示，则重新显示
+    if (wasSimilarModalVisible) {
+        elements.photoModal.addEventListener('hidden.bs.modal', function onDetailModalHidden() {
+            // 重新显示相似搜索页
+            if (similarModal) {
+                const similarModalInstance = new bootstrap.Modal(similarModal);
+                similarModalInstance.show();
+            }
+            // 移除事件监听器，避免重复绑定
+            elements.photoModal.removeEventListener('hidden.bs.modal', onDetailModalHidden);
+        }, { once: true });
+    }
 }
 
 function createPhotoDetailModal(photo) {
