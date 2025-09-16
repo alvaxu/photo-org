@@ -15,12 +15,13 @@
 | 模块 | 实现状态 | 接口数量 | 说明 |
 |------|----------|----------|------|
 | 照片管理API | ✅ 完全实现 | 8个 | 照片CRUD、批量操作、统计 |
-| 搜索检索API | 🔄 部分实现 | 5个 | 基础搜索已实现，高级功能待开发 |
+| 搜索检索API | 🔄 部分实现 | 7个 | 基础搜索和相似照片搜索已实现，智能推荐待开发 |
 | 标签分类API | ✅ 完全实现 | 14个 | 标签和分类的完整CRUD操作 |
 | 智能分析API | ✅ 完全实现 | 7个 | AI分析、质量评估、重复检测 |
 | 存储管理API | ✅ 完全实现 | 8个 | 存储监控、备份恢复、维护 |
 | 系统管理API | ✅ 完全实现 | 1个 | 健康检查 |
 | 导入管理API | ✅ 完全实现 | 6个 | 文件上传、文件夹扫描 |
+| FTS管理API | ✅ 完全实现 | 6个 | FTS表管理、数据同步、搜索测试 |
 
 ### 2.2 API设计原则
 
@@ -334,11 +335,13 @@
 **接口路径**：`POST /api/v1/photos/batch-process`
 **功能描述**：智能处理照片（AI分析、质量评估等）
 
-**查询参数**：
-| 参数名 | 类型 | 默认值 | 描述 |
-|--------|------|--------|------|
-| enable_ai | boolean | true | 启用AI分析 |
-| enable_quality | boolean | true | 启用质量评估 |
+**请求体**：
+```json
+{
+  "photo_ids": [1, 2, 3],
+  "analysis_types": ["content", "quality", "duplicate"]
+}
+```
 
 **实际响应格式**：
 ```json
@@ -899,9 +902,9 @@
 **接口路径**：`GET /api/v1/search/photos/{photo_id}`
 **功能描述**：获取照片详情（与照片管理API重复）
 
-### 7.2 待开发搜索接口（高级搜索页面）
+### 7.2 部分实现搜索接口（高级搜索页面）
 
-#### 7.2.1 相似照片搜索 ❌ 待开发
+#### 7.2.1 相似照片搜索 ✅ 已实现
 **接口路径**：`GET /api/v1/search/similar/{photo_id}`
 **功能描述**：搜索相似照片
 
@@ -916,7 +919,7 @@
 | threshold | float | 0.8 | 相似度阈值 |
 | limit | integer | 10 | 结果数量限制 |
 
-**计划响应格式**：
+**实际响应格式**：
 ```json
 {
   "reference_photo": {
@@ -1079,9 +1082,94 @@
 }
 ```
 
-## 十、错误码定义
+## 十、FTS全文搜索管理API ✅ 完全实现
 
-### 10.1 FastAPI标准错误码
+### 10.1 FTS表管理接口
+
+#### 10.1.1 检查FTS表状态 ✅ 已实现
+**接口路径**：`GET /api/v1/fts/status`
+**功能描述**：检查FTS表是否存在
+
+**实际响应格式**：
+```json
+{
+  "exists": true,
+  "message": "FTS表已存在"
+}
+```
+
+#### 10.1.2 创建FTS表 ✅ 已实现
+**接口路径**：`POST /api/v1/fts/create`
+**功能描述**：创建FTS全文搜索表
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "message": "FTS表创建成功"
+}
+```
+
+#### 10.1.3 重建FTS表 ✅ 已实现
+**接口路径**：`POST /api/v1/fts/rebuild`
+**功能描述**：重建FTS表（删除后重新创建）
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "message": "FTS表重建成功"
+}
+```
+
+#### 10.1.4 填充FTS表数据 ✅ 已实现
+**接口路径**：`POST /api/v1/fts/populate`
+**功能描述**：填充FTS表数据（将现有照片数据同步到FTS表）
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "message": "FTS表数据填充完成",
+  "rows_affected": 150
+}
+```
+
+#### 10.1.5 更新AI分析内容 ✅ 已实现
+**接口路径**：`POST /api/v1/fts/update-analysis`
+**功能描述**：更新FTS表中的AI分析内容
+
+**实际响应格式**：
+```json
+{
+  "success": true,
+  "message": "AI分析内容更新完成",
+  "rows_affected": 45
+}
+```
+
+#### 10.1.6 FTS搜索测试 ✅ 已实现
+**接口路径**：`GET /api/v1/fts/search`
+**功能描述**：测试FTS搜索功能
+
+**查询参数**：
+| 参数名 | 类型 | 必需 | 描述 |
+|--------|------|------|------|
+| keyword | string | 是 | 搜索关键词 |
+
+**实际响应格式**：
+```json
+{
+  "keyword": "生日",
+  "results": [1, 2, 3, 5],
+  "total_found": 4,
+  "search_time_ms": 15
+}
+```
+
+## 十一、错误码定义
+
+### 11.1 FastAPI标准错误码
 
 | HTTP状态码 | 描述 | 使用场景 |
 |-----------|------|----------|
@@ -1091,7 +1179,7 @@
 | 422 | 数据验证失败 | 请求体格式错误 |
 | 500 | 服务器内部错误 | 系统异常 |
 
-### 10.2 实际错误响应格式
+### 11.2 实际错误响应格式
 
 ```json
 {
@@ -1099,68 +1187,68 @@
 }
 ```
 
-## 十一、后续页面开发指导
+## 十二、后续页面开发指导
 
-### 11.1 高级搜索页面开发
+### 12.1 高级搜索页面开发
 
-#### 11.1.1 可用的现有接口
+#### 12.1.1 可用的现有接口
 - `GET /api/v1/search/photos` - 综合搜索（已实现）
 - `GET /api/v1/search/suggestions` - 搜索建议（已实现）
 - `GET /api/v1/search/stats` - 搜索统计（已实现）
+- `GET /api/v1/search/similar/{photo_id}` - 相似照片搜索（已实现）
 
-#### 11.1.2 需要开发的新接口
-- `GET /api/v1/search/similar/{photo_id}` - 相似照片搜索
+#### 12.1.2 需要开发的新接口
 - `GET /api/v1/search/recommend/{photo_id}` - 智能推荐
 - `GET /api/v1/search/history` - 搜索历史
 - `POST /api/v1/search/save` - 保存搜索条件
 
-#### 11.1.3 开发建议
-1. **优先实现相似照片搜索**：基于现有的 `DuplicateDetectionService`
+#### 12.1.3 开发建议
+1. **相似照片搜索已实现**：可直接使用 `GET /api/v1/search/similar/{photo_id}` 接口
 2. **利用现有批量操作接口**：`POST /api/v1/photos/batch-delete`、`PUT /api/v1/photos/{photo_id}`
 3. **前端界面参考**：`doc/搜索检索模块详细设计文档.md` 第8.2节
 
-### 11.2 设置管理页面开发
+### 12.2 设置管理页面开发
 
-#### 11.2.1 可用的现有接口
+#### 12.2.1 可用的现有接口
 - `GET /api/v1/storage/info` - 存储信息（已实现）
 - `GET /api/v1/health` - 系统状态（已实现）
 - `POST /api/v1/storage/cleanup` - 清理存储（已实现）
 
-#### 11.2.2 需要开发的新接口
+#### 12.2.2 需要开发的新接口
 - `GET /api/v1/system/config` - 获取系统配置
 - `PUT /api/v1/system/config` - 更新系统配置
 - `GET /api/v1/system/logs` - 获取系统日志
 
-#### 11.2.3 开发建议
+#### 12.2.3 开发建议
 1. **基于现有配置系统**：`app/core/config.py` 已实现
 2. **前端界面参考**：`doc/前端界面设计文档.md` 第2.2节（未实现部分）
 
-### 11.3 相册管理页面开发
+### 12.3 相册管理页面开发
 
-#### 11.3.1 可用的现有接口
+#### 12.3.1 可用的现有接口
 - `GET /api/v1/categories` - 分类列表（已实现）
 - `POST /api/v1/categories` - 创建分类（已实现）
 - `PUT /api/v1/categories/{category_id}` - 更新分类（已实现）
 - `DELETE /api/v1/categories/{category_id}` - 删除分类（已实现）
 - `GET /api/v1/categories/tree` - 分类树（已实现）
 
-#### 11.3.2 需要开发的新接口
+#### 12.3.2 需要开发的新接口
 - `POST /api/v1/albums` - 创建相册
 - `GET /api/v1/albums` - 相册列表
 - `PUT /api/v1/albums/{album_id}` - 更新相册
 - `DELETE /api/v1/albums/{album_id}` - 删除相册
 - `POST /api/v1/albums/{album_id}/photos` - 添加照片到相册
 
-#### 11.3.3 开发建议
+#### 12.3.3 开发建议
 1. **基于现有分类系统**：相册可以基于分类系统扩展
 2. **数据库设计**：需要新增相册表和相册-照片关联表
 3. **前端界面参考**：`doc/前端界面设计文档.md` 第2.2节（未实现部分）
 
-## 十二、API调用示例
+## 十三、API调用示例
 
-### 12.1 JavaScript调用示例
+### 13.1 JavaScript调用示例
 
-#### 12.1.1 获取照片列表（实际可用）
+#### 13.1.1 获取照片列表（实际可用）
 ```javascript
 // 获取照片列表
 async function getPhotos(skip = 0, limit = 50, search = '') {
@@ -1188,7 +1276,7 @@ async function getPhotos(skip = 0, limit = 50, search = '') {
 }
 ```
 
-#### 12.1.2 搜索照片（实际可用）
+#### 13.1.2 搜索照片（实际可用）
 ```javascript
 // 搜索照片
 async function searchPhotos(keyword, searchType = 'all') {
@@ -1215,9 +1303,9 @@ async function searchPhotos(keyword, searchType = 'all') {
 }
 ```
 
-### 12.2 Python调用示例
+### 13.2 Python调用示例
 
-#### 12.2.1 使用requests库（实际可用）
+#### 13.2.1 使用requests库（实际可用）
 ```python
 import requests
 
@@ -1255,7 +1343,7 @@ def search_photos(keyword, search_type='all'):
         return None
 ```
 
-## 十三、总结
+## 十四、总结
 
 本API接口详细文档基于实际代码实现，为家庭单机版智能照片整理系统提供了完整的API规范：
 
@@ -1286,10 +1374,16 @@ def search_photos(keyword, search_type='all'):
 - 支持增量备份和文件完整性检查
 - 为设置管理页面提供基础
 
+**FTS管理API**：
+- FTS表创建、重建、数据填充
+- AI分析内容同步和更新
+- FTS搜索功能测试和验证
+- 为全文搜索功能提供管理支持
+
 ### **🚀 待开发的功能**
 
 **高级搜索页面**：
-- 相似照片搜索、智能推荐
+- 相似照片搜索（已实现）、智能推荐
 - 搜索历史管理、保存搜索条件
 - 搜索结果处理功能
 
@@ -1306,7 +1400,7 @@ def search_photos(keyword, search_type='all'):
 ### **📈 开发建议**
 
 **优先级1（短期）**：
-1. 实现相似照片搜索功能（基于现有重复检测服务）
+1. 相似照片搜索功能已实现，可直接使用
 2. 开发搜索结果处理功能（利用现有批量操作接口）
 3. 完善高级搜索界面
 

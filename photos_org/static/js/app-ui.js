@@ -185,8 +185,13 @@ function showPhotoDetail(photo) {
     modalBody.innerHTML = modalContent;
     
     // 更新模态框标题
-    const modalTitle = elements.photoModal.querySelector('.modal-title');
-    modalTitle.textContent = photo.filename;
+    const modalTitle = elements.photoModal.querySelector('#photoModalTitle');
+    if (modalTitle) {
+        modalTitle.textContent = `照片详情 - ${photo.filename}`;
+    }
+    
+    // 绑定下载按钮事件
+    bindPhotoDetailEvents(photo);
     
     // 显示模态框
     const modal = new bootstrap.Modal(elements.photoModal);
@@ -285,120 +290,147 @@ function createPhotoDetailModal(photo) {
     if (photo.file_hash) fileInfo.push(`文件哈希：${photo.file_hash}`);
     
     return `
-        <div class="row">
-            <div class="col-md-6">
-                <div class="text-center mb-3">
-                    <div id="photoImageContainer">
-                        <img src="/photos_storage/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
-                             alt="${photo.filename}" 
-                             class="img-fluid rounded" 
-                             style="max-height: 500px; object-fit: contain;"
-                             data-thumbnail="${photo.thumbnail_path ? '/photos_storage/' + photo.thumbnail_path.replace(/\\/g, '/') : ''}"
-                             data-original-format="${photo.filename.toLowerCase().endsWith('.heic') || photo.filename.toLowerCase().endsWith('.heif') ? 'heic' : 'other'}"
-                             onerror="handleImageError(this);"
-                             onload="handleImageLoad(this);">
-                        <!-- HEIC格式提示 -->
-                        <div id="heicFormatTip" class="alert alert-info mt-2" style="display: none;">
-                            <i class="bi bi-info-circle me-2"></i>
-                            <strong>HEIC 格式提示：</strong>您的浏览器可能无法直接显示 HEIC 格式图片。
-                            <br>
-                            <small class="text-muted">
-                                • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a><br>
-                                • Safari 浏览器：通常原生支持 HEIC 格式<br>
-                                • 其他浏览器：建议转换为 JPG 格式后导入
-                            </small>
-                        </div>
+        <!-- 照片显示区域 -->
+        <div class="text-center mb-4">
+            <div id="photoImageContainer">
+                <img src="/photos_storage/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
+                     alt="${photo.filename}" 
+                     class="img-fluid rounded shadow" 
+                     style="max-height: 60vh; object-fit: contain;"
+                     data-thumbnail="${photo.thumbnail_path ? '/photos_storage/' + photo.thumbnail_path.replace(/\\/g, '/') : ''}"
+                     data-original-format="${photo.filename.toLowerCase().endsWith('.heic') || photo.filename.toLowerCase().endsWith('.heif') ? 'heic' : 'other'}"
+                     data-original-path="${photo.original_path || ''}"
+                     data-photo-id="${photo.id || ''}"
+                     onerror="handleImageError(this);"
+                     onload="handleImageLoad(this);">
+                
+                <!-- HEIC格式提示 -->
+                <div id="heicFormatTip" class="alert alert-info mt-2" style="display: none;">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>HEIC 格式提示：</strong>您的浏览器无法直接显示 HEIC 格式原图，当前显示的是 JPEG 缩略图。
+                    <br>
+                    <small class="text-muted">
+                        • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图<br>
+                        • Safari 浏览器：通常原生支持 HEIC 格式<br>
+                        • 其他浏览器：请先确认该浏览器是否支持、或者是否可以安装HEIC插件查看HEIC格式原图
+                    </small>
+                    <br>
+                    <small class="text-muted">
+                        你也可以点击下方按钮下载原图后用本地自带图片查看工具查看。
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row g-3">
+            <!-- 基本信息 -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>基本信息</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>文件名：</strong>${photo.filename}</p>
+                        <p><strong>拍摄时间：</strong>${formatDateTime(photo.taken_at)}</p>
+                        <p><strong>分辨率：</strong>${photo.width || '未知'} × ${photo.height || '未知'}</p>
+                        <p><strong>质量评级：</strong><span class="badge ${qualityClass}">${qualityText}</span></p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="row">
-                    <div class="col-12 mb-3">
-                        <h5>基本信息</h5>
-                        <div class="card">
-                            <div class="card-body">
-                                <p><strong>文件名：</strong>${photo.filename}</p>
-                                <p><strong>拍摄时间：</strong>${formatDateTime(photo.taken_at)}</p>
-                                <p><strong>分辨率：</strong>${photo.width || '未知'} × ${photo.height || '未知'}</p>
-                                <p><strong>质量评级：</strong><span class="badge ${qualityClass}">${qualityText}</span></p>
-                            </div>
-                        </div>
+            
+            ${exifInfo.length > 0 ? `
+            <!-- 相机信息 -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-camera me-2"></i>相机信息</h6>
                     </div>
-                    
-                    ${descriptionInfo.length > 0 ? `
-                    <div class="col-12 mb-3">
-                        <h5>用户照片描述</h5>
-                        <div class="card">
-                            <div class="card-body">
-                                ${descriptionInfo.join('')}
-                            </div>
-                        </div>
+                    <div class="card-body">
+                        ${exifInfo.map(info => `<p class="mb-1">${info}</p>`).join('')}
                     </div>
-                    ` : ''}
-                    
-                    ${exifInfo.length > 0 ? `
-                    <div class="col-12 mb-3">
-                        <h5>相机信息</h5>
-                        <div class="card">
-                            <div class="card-body">
-                                ${exifInfo.map(info => `<p>${info}</p>`).join('')}
-                            </div>
-                        </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${locationInfo.length > 0 ? `
+            <!-- 位置信息 -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-geo-alt me-2"></i>位置信息</h6>
                     </div>
-                    ` : ''}
-                    
-                    ${locationInfo.length > 0 ? `
-                    <div class="col-12 mb-3">
-                        <h5>位置信息</h5>
-                        <div class="card">
-                            <div class="card-body">
-                                ${locationInfo.map(info => `<p>${info}</p>`).join('')}
-                            </div>
-                        </div>
+                    <div class="card-body">
+                        ${locationInfo.map(info => `<p class="mb-1">${info}</p>`).join('')}
                     </div>
-                    ` : ''}
-                    
-                    ${aiInfo.length > 0 ? `
-                    <div class="col-12 mb-3">
-                        <h5>AI分析结果</h5>
-                        <div class="card">
-                            <div class="card-body">
-                                ${aiInfo.join('')}
-                            </div>
-                        </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${aiInfo.length > 0 ? `
+            <!-- AI分析结果 -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-robot me-2"></i>AI分析结果</h6>
                     </div>
-                    ` : ''}
-                    
-                    <div class="col-12 mb-3">
-                        <h5>标签</h5>
-                        <div class="card">
-                            <div class="card-body">
-                                ${photo.tags && photo.tags.length > 0 ? 
-                                    photo.tags.map(tag => `<span class="badge bg-secondary me-1 mb-1">${tag}</span>`).join('') : 
-                                    '<p class="text-muted">暂无标签</p>'
-                                }
-                            </div>
-                        </div>
+                    <div class="card-body">
+                        ${aiInfo.join('')}
                     </div>
-                    
-                    ${categoryInfo.length > 0 ? `
-                    <div class="col-12 mb-3">
-                        <h5>分类</h5>
-                        <div class="card">
-                            <div class="card-body">
-                                ${categoryInfo.join('')}
-                            </div>
-                        </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${descriptionInfo.length > 0 ? `
+            <!-- 用户照片描述 -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-chat-text me-2"></i>用户描述</h6>
                     </div>
-                    ` : ''}
-                    
-                    <div class="col-12 mb-3">
-                        <h5>文件信息</h5>
-                        <div class="card">
-                            <div class="card-body">
-                                ${fileInfo.map(info => `<p class="small">${info}</p>`).join('')}
-                            </div>
-                        </div>
+                    <div class="card-body">
+                        ${descriptionInfo.join('')}
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            <!-- 标签 -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-tags me-2"></i>标签</h6>
+                    </div>
+                    <div class="card-body">
+                        ${photo.tags && photo.tags.length > 0 ? 
+                            photo.tags.map(tag => `<span class="badge bg-secondary me-1 mb-1">${tag}</span>`).join('') : 
+                            '<p class="text-muted mb-0">暂无标签</p>'
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            ${categoryInfo.length > 0 ? `
+            <!-- 分类 -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-folder me-2"></i>分类</h6>
+                    </div>
+                    <div class="card-body">
+                        ${categoryInfo.join('')}
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            <!-- 文件信息 -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0"><i class="bi bi-file-earmark me-2"></i>文件信息</h6>
+                    </div>
+                    <div class="card-body">
+                        ${fileInfo.map(info => `<p class="small mb-1">${info}</p>`).join('')}
                     </div>
                 </div>
             </div>
@@ -441,9 +473,109 @@ window.showBatchModal = showBatchModal;
 // 导出视图切换函数
 window.switchView = switchView;
 
+// 绑定照片详情事件
+function bindPhotoDetailEvents(photo) {
+    // 绑定下载按钮事件
+    const downloadBtn = elements.photoModal.querySelector('#downloadPhotoBtn');
+    if (downloadBtn) {
+        downloadBtn.onclick = () => downloadPhoto(photo.id);
+    }
+    
+    // 绑定编辑按钮事件
+    const editBtn = elements.photoModal.querySelector('#editPhotoBtn');
+    if (editBtn) {
+        editBtn.onclick = () => editPhoto(photo.id);
+    }
+    
+    // 绑定收藏按钮事件
+    const favoriteBtn = elements.photoModal.querySelector('#addToFavoritesBtn');
+    if (favoriteBtn) {
+        favoriteBtn.onclick = () => toggleFavorite(photo.id);
+    }
+    
+    // 绑定删除按钮事件
+    const deleteBtn = elements.photoModal.querySelector('#deletePhotoBtn');
+    if (deleteBtn) {
+        deleteBtn.onclick = () => deletePhoto(photo.id);
+    }
+}
+
+// 下载照片功能
+async function downloadPhoto(photoId) {
+    try {
+        console.log('开始下载照片:', photoId);
+        
+        // 显示下载状态
+        const downloadBtn = elements.photoModal.querySelector('#downloadPhotoBtn');
+        if (downloadBtn) {
+            const originalText = downloadBtn.innerHTML;
+            downloadBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>下载中...';
+            downloadBtn.disabled = true;
+        }
+        
+        // 构建下载URL
+        const downloadUrl = `/api/v1/photos/${photoId}/download`;
+        
+        // 创建隐藏的下载链接
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = ''; // 让服务器决定文件名
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        
+        // 触发下载
+        link.click();
+        
+        // 清理
+        document.body.removeChild(link);
+        
+        console.log('照片下载已开始');
+        
+        // 恢复按钮状态
+        setTimeout(() => {
+            if (downloadBtn) {
+                downloadBtn.innerHTML = '<i class="bi bi-download me-2"></i>下载原图';
+                downloadBtn.disabled = false;
+            }
+        }, 2000);
+        
+    } catch (error) {
+        console.error('下载照片失败:', error);
+        alert('下载照片失败，请重试');
+        
+        // 恢复按钮状态
+        const downloadBtn = elements.photoModal.querySelector('#downloadPhotoBtn');
+        if (downloadBtn) {
+            downloadBtn.innerHTML = '<i class="bi bi-download me-2"></i>下载原图';
+            downloadBtn.disabled = false;
+        }
+    }
+}
+
+// 编辑照片功能（占位符）
+function editPhoto(photoId) {
+    console.log('编辑照片:', photoId);
+    alert('编辑功能暂未实现');
+}
+
+// 切换收藏状态（占位符）
+function toggleFavorite(photoId) {
+    console.log('切换收藏状态:', photoId);
+    alert('收藏功能待开发');
+}
+
+// 删除照片功能（占位符）
+function deletePhoto(photoId) {
+    console.log('删除照片:', photoId);
+    if (confirm('确定要删除这张照片吗？此操作不可撤销。')) {
+        alert('删除功能暂未实现');
+    }
+}
+
 // 导出照片详情函数
 window.showPhotoDetail = showPhotoDetail;
 window.createPhotoDetailModal = createPhotoDetailModal;
+window.downloadPhoto = downloadPhoto;
 
 // 导出标签功能
 window.toggleTags = toggleTags;
@@ -507,12 +639,16 @@ function showHeicFormatTipInitial() {
         // 设置初始提示内容
         tipElement.innerHTML = `
             <i class="bi bi-info-circle me-2"></i>
-            <strong>HEIC 格式提示：</strong>您的浏览器可能无法直接显示 HEIC 格式图片。
+            <strong>HEIC 格式提示：</strong>您的浏览器无法直接显示 HEIC 格式原图，当前显示的是 JPEG 缩略图。
             <br>
             <small class="text-muted">
-                • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a><br>
+                • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图<br>
                 • Safari 浏览器：通常原生支持 HEIC 格式<br>
-                • 其他浏览器：建议转换为 JPG 格式后导入
+                • 其他浏览器：请先确认该浏览器是否支持、或者是否可以安装HEIC插件查看HEIC格式原图
+            </small>
+            <br>
+            <small class="text-muted">
+                你也可以点击下方按钮下载原图后用本地自带图片查看工具查看。
             </small>
         `;
         tipElement.style.display = 'block';
@@ -560,7 +696,11 @@ function showThumbnailFallbackTip() {
             <small class="text-muted">
                 • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图<br>
                 • Safari 浏览器：通常原生支持 HEIC 格式<br>
-                • 其他浏览器：建议转换为 JPG 格式后导入
+                • 其他浏览器：请先确认该浏览器是否支持、或者是否可以安装HEIC插件查看HEIC格式原图
+            </small>
+            <br>
+            <small class="text-muted">
+                你也可以点击下方按钮下载原图后用本地自带图片查看工具查看。
             </small>
         `;
         tipElement.style.display = 'block';

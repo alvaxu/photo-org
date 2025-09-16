@@ -4,8 +4,11 @@
 import json
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
+import os
+from pathlib import Path
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -626,3 +629,58 @@ async def process_photos_background(photos, enable_ai, enable_quality, enable_cl
         logger.error(f"智能处理过程中发生错误: {str(e)}")
 
     return processed_count
+
+
+@router.get("/{photo_id}/download")
+async def download_photo(photo_id: int, db: Session = Depends(get_db)):
+    """
+    下载照片原图
+    
+    :param photo_id: 照片ID
+    :param db: 数据库会话
+    :return: 照片文件
+    """
+    try:
+        # 获取照片信息
+        photo = db.query(Photo).filter(Photo.id == photo_id).first()
+        if not photo:
+            raise HTTPException(status_code=404, detail="照片不存在")
+        
+        # 构建文件路径
+        storage_base = settings.storage.base_path
+        if photo.original_path:
+            # original_path已经是相对路径，直接拼接
+            file_path = os.path.join(storage_base, photo.original_path)
+        else:
+            # 如果没有original_path，尝试使用thumbnail_path
+            if photo.thumbnail_path:
+                file_path = os.path.join(storage_base, photo.thumbnail_path)
+            else:
+                raise HTTPException(status_code=404, detail="照片文件路径不存在")
+        
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="照片文件不存在")
+        
+        # 获取文件扩展名
+        file_extension = os.path.splitext(photo.filename)[1]
+        if not file_extension:
+            file_extension = '.jpg'  # 默认扩展名
+        
+        # 生成下载文件名
+        download_filename = f"{photo.filename}{file_extension}"
+        
+        logger.info(f"用户下载照片: {photo.filename} -> {download_filename}")
+        
+        # 返回文件
+        return FileResponse(
+            path=file_path,
+            filename=download_filename,
+            media_type='application/octet-stream'
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"下载照片失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"下载照片失败: {str(e)}")
