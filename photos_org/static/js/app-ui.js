@@ -481,6 +481,20 @@ function bindPhotoDetailEvents(photo) {
         downloadBtn.onclick = () => downloadPhoto(photo.id);
     }
     
+    // 绑定搜索相似照片按钮事件
+    const searchSimilarBtn = elements.photoModal.querySelector('#searchSimilarBtn');
+    if (searchSimilarBtn) {
+        searchSimilarBtn.onclick = () => {
+            // 关闭当前详情模态框
+            const modal = bootstrap.Modal.getInstance(elements.photoModal);
+            if (modal) {
+                modal.hide();
+            }
+            // 搜索相似照片
+            searchSimilarPhotos(photo.id);
+        };
+    }
+    
     // 绑定编辑按钮事件
     const editBtn = elements.photoModal.querySelector('#editPhotoBtn');
     if (editBtn) {
