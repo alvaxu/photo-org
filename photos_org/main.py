@@ -169,15 +169,19 @@ if __name__ == "__main__":
     print(f"🔑 API_KEY状态: {api_key_status}")
     if api_key_warning:
         print(f"   {api_key_warning}")
-    print("-" * 60)
+    print("-" * 25+"本机访问地址"+"-" * 25)
     print(f"📁 存储路径: {settings.storage.base_path}")
-    print(f"🌐 前端页面: http://{settings.server_host}:{settings.server_port}/static/index.html")
-    print(f"📖 API文档: http://{settings.server_host}:{settings.server_port}/docs")
-    print(f"⚙️  配置页面: http://{settings.server_host}:{settings.server_port}/settings")
+    print(f"🌐 主页面: http://127.0.0.1:{settings.server_port}")
+    print(f"📖 帮助页面: http://127.0.0.1:{settings.server_port}/help-overview")
+    print(f"⚙️  API密钥申请帮助页面: http://127.0.0.1:{settings.server_port}/help-api-key")
+    print(f"⚙️  配置页面: http://127.0.0.1:{settings.server_port}/settings")
     if not settings.dashscope.api_key:
-        print(f"🔧 配置API_KEY: http://{settings.server_host}:{settings.server_port}/settings")
+        print(f"🔧 配置API_KEY: http://127.0.0.1:{settings.server_port}/settings")
+   
+    print("-" * 25+"远程访问地址"+"-" * 25)
+    print(f"🌐 主页面: http://主机ip地址:{settings.server_port}")
+    print(f"📖 帮助页面: http://主机ip地址:{settings.server_port}/help-overview")
     print("=" * 60)
-
     # ===== 应用初始化结束 =====
 
     # 禁用reload模式，避免watchfiles检测问题
