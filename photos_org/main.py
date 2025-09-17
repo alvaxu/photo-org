@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-家庭单机版智能照片整理系统 - 主入口文件
+家庭版智能照片系统 - 主入口文件
 
 该文件是整个应用的主入口，负责：
 1. 初始化FastAPI应用
@@ -16,6 +16,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import router as api_router
@@ -25,65 +26,9 @@ from app.db.session import engine
 from app.models import base
 from app.services.storage_service import StorageService
 
-# 创建数据库表
-base.Base.metadata.create_all(bind=engine)
-
-# 初始化系统分类
-from utilities.init_system_categories import init_system_categories
-init_system_categories()
-
-# 初始化FTS表
-from app.services.fts_service import FTSService
-from app.db.session import get_db
-fts_service = FTSService()
-db = next(get_db())
-try:
-    fts_service.create_fts_table(db)
-finally:
-    db.close()
-
-# 设置日志
-setup_logging()
-
-# 初始化存储服务（自动创建目录）
-storage_service = StorageService()
-
-# 检查API_KEY配置
-api_key_status = "✅ 已配置" if settings.dashscope.api_key else "❌ 未配置"
-api_key_warning = "" if settings.dashscope.api_key else "⚠️  未配置API_KEY，AI分析功能将不可用"
-
-# 检查FTS表状态
-db_check = next(get_db())
-try:
-    fts_status = "✅ 已创建" if fts_service.check_fts_table_exists(db_check) else "❌ 未创建"
-finally:
-    db_check.close()
-
-# 启动成功提示
-print("=" * 60)
-print("🚀 家庭单机版智能照片整理系统启动成功！")
-print("=" * 60)
-print("✅ 数据库初始化完成")
-print("✅ 系统分类初始化完成")
-print("✅ 日志系统配置完成")
-print("✅ 存储服务初始化完成")
-print("✅ FastAPI应用配置完成")
-print(f"🔍 全文搜索表: {fts_status}")
-print(f"🔑 API_KEY状态: {api_key_status}")
-if api_key_warning:
-    print(f"   {api_key_warning}")
-print("-" * 60)
-print(f"📁 存储路径: {settings.storage.base_path}")
-print(f"🌐 前端页面: http://{settings.server_host}:{settings.server_port}/static/index.html")
-print(f"📖 API文档: http://{settings.server_host}:{settings.server_port}/docs")
-print(f"⚙️  配置页面: http://{settings.server_host}:{settings.server_port}/settings")
-if not settings.dashscope.api_key:
-    print(f"🔧 配置API_KEY: http://{settings.server_host}:{settings.server_port}/settings")
-print("=" * 60)
-
 # 创建FastAPI应用
 app = FastAPI(
-    title="家庭单机版智能照片整理系统",
+    title="家庭版智能照片系统",
     description="基于AI技术的智能照片管理平台",
     version="1.0.0",
     docs_url="/docs",
@@ -154,6 +99,11 @@ async def help_api_key_page():
     """API密钥帮助页面"""
     return FileResponse("templates/help-api-key.html")
 
+@app.get("/help-overview")
+async def help_overview_page():
+    """功能说明帮助页面"""
+    return FileResponse("templates/help-overview.html")
+
 # 健康检查接口
 @app.get("/health")
 async def health_check():
@@ -163,18 +113,73 @@ async def health_check():
 # 根路径重定向到前端界面
 @app.get("/")
 async def root():
-    """根路径 - 重定向到前端界面"""
-    return {
-        "message": "欢迎使用家庭单机版智能照片整理系统",
-        "version": "1.0.0",
-        "frontend": "/static/index.html",
-        "docs": "/docs"
-    }
+    """根路径 - 自动重定向到主功能页面"""
+    return RedirectResponse(url="/static/index.html")
 
 
 if __name__ == "__main__":
     import logging
-    
+
+    # ===== 应用初始化开始 =====
+
+    # 创建数据库表
+    base.Base.metadata.create_all(bind=engine)
+
+    # 初始化系统分类
+    from utilities.init_system_categories import init_system_categories
+    init_system_categories()
+
+    # 初始化FTS表
+    from app.services.fts_service import FTSService
+    from app.db.session import get_db
+    fts_service = FTSService()
+    db = next(get_db())
+    try:
+        fts_service.create_fts_table(db)
+    finally:
+        db.close()
+
+    # 设置日志
+    setup_logging()
+
+    # 初始化存储服务（自动创建目录）
+    storage_service = StorageService()
+
+    # 检查API_KEY配置
+    api_key_status = "✅ 已配置" if settings.dashscope.api_key else "❌ 未配置"
+    api_key_warning = "" if settings.dashscope.api_key else "⚠️  未配置API_KEY，AI分析功能将不可用"
+
+    # 检查FTS表状态
+    db_check = next(get_db())
+    try:
+        fts_status = "✅ 已创建" if fts_service.check_fts_table_exists(db_check) else "❌ 未创建"
+    finally:
+        db_check.close()
+
+    # 启动成功提示
+    print("=" * 60)
+    print("🚀 家庭版智能照片系统启动成功！")
+    print("=" * 60)
+    print("✅ 数据库初始化完成")
+    print("✅ 系统分类初始化完成")
+    print("✅ 日志系统配置完成")
+    print("✅ 存储服务初始化完成")
+    print("✅ FastAPI应用配置完成")
+    print(f"🔍 全文搜索表: {fts_status}")
+    print(f"🔑 API_KEY状态: {api_key_status}")
+    if api_key_warning:
+        print(f"   {api_key_warning}")
+    print("-" * 60)
+    print(f"📁 存储路径: {settings.storage.base_path}")
+    print(f"🌐 前端页面: http://{settings.server_host}:{settings.server_port}/static/index.html")
+    print(f"📖 API文档: http://{settings.server_host}:{settings.server_port}/docs")
+    print(f"⚙️  配置页面: http://{settings.server_host}:{settings.server_port}/settings")
+    if not settings.dashscope.api_key:
+        print(f"🔧 配置API_KEY: http://{settings.server_host}:{settings.server_port}/settings")
+    print("=" * 60)
+
+    # ===== 应用初始化结束 =====
+
     # 禁用reload模式，避免watchfiles检测问题
     uvicorn.run(
         "main:app",

@@ -1,5 +1,5 @@
 """
-家庭单机版智能照片整理系统 - 搜索API
+家庭版智能照片系统 - 搜索API
 提供搜索相关的API接口
 """
 from typing import List, Optional

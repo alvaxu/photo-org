@@ -1,5 +1,5 @@
 """
-家庭单机版智能照片整理系统 - 分类标签服务
+家庭版智能照片系统 - 分类标签服务
 """
 import os
 from typing import List, Dict, Any, Optional

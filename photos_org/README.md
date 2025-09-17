@@ -1,4 +1,4 @@
-# 家庭单机版智能照片整理系统
+# 家庭版智能照片系统
 
 基于AI技术的智能照片管理平台，支持照片自动分析、分类、标签生成和重复检测。采用B/S架构，完全本地化部署，保护用户隐私。
 
@@ -18,6 +18,7 @@
 - **重复检测**：智能识别和处理重复照片，支持智能处理
 
 ### 🔍 搜索与筛选
+- **全文搜索**：基于SQLite FTS5的高效全文搜索，支持中文分词和复杂查询
 - **多维度搜索**：支持关键词、相机信息、日期范围、质量等级搜索
 - **高级筛选**：按标签、分类、地理位置、文件大小等条件筛选
 - **相似照片**：基于AI分析结果推荐相似照片
@@ -148,28 +149,30 @@ python main.py
 ## 🏗️ 技术架构
 
 ### 系统架构
-- **前端**：HTML5 + CSS3 + JavaScript + Bootstrap 5.3
-- **后端**：Python 3.8+ + FastAPI + SQLAlchemy
-- **数据库**：SQLite（轻量级本地数据库）
-- **AI服务**：DashScope Qwen-VL（阿里云大模型）
-- **图像处理**：PIL + OpenCV + imagehash
-- **部署方式**：单机部署 + 本地Web服务
+- **前端**：HTML5 + CSS3 + JavaScript（ES6+） + Bootstrap 5.3 + 响应式设计
+- **后端**：Python 3.8+ + FastAPI + SQLAlchemy 2.x + Pydantic-Settings
+- **数据库**：SQLite（轻量级嵌入式数据库，内置FTS5全文搜索） + Alembic（数据库迁移）
+- **AI服务**：DashScope Qwen-VL-Plus/Qwen-VL-Chat（阿里云大模型，支持多模型切换）
+- **图像处理**：PIL + OpenCV + pillow-heif（HEIC支持） + imagehash（感知哈希）
+- **异步处理**：asyncio + ThreadPoolExecutor + httpx
+- **部署方式**：单机部署 + uvicorn服务器 + 本地Web服务
 
 ### 项目结构
 ```
 photos_org/
 ├── app/                           # 应用核心代码
-│   ├── api/                      # API路由层
-│   │   ├── analysis.py           # AI分析API
-│   │   ├── categories.py         # 分类管理API
-│   │   ├── config.py             # 配置管理API
-│   │   ├── enhanced_search.py    # 增强搜索API
-│   │   ├── health.py             # 健康检查API
-│   │   ├── import_photos.py      # 照片导入API
-│   │   ├── photos.py             # 照片管理API
-│   │   ├── search.py             # 搜索API
-│   │   ├── storage.py            # 存储管理API
-│   │   └── tags.py               # 标签管理API
+│   ├── api/                      # API路由层 (10个API模块, 70个接口)
+│   │   ├── analysis.py           # AI分析API (7个接口)
+│   │   ├── categories.py         # 分类管理API (8个接口)
+│   │   ├── config.py             # 配置管理API (7个接口)
+│   │   ├── enhanced_search.py    # 增强搜索API (5个接口)
+│   │   ├── health.py             # 健康检查API (1个接口)
+│   │   ├── import_photos.py      # 照片导入API (6个接口)
+│   │   ├── photos.py             # 照片管理API (10个接口)
+│   │   ├── search.py             # 基础搜索API (7个接口)
+│   │   ├── storage.py            # 存储管理API (8个接口)
+│   │   ├── tags.py               # 标签管理API (7个接口)
+│   │   └── __init__.py           # API路由注册
 │   ├── core/                     # 核心配置和工具
 │   │   ├── config.py             # 配置管理
 │   │   └── logging.py            # 日志管理
@@ -180,15 +183,20 @@ photos_org/
 │   │   └── photo.py              # 照片相关模型
 │   ├── schemas/                  # Pydantic数据模型
 │   │   └── photo.py              # 照片数据模型
-│   ├── services/                 # 业务服务层
+│   ├── services/                 # 业务服务层 (14个服务模块)
 │   │   ├── analysis_service.py   # AI分析服务
 │   │   ├── classification_service.py  # 分类服务
 │   │   ├── dashscope_service.py  # DashScope API服务
 │   │   ├── duplicate_detection_service.py  # 重复检测服务
+│   │   ├── enhanced_similarity_service.py  # 增强相似度服务
+│   │   ├── fts_service.py        # 全文搜索服务
 │   │   ├── import_service.py     # 导入服务
+│   │   ├── migration_service.py  # 数据库迁移服务
+│   │   ├── photo_quality_service.py  # 照片质量服务
 │   │   ├── photo_service.py      # 照片管理服务
 │   │   ├── search_service.py     # 搜索服务
-│   │   └── storage_service.py    # 存储服务
+│   │   ├── storage_service.py    # 存储服务
+│   │   └── enhanced_search_service.py  # 增强搜索服务
 │   └── utils/                    # 工具函数
 ├── static/                       # 静态文件
 │   ├── css/                      # 样式文件
@@ -221,9 +229,10 @@ photos_org/
 ## 🔧 配置说明
 
 ### 配置文件结构
-- **config.json**：主配置文件，包含所有系统参数
-- **config.default.json**：默认配置模板
-- **环境变量**：用于敏感信息（如API密钥）
+- **config.json**：用户配置文件，包含用户可修改的参数
+- **config_default.json**：系统默认配置文件，包含所有默认值
+- **环境变量**：用于敏感信息（如API密钥），优先级最高
+- **运行时配置**：支持部分配置的热更新，无需重启服务
 
 ### 核心配置项
 ```json
@@ -235,21 +244,28 @@ photos_org/
     "temp_file_max_age": 24              // 临时文件最大年龄（小时）
   },
   "database": {
-    "path": "./data/photos.db"           // 数据库文件路径
+    "path": "./photo_db/photos.db"       // 数据库文件路径
   },
   "dashscope": {
-    "api_key": "${DASHSCOPE_API_KEY}",   // API密钥（环境变量）
+    "api_key": "${DASHSCOPE_API_KEY}",   // API密钥（环境变量优先）
+    "model": "qwen-vl-plus",            // 当前使用的模型
+    "available_models": [
+      "qwen-vl-plus",
+      "qwen-vl-plus-latest",
+      "qwen-vl-plus-2025-08-15",
+      "qwen-vl-plus-2025-05-07",
+      "qwen-vl-plus-2025-01-25"
+    ],  // 可用的模型列表
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
-    "model": "qwen-vl-plus-latest",      // 当前使用的模型
     "timeout": 30,                       // API请求超时时间
     "max_retry_count": 3                 // 最大重试次数
   },
   "storage": {
-    "base_path": "./photos_storage",     // 存储根目录
+    "base_path": "./storage",            // 存储根目录
     "originals_path": "originals",       // 原图存储路径
     "thumbnails_path": "thumbnails",     // 缩略图存储路径
     "thumbnail_size": 300,               // 缩略图尺寸
-    "thumbnail_quality": 85              // 缩略图质量（1-100）
+    "thumbnail_quality": 50              // 缩略图质量（1-100）
   },
   "ui": {
     "photos_per_page": 12,               // 每页显示照片数
@@ -258,7 +274,7 @@ photos_org/
     "hot_categories_count": 10           // 热门分类显示数量
   },
   "search": {
-    "similarity_threshold": 0.8,         // 相似度阈值
+    "similarity_threshold": 0.6,         // 相似度阈值
     "duplicate_threshold": 5             // 重复检测阈值
   }
 }
@@ -266,9 +282,11 @@ photos_org/
 
 ### 配置管理
 - **Web界面配置**：访问 http://127.0.0.1:8000/settings
-- **原生对话框**：支持Windows原生文件/目录选择对话框
+- **原生对话框**：支持文件/目录选择对话框（跨平台兼容）
 - **环境变量优先**：API密钥等敏感信息优先使用环境变量
-- **配置验证**：自动验证配置参数的有效性
+- **配置验证**：基于Pydantic的自动配置验证和类型检查
+- **运行时更新**：部分配置支持热更新，无需重启服务
+- **配置分层**：用户配置覆盖默认配置，灵活的配置管理
 
 ## 🧪 测试
 
@@ -304,23 +322,24 @@ pytest --html=report.html --self-contained-html
 ## 📚 开发文档
 
 ### 设计文档
-- **家庭单机版详细设计文档.md**：系统整体架构和技术设计
-- **数据库设计文档.md**：数据库结构设计和表关系
-- **API接口详细文档.md**：REST API接口规范和示例
-- **前端界面设计文档.md**：用户界面设计和交互规范
+- **家庭版详细设计文档.md**：系统整体架构和技术设计（v2.0）
+- **数据库设计文档.md**：数据库结构设计和表关系（v2.0）
+- **API接口详细文档.md**：REST API接口规范和示例（v3.0）
+- **前端界面设计文档.md**：用户界面设计和交互规范（v2.0）
 
 ### 模块设计文档
-- **照片导入模块详细设计文档.md**：照片导入功能设计
-- **智能分析模块详细设计文档.md**：AI分析功能设计
-- **分类标签模块详细设计文档.md**：分类和标签管理设计
-- **搜索检索模块详细设计文档.md**：搜索功能设计
-- **存储管理模块详细设计文档.md**：文件存储管理设计
-- **配置管理模块详细设计文档.md**：系统配置管理设计
+- **照片导入模块详细设计文档.md**：照片导入功能设计（v2.0）
+- **智能分析模块详细设计文档.md**：AI分析功能设计（v2.0）
+- **分类标签模块详细设计文档.md**：分类和标签管理设计（v2.0）
+- **搜索检索模块详细设计文档.md**：搜索功能设计（v2.0）
+- **照片管理模块详细设计文档.md**：照片管理功能设计（v2.0）
+- **存储管理模块详细设计文档.md**：文件存储管理设计（v2.0）
+- **配置管理模块详细设计文档.md**：系统配置管理设计（v2.0）
 
 ### 用户文档
-- **用户配置管理使用指南.md**：用户配置管理详细指南
-- **开发环境搭建指南.md**：开发环境搭建和配置
-- **服务人员配置管理手册.md**：系统管理员配置手册
+- **用户配置管理使用指南.md**：用户配置管理详细指南（v2.0）
+- **开发环境搭建指南.md**：开发环境搭建和配置（v2.0）
+- **服务人员配置管理手册.md**：系统管理员配置手册（v2.0）
 
 ### 技术规范
 - **通用技术规范详细设计文档.md**：开发规范和编码标准
@@ -338,10 +357,12 @@ pytest --html=report.html --self-contained-html
 7. 创建 Pull Request
 
 ### 编码规范
-- **Python**：遵循 PEP 8，使用 Black 格式化
+- **Python**：遵循 PEP 8，使用 Black 格式化，类型注解完整
 - **JavaScript**：遵循 ES6+ 标准，使用 Prettier 格式化
-- **注释**：函数和类必须有详细的文档字符串
+- **注释**：函数和类必须有详细的文档字符串（支持中文）
 - **测试**：新功能必须包含单元测试和集成测试
+- **异步处理**：优先使用 asyncio，避免阻塞操作
+- **配置管理**：使用 Pydantic-Settings，支持环境变量和验证
 
 ## 📄 许可证
 
@@ -373,20 +394,25 @@ pytest --html=report.html --self-contained-html
 ### 开源项目
 - [FastAPI](https://fastapi.tiangolo.com/) - 现代、快速的Web框架
 - [SQLAlchemy](https://sqlalchemy.org/) - Python SQL工具包和ORM
+- [SQLite](https://sqlite.org/) - 轻量级嵌入式数据库，支持FTS5全文搜索
+- [Pydantic-Settings](https://pydantic-settings.readthedocs.io/) - 现代化配置管理
 - [DashScope](https://dashscope.aliyun.com/) - 阿里云大模型服务
 - [OpenCV](https://opencv.org/) - 计算机视觉库
 - [Pillow](https://python-pillow.org/) - Python图像处理库
 - [Bootstrap](https://getbootstrap.com/) - 前端UI框架
+- [httpx](https://www.python-httpx.org/) - 异步HTTP客户端
 
 ### 技术栈
-- **后端**：Python 3.8+ + FastAPI + SQLAlchemy + SQLite
-- **前端**：HTML5 + CSS3 + JavaScript + Bootstrap 5.3
-- **AI服务**：DashScope Qwen-VL 大模型
-- **图像处理**：PIL + OpenCV + imagehash
-- **测试**：pytest + httpx
+- **后端**：Python 3.8+ + FastAPI + SQLAlchemy 2.x + Pydantic-Settings + SQLite + Alembic
+- **前端**：HTML5 + CSS3 + JavaScript（ES6+） + Bootstrap 5.3 + 响应式设计
+- **AI服务**：DashScope Qwen-VL-Plus/Qwen-VL-Chat（支持多模型切换）
+- **图像处理**：PIL + OpenCV + pillow-heif（HEIC支持） + imagehash（感知哈希）
+- **异步处理**：asyncio + ThreadPoolExecutor + httpx
+- **测试**：pytest + pytest-asyncio + httpx
+- **全文搜索**：SQLite FTS5（高效中文全文搜索）
 
 ---
 
-**版本**：v1.0.0  
-**最后更新**：2025年1月19日  
+**版本**：v2.0.0
+**最后更新**：2025年9月17日
 **维护状态**：积极维护中 🚀

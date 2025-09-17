@@ -1,5 +1,5 @@
 """
-家庭单机版智能照片整理系统 - 存储管理API
+家庭版智能照片系统 - 存储管理API
 """
 from typing import List, Optional, Dict, Any
 from pathlib import Path

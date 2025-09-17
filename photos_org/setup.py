@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-家庭单机版智能照片整理系统 - 包安装配置
+家庭版智能照片系统 - 包安装配置
 """
 
 from setuptools import setup, find_packages
@@ -24,7 +24,7 @@ setup(
     version="1.0.0",
     author="AI助手",
     author_email="ai@example.com",
-    description="家庭单机版智能照片整理系统",
+    description="家庭版智能照片系统",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/your-username/photos-system",

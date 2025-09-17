@@ -1,5 +1,5 @@
 """
-家庭单机版智能照片整理系统 - 智能分析API
+家庭版智能照片系统 - 智能分析API
 """
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks

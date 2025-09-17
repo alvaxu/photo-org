@@ -10,7 +10,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="msapplication-TileColor" content="#0d6efd">
     <meta name="theme-color" content="#0d6efd">
-    <title>家庭单机版智能照片整理系统</title>
+    <title>家庭版智能照片系统</title>
 
     <!-- Bootstrap CSS - 优先使用本地版本 -->
     <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
@@ -58,7 +58,7 @@
         <div class="container-fluid">
             <a class="navbar-brand" href="#">
                 <i class="bi bi-images me-2"></i>
-                智能照片整理系统
+                智能照片系统
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -75,6 +75,16 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/settings" id="navSettings" data-section="settings">
                             <i class="bi bi-gear"></i> 系统配置
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/help-overview" id="navHelp" data-section="help" target="_blank">
+                            <i class="bi bi-info-circle"></i> 功能说明
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/help-api-key" target="_blank">
+                            <i class="bi bi-key"></i> API密钥帮助
                         </a>
                     </li>
                 </ul>
@@ -318,6 +328,9 @@
                                 <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn">取消选择</button>
                                 <button class="btn btn-sm btn-outline-danger" id="deleteSelectedBtn" disabled>
                                     <i class="bi bi-trash"></i> 删除选中
+                                </button>
+                                <button class="btn btn-sm btn-outline-info" id="photoDisplayHelpBtn" onclick="togglePhotoDisplayHelp()">
+                                    <i class="bi bi-question-circle"></i> 帮助
                                 </button>
                             </div>
                         </div>
@@ -638,6 +651,150 @@
                             <span class="badge bg-secondary" onclick="searchSuggestion('室内%')">室内</span>
                             <span class="badge bg-secondary" onclick="searchSuggestion('户外%')">户外</span>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 照片展示区帮助面板 -->
+    <div class="photo-display-help-panel position-fixed" id="photoDisplayHelpPanel" style="display: none; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1050;">
+        <div class="card" style="max-width: 900px; max-height: 700px;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="bi bi-question-circle me-2"></i>
+                    照片展示区帮助
+                </h6>
+                <button type="button" class="btn-close" onclick="hidePhotoDisplayHelp()"></button>
+            </div>
+            <div class="card-body" style="overflow-y: auto;">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-grid-3x3-gap me-2"></i>视图模式</h6>
+                        <ul class="list-unstyled small">
+                            <li class="mb-2">
+                                <i class="bi bi-grid-3x3-gap me-2 text-primary"></i>
+                                <strong>网格视图：</strong>以紧凑的网格形式展示照片缩略图，适合快速浏览大量照片
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-list me-2 text-primary"></i>
+                                <strong>列表视图：</strong>以列表形式展示照片，可能包含更多详细信息
+                            </li>
+                        </ul>
+                        
+                        <h6><i class="bi bi-mouse me-2"></i>照片选择</h6>
+                        <ul class="list-unstyled small">
+                            <li class="mb-2">
+                                <i class="bi bi-eye me-2 text-info"></i>
+                                <strong>查看详情：</strong>点击照片查看大图和详细信息
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-cursor-fill me-2 text-success"></i>
+                                <strong>多选：</strong>按住<code>Ctrl</code>键点击多张照片进行选择
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-all me-2 text-success"></i>
+                                <strong>全选：</strong>点击"全选"按钮选择当前页所有照片
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-x-circle me-2 text-warning"></i>
+                                <strong>取消选择：</strong>点击"取消选择"按钮清空选择，或按住Ctrl键再次点击照片
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-gear me-2"></i>操作按钮</h6>
+                        <ul class="list-unstyled small">
+                            <li class="mb-2">
+                                <i class="bi bi-check-all me-2 text-primary"></i>
+                                <strong>全选：</strong>选中当前页面所有照片
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-x-circle me-2 text-secondary"></i>
+                                <strong>取消选择：</strong>取消所有已选中的照片
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-trash me-2 text-danger"></i>
+                                <strong>删除选中：</strong>永久删除所有选中的照片（谨慎操作）
+                            </li>
+                        </ul>
+                        
+                        <h6><i class="bi bi-hand-index me-2"></i>照片交互</h6>
+                        <ul class="list-unstyled small">
+                            <li class="mb-2">
+                                <i class="bi bi-mouse me-2 text-info"></i>
+                                <strong>悬停效果：</strong>鼠标悬停时显示四个操作按钮
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-eye me-2 text-light"></i>
+                                <strong>查看详情：</strong>点击查看照片大图和详细信息
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-pencil me-2 text-warning"></i>
+                                <strong>编辑：</strong>点击编辑照片标签和描述信息
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-trash me-2 text-danger"></i>
+                                <strong>删除：</strong>点击删除单张照片
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-search me-2 text-info"></i>
+                                <strong>相似照片：</strong>点击搜索相似的照片
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6><i class="bi bi-info-circle me-2"></i>照片信息</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="list-unstyled small">
+                                    <li class="mb-2">
+                                        <i class="bi bi-image me-2 text-primary"></i>
+                                        <strong>缩略图：</strong>照片的预览图
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="bi bi-star me-2 text-warning"></i>
+                                        <strong>质量等级：</strong>照片的质量评估（优秀、良好、一般、较差、很差）
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="list-unstyled small">
+                                    <li class="mb-2">
+                                        <i class="bi bi-tags me-2 text-success"></i>
+                                        <strong>标签：</strong>照片的标签信息
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="bi bi-clock me-2 text-info"></i>
+                                        <strong>拍摄时间：</strong>照片的拍摄日期和时间
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6><i class="bi bi-arrow-left-right me-2"></i>分页导航</h6>
+                        <ul class="list-unstyled small">
+                            <li class="mb-2">
+                                <i class="bi bi-info-square me-2 text-secondary"></i>
+                                <strong>分页信息：</strong>显示当前页数和总页数
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-list-ol me-2 text-secondary"></i>
+                                <strong>每页显示数量：</strong>可以调整每页显示的照片数量
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-chevron-left me-2 text-secondary"></i>
+                                <i class="bi bi-chevron-right me-2 text-secondary"></i>
+                                <strong>翻页按钮：</strong>可以快速跳转到其他页面
+                            </li>
+                        </ul>
                     </div>
                 </div>
             </div>

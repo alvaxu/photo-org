@@ -1,5 +1,5 @@
 """
-家庭单机版智能照片整理系统 - 照片管理API
+家庭版智能照片系统 - 照片管理API
 """
 import json
 from typing import List, Optional, Dict, Any

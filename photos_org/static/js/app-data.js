@@ -1,5 +1,5 @@
 /**
- * 家庭单机版智能照片整理系统 - 数据管理模块
+ * 家庭版智能照片系统 - 数据管理模块
  * 包含数据加载、状态管理、API调用等核心功能
  */
 
@@ -705,6 +705,25 @@ function toggleSearchHelp() {
 
 function hideSearchHelp() {
     const helpPanel = document.getElementById('searchHelpPanel');
+    if (helpPanel) {
+        helpPanel.style.display = 'none';
+    }
+}
+
+// 照片展示区帮助功能
+function togglePhotoDisplayHelp() {
+    const helpPanel = document.getElementById('photoDisplayHelpPanel');
+    if (helpPanel) {
+        if (helpPanel.style.display === 'none' || helpPanel.style.display === '') {
+            helpPanel.style.display = 'block';
+        } else {
+            helpPanel.style.display = 'none';
+        }
+    }
+}
+
+function hidePhotoDisplayHelp() {
+    const helpPanel = document.getElementById('photoDisplayHelpPanel');
     if (helpPanel) {
         helpPanel.style.display = 'none';
     }

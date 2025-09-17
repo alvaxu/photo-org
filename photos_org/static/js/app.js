@@ -1,7 +1,7 @@
 
 
 /**
- * 家庭单机版智能照片整理系统 - 主应用脚本
+ * 家庭版智能照片系统 - 主应用脚本
  */
 
 // 注意：CONFIG, AppState, searchTypePlaceholders, searchScopeHints 已移至 app-data.js
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // 注意：loadHotData 函数已移至 app-data.js
 
 function initializeApp() {
-    console.log('🚀 初始化家庭单机版智能照片整理系统');
+    console.log('🚀 初始化家庭版智能照片系统');
 
     // 缓存DOM元素
     cacheElements();

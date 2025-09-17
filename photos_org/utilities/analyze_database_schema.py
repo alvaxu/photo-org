@@ -12,7 +12,7 @@ from app.models.photo import *
 
 def analyze_database_schema():
     """分析数据库结构"""
-    print("=== 家庭单机版智能照片整理系统 - 数据库结构分析 ===\n")
+    print("=== 家庭版智能照片系统 - 数据库结构分析 ===\n")
     
     db = next(get_db())
     inspector = inspect(db.bind)

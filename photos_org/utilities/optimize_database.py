@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-家庭单机版智能照片整理系统 - 数据库优化工具
+家庭版智能照片系统 - 数据库优化工具
 执行数据关联优化、查询性能优化和索引优化
 """
 from app.db.session import get_db
@@ -284,7 +284,7 @@ def optimize_database_settings():
         db.close()
 
 if __name__ == "__main__":
-    print("家庭单机版智能照片整理系统 - 数据库优化工具")
+    print("家庭版智能照片系统 - 数据库优化工具")
     print("=" * 60)
 
     # 1. 优化数据库设置

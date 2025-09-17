@@ -1,5 +1,5 @@
 """
-家庭单机版智能照片整理系统 - DashScope AI服务
+家庭版智能照片系统 - DashScope AI服务
 """
 import os
 import base64

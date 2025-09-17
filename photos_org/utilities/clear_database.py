@@ -112,7 +112,7 @@ def show_current_status():
 
 
 if __name__ == "__main__":
-    print("家庭单机版智能照片整理系统 - 数据库清空工具")
+    print("家庭版智能照片系统 - 数据库清空工具")
     print("=" * 50)
 
     # 显示当前状态

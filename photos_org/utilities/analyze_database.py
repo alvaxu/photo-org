@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-家庭单机版智能照片整理系统 - 数据库结构分析工具
+家庭版智能照片系统 - 数据库结构分析工具
 """
 from app.db.session import get_db
 from sqlalchemy import text
