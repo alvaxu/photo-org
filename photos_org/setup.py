@@ -16,7 +16,7 @@ def read_requirements():
     return []
 
 # 项目描述
-with open("README.md", "r", encoding="utf-8") as fh:
+with open("release/README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(

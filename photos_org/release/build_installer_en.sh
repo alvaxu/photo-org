@@ -113,7 +113,7 @@ if [ $? -ne 0 ]; then
     echo "ERROR: Failed to copy config_default.json"
     exit 1
 fi
-cp "../README.md" "dist/PhotoSystem/"
+cp "README.md" "dist/PhotoSystem/"
 if [ $? -ne 0 ]; then
     echo "ERROR: Failed to copy README.md"
     exit 1

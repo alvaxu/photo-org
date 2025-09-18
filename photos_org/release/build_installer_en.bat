@@ -224,7 +224,7 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-copy "..\README.md" "!DIST_DIR!\" >nul
+copy "README.md" "!DIST_DIR!\" >nul
 if errorlevel 1 (
     echo ERROR: Failed to copy README.md
     pause
