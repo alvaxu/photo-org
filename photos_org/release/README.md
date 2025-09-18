@@ -44,22 +44,20 @@
 如果您是普通用户，建议使用我们提供的一键安装包：
 
 #### Windows 用户
-1. 下载 `PhotoSystem-Installer.zip`
+1. 下载 `PhotoSystem-Portable.zip`
 2. 解压到任意目录
-3. **双击运行 `PhotoSystem-Installer.exe`** 
-4. 按照提示选择安装和存储路径
-5. 安装完成后，双击桌面快捷方式启动
-6. 初次启动，估计要等待1分钟
-7. 启动完成后，请不要关闭启动窗口
+3. **双击运行 `PhotoSystem.exe`** 直接启动
+4. 或者运行 `startup.bat` 获得更好的用户体验
+5. 初次启动，估计要等待1分钟
+6. 启动完成后，请不要关闭启动窗口
 
 #### Linux/macOS 用户
-1. 下载 `PhotoSystem-Installer.tar.gz`
-2. 解压：`tar -xzf PhotoSystem-Installer.tar.gz`
-3. **运行 `./PhotoSystem-Installer`** 
-4. 按照提示选择安装和存储路径
-5. 安装完成后，点击桌面快捷图标启动
-6. 初次启动，估计要等待1分钟
-7. 启动完成后，请不要关闭启动窗口
+1. 下载 `PhotoSystem-Portable.tar.gz`
+2. 解压：`tar -xzf PhotoSystem-Portable.tar.gz`
+3. **运行 `./PhotoSystem`** 直接启动
+4. 或者运行 `./startup.sh` 获得更好的用户体验
+5. 初次启动，估计要等待1分钟
+6. 启动完成后，请不要关闭启动窗口
    
 
 ### 访问系统

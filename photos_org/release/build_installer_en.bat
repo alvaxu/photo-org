@@ -57,21 +57,7 @@ if exist dist\PhotoSystem\PhotoSystem.exe (
     exit /b 1
 )
 
-REM Generate standalone installer executable
-echo DEBUG: Generating PhotoSystem-Installer.exe...
-pyinstaller --onefile --console --name PhotoSystem-Installer installer_en.py
-if errorlevel 1 (
-    echo ERROR: Failed to generate PhotoSystem-Installer.exe
-    pause
-    exit /b 1
-)
-if exist dist\PhotoSystem-Installer.exe (
-    echo DEBUG: PhotoSystem-Installer.exe generated successfully
-) else (
-    echo ERROR: PhotoSystem-Installer.exe not found after generation
-    pause
-    exit /b 1
-)
+REM Skip installer executable generation - using direct execution mode
 
 echo.
 echo ========================================
@@ -236,12 +222,6 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-copy "dist\PhotoSystem-Installer.exe" "!DIST_DIR!\" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to copy PhotoSystem-Installer.exe
-    pause
-    exit /b 1
-)
 echo DEBUG: All files copied successfully
 
 echo DEBUG: Copying icon files...
@@ -252,13 +232,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo DEBUG: Copying install scripts...
-copy "installer_en.py" "!DIST_DIR!\installer.py" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to copy installer_en.py
-    pause
-    exit /b 1
-)
+echo DEBUG: Skipping installer scripts - using direct execution mode
 
 echo DEBUG: Creating launcher scripts...
 echo DEBUG: DIST_DIR is: !DIST_DIR!
@@ -312,8 +286,8 @@ echo DEBUG: Creating archive...
 echo DEBUG: Starting archive creation...
 
 REM Create ZIP archive
-if exist PhotoSystem-Installer-Clean.zip (
-    del PhotoSystem-Installer-Clean.zip
+if exist PhotoSystem-Portable.zip (
+    del PhotoSystem-Portable.zip
 )
 
 REM Use 7-Zip to create archive
@@ -323,7 +297,7 @@ if exist "C:\Program Files\7-Zip\7z.exe" (
     cd dist
     echo DEBUG: Current directory: %CD%
     echo DEBUG: Creating archive with 7-Zip...
-    "C:\Program Files\7-Zip\7z.exe" a -tzip ..\PhotoSystem-Installer-Clean.zip PhotoSystem
+    "C:\Program Files\7-Zip\7z.exe" a -tzip ..\PhotoSystem-Portable.zip PhotoSystem
     cd ..
     if errorlevel 1 (
         echo ERROR: 7-Zip compression failed
@@ -344,16 +318,15 @@ echo ========================================
 echo.
 echo [OK] README.html generated
 echo [OK] PhotoSystem.exe built
-echo [OK] PhotoSystem-Installer.exe created
-echo [OK] All files packaged
+echo [OK] All files packaged for direct execution
 echo.
-echo Archive location: %CD%\PhotoSystem-Installer-Clean.zip
+echo Archive location: %CD%\PhotoSystem-Portable.zip
 echo Program directory: %CD%\!DIST_DIR!
 echo.
 echo Distribution instructions:
-echo    1. Send PhotoSystem-Installer-Clean.zip to users
-echo    2. Users extract and run "startup.bat" directly
-echo    3. Or run "PhotoSystem-Installer.exe" for full installation
+echo    1. Send PhotoSystem-Portable.zip to users
+echo    2. Users extract and run "PhotoSystem.exe" directly
+echo    3. Or run "startup.bat" for better user experience
 echo.
 echo New features:
 echo    - Optimized package size (excluded TensorFlow, PyTorch, OpenCV)

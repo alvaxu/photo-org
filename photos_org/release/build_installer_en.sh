@@ -131,28 +131,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "Copying install scripts..."
-cp "installer_en.py" "dist/PhotoSystem/installer.py"
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to copy installer_en.py"
-    exit 1
-fi
+echo "Skipping installer scripts - using direct execution mode"
 
-# Generate standalone installer executable for Linux
-echo "Generating PhotoSystem-Installer (Linux)..."
-pyinstaller --onefile --console --name PhotoSystem-Installer installer_en.py
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to generate PhotoSystem-Installer"
-    exit 1
-fi
-if [ -f "dist/PhotoSystem-Installer" ]; then
-    echo "PhotoSystem-Installer generated successfully"
-    cp "dist/PhotoSystem-Installer" "dist/PhotoSystem/PhotoSystem-Installer"
-    chmod +x "dist/PhotoSystem/PhotoSystem-Installer"
-else
-    echo "ERROR: PhotoSystem-Installer not found after generation"
-    exit 1
-fi
+# Skip installer executable generation - using direct execution mode
 
 echo "Creating startup script..."
 cat > "dist/PhotoSystem/startup.sh" << 'EOF'
@@ -210,11 +191,11 @@ echo "Creating archive..."
 echo ""
 
 # Create TAR archive
-if [ -f "PhotoSystem-Installer.tar.gz" ]; then
-    rm "PhotoSystem-Installer.tar.gz"
+if [ -f "PhotoSystem-Portable.tar.gz" ]; then
+    rm "PhotoSystem-Portable.tar.gz"
 fi
 
-tar -czf "PhotoSystem-Installer.tar.gz" -C "dist" "PhotoSystem"
+tar -czf "PhotoSystem-Portable.tar.gz" -C "dist" "PhotoSystem"
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Compression failed"
@@ -227,16 +208,15 @@ echo "[SUCCESS] Complete Build Successful!"
 echo "========================================"
 echo ""
 echo "[OK] PhotoSystem executable built"
-echo "[OK] PhotoSystem-Installer created"
-echo "[OK] All files packaged"
+echo "[OK] All files packaged for direct execution"
 echo ""
-echo "Archive location: $(pwd)/PhotoSystem-Installer.tar.gz"
+echo "Archive location: $(pwd)/PhotoSystem-Portable.tar.gz"
 echo "Program directory: $(pwd)/dist/PhotoSystem"
 echo ""
 echo "Distribution instructions:"
-echo "   1. Send PhotoSystem-Installer.tar.gz to users"
-echo "   2. Users extract and run PhotoSystem-Installer for installation"
-echo "   3. After installation, users can run startup.sh or use desktop shortcuts"
+echo "   1. Send PhotoSystem-Portable.tar.gz to users"
+echo "   2. Users extract and run PhotoSystem directly"
+echo "   3. Or run startup.sh for better user experience"
 echo ""
 echo "Usage tips:"
 echo "   - Ensure Python environment is properly installed"
