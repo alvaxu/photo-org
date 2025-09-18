@@ -1,10 +1,11 @@
 #!/bin/bash
 
-# PhotoSystem - Linux/macOS Build Script
+# PhotoSystem - Linux/macOS Complete Build Script
 
 echo ""
+echo ""
 echo "========================================"
-echo "PhotoSystem Build Script"
+echo "PhotoSystem Complete Build Script"
 echo "========================================"
 echo ""
 
@@ -37,26 +38,26 @@ echo ""
 echo "Building executable..."
 echo ""
 
-# Build with PyInstaller
-if [ -f "main_en.spec" ]; then
-    pyinstaller --clean main_en.spec
-elif [ -f "../main_en.spec" ]; then
-    pyinstaller --clean ../main_en.spec
-elif [ -f "main.spec" ]; then
-    pyinstaller --clean main.spec
-elif [ -f "../main.spec" ]; then
-    pyinstaller --clean ../main.spec
-else
-    echo "ERROR: main.spec file not found"
-    exit 1
-fi
+# Build main PhotoSystem executable
+echo ""
+echo "========================================"
+echo "Building PhotoSystem Main Executable"
+echo "========================================"
+echo "Building PhotoSystem..."
+
+pyinstaller --clean main_en.spec
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Build failed"
     exit 1
 fi
 
-echo "SUCCESS: Executable built"
+if [ -f "dist/PhotoSystem/PhotoSystem" ]; then
+    echo "SUCCESS: PhotoSystem executable built"
+else
+    echo "ERROR: PhotoSystem executable not found after build"
+    exit 1
+fi
 
 echo ""
 echo "Preparing distribution..."
@@ -136,9 +137,20 @@ if [ $? -ne 0 ]; then
     echo "ERROR: Failed to copy installer_en.py"
     exit 1
 fi
-cp "install_en.sh" "dist/PhotoSystem/install.sh"
+
+# Generate standalone installer executable for Linux
+echo "Generating PhotoSystem-Installer (Linux)..."
+pyinstaller --onefile --console --name PhotoSystem-Installer installer_en.py
 if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to copy install_en.sh"
+    echo "ERROR: Failed to generate PhotoSystem-Installer"
+    exit 1
+fi
+if [ -f "dist/PhotoSystem-Installer" ]; then
+    echo "PhotoSystem-Installer generated successfully"
+    cp "dist/PhotoSystem-Installer" "dist/PhotoSystem/PhotoSystem-Installer"
+    chmod +x "dist/PhotoSystem/PhotoSystem-Installer"
+else
+    echo "ERROR: PhotoSystem-Installer not found after generation"
     exit 1
 fi
 
@@ -157,7 +169,7 @@ echo ""
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 echo "Program path: $DIR"
-echo "Starting system..."
+echo "Starting system（first time will be a little longer) ..."
 echo ""
 
 # Change to the program directory
@@ -186,6 +198,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+
 echo "Copying documentation..."
 # Note: doc directory is excluded from package to reduce size
 # if [ -d "../doc" ]; then
@@ -210,15 +223,19 @@ fi
 
 echo ""
 echo "========================================"
-echo "Build completed successfully!"
+echo "[SUCCESS] Complete Build Successful!"
 echo "========================================"
+echo ""
+echo "[OK] PhotoSystem executable built"
+echo "[OK] PhotoSystem-Installer created"
+echo "[OK] All files packaged"
 echo ""
 echo "Archive location: $(pwd)/PhotoSystem-Installer.tar.gz"
 echo "Program directory: $(pwd)/dist/PhotoSystem"
 echo ""
 echo "Distribution instructions:"
 echo "   1. Send PhotoSystem-Installer.tar.gz to users"
-echo "   2. Users extract and run install.sh for installation"
+echo "   2. Users extract and run PhotoSystem-Installer for installation"
 echo "   3. After installation, users can run startup.sh or use desktop shortcuts"
 echo ""
 echo "Usage tips:"

@@ -9,13 +9,12 @@
     "path": "./photo_db/photos.db"
   },
   "dashscope": {
-    "api_key": "sk-bfff6cdc92e84b2f89064cd382fdbe4a",
+    "api_key": "sk-206dcd3b03c9432fb1d76d4d9be7555b",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
     "model": "qwen-vl-plus",
     "available_models": [
       "qwen-vl-plus",
       "qwen-vl-plus-latest",
-      "qwen-vl-plus-2025-08-15",
       "qwen-vl-plus-2025-05-07",
       "qwen-vl-plus-2025-01-25"
     ],

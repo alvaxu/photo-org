@@ -1,12 +1,76 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
-title PhotoSystem Build Script
+title PhotoSystem Complete Build Script
 
 REM Force CMD environment for compatibility
 if not "%1"=="CMD_MODE" (
     cmd /c "%~f0" CMD_MODE
     goto :eof
+)
+
+REM Test redirection works
+echo DEBUG: Testing redirection...
+echo test > test_redirect.txt
+if exist test_redirect.txt (
+    echo DEBUG: Redirection works
+    del test_redirect.txt
+) else (
+    echo ERROR: Redirection failed
+    pause
+    exit /b 1
+)
+
+REM Generate README.html from README.md
+echo DEBUG: Generating README.html...
+python generate_readme_html.py
+if errorlevel 1 (
+    echo ERROR: Failed to generate README.html
+    pause
+    exit /b 1
+)
+if exist README.html (
+    echo DEBUG: README.html generated successfully
+) else (
+    echo ERROR: README.html not found after generation
+    pause
+    exit /b 1
+)
+
+REM Build main PhotoSystem executable
+echo.
+echo ========================================
+echo Building PhotoSystem Main Executable
+echo ========================================
+echo DEBUG: Building PhotoSystem.exe...
+pyinstaller --clean --noconfirm main_en.spec
+if errorlevel 1 (
+    echo ERROR: Failed to build PhotoSystem.exe
+    pause
+    exit /b 1
+)
+if exist dist\PhotoSystem\PhotoSystem.exe (
+    echo DEBUG: PhotoSystem.exe built successfully
+) else (
+    echo ERROR: PhotoSystem.exe not found after build
+    pause
+    exit /b 1
+)
+
+REM Generate standalone installer executable
+echo DEBUG: Generating PhotoSystem-Installer.exe...
+pyinstaller --onefile --console --name PhotoSystem-Installer installer_en.py
+if errorlevel 1 (
+    echo ERROR: Failed to generate PhotoSystem-Installer.exe
+    pause
+    exit /b 1
+)
+if exist dist\PhotoSystem-Installer.exe (
+    echo DEBUG: PhotoSystem-Installer.exe generated successfully
+) else (
+    echo ERROR: PhotoSystem-Installer.exe not found after generation
+    pause
+    exit /b 1
 )
 
 echo.
@@ -57,26 +121,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Build with PyInstaller (using --collect-all for all packages)
-if exist main_en.spec (
-    pyinstaller --clean main_en.spec
-) else if exist ..\main_en.spec (
-    pyinstaller --clean ..\main_en.spec
-) else if exist main.spec (
-    pyinstaller --clean main.spec
-) else if exist ..\main.spec (
-    pyinstaller --clean ..\main.spec
-) else (
-    echo ERROR: main.spec file not found
-    pause
-    exit /b 1
-)
-
-if errorlevel 1 (
-    echo ERROR: Build failed
-    pause
-    exit /b 1
-)
 
 echo SUCCESS: Executable built
 
@@ -164,7 +208,6 @@ echo DEBUG: DIST_DIR is set to: !DIST_DIR!
 
 REM Clean old files
 echo DEBUG: Cleaning old files...
-if exist !DIST_DIR!\install.bat del !DIST_DIR!\install.bat
 if exist !DIST_DIR!\installer.py del !DIST_DIR!\installer.py
 
 REM Copy necessary files
@@ -187,13 +230,19 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-copy "INSTALL_README.md" "!DIST_DIR!\" >nul
+copy "README.html" "!DIST_DIR!\" >nul
 if errorlevel 1 (
-    echo ERROR: Failed to copy INSTALL_README.md
+    echo ERROR: Failed to copy README.html
     pause
     exit /b 1
 )
-echo DEBUG: Config files copied successfully
+copy "dist\PhotoSystem-Installer.exe" "!DIST_DIR!\" >nul
+if errorlevel 1 (
+    echo ERROR: Failed to copy PhotoSystem-Installer.exe
+    pause
+    exit /b 1
+)
+echo DEBUG: All files copied successfully
 
 echo DEBUG: Copying icon files...
 copy "xuwh.ico" "!DIST_DIR!\" >nul
@@ -210,15 +259,14 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-copy "install_en.bat" "!DIST_DIR!\install.bat" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to copy install_en.bat
-    pause
-    exit /b 1
-)
-copy "install_en.sh" "!DIST_DIR!\install.sh" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to copy install_en.sh
+
+echo DEBUG: Creating launcher scripts...
+echo DEBUG: DIST_DIR is: !DIST_DIR!
+echo DEBUG: Checking if DIST_DIR exists...
+if exist "!DIST_DIR!" (
+    echo DEBUG: DIST_DIR exists
+) else (
+    echo ERROR: DIST_DIR does not exist: !DIST_DIR!
     pause
     exit /b 1
 )
@@ -233,74 +281,31 @@ REM )
 echo DEBUG: Creating startup script...
 echo DEBUG: Creating startup.bat...
 
-REM Create startup script - using simple approach
-echo @echo off > !DIST_DIR!\startup.bat
-echo chcp 65001 ^>nul >> !DIST_DIR!\startup.bat
-echo title PhotoSystem >> !DIST_DIR!\startup.bat
-echo. >> !DIST_DIR!\startup.bat
-echo echo. >> !DIST_DIR!\startup.bat
-echo echo ======================================== >> !DIST_DIR!\startup.bat
-echo echo PhotoSystem >> !DIST_DIR!\startup.bat
-echo echo ======================================== >> !DIST_DIR!\startup.bat
-echo echo. >> !DIST_DIR!\startup.bat
-echo. >> !DIST_DIR!\startup.bat
-echo cd /d "%%~dp0" >> !DIST_DIR!\startup.bat
-echo. >> !DIST_DIR!\startup.bat
-echo echo Starting system... >> !DIST_DIR!\startup.bat
-echo echo Program path: %%~dp0 >> !DIST_DIR!\startup.bat
-echo echo. >> !DIST_DIR!\startup.bat
-echo. >> !DIST_DIR!\startup.bat
-echo PhotoSystem.exe >> !DIST_DIR!\startup.bat
-echo. >> !DIST_DIR!\startup.bat
-echo echo. >> !DIST_DIR!\startup.bat
-echo echo System closed, press any key to exit... >> !DIST_DIR!\startup.bat
-echo pause ^>nul >> !DIST_DIR!\startup.bat
+REM Create startup script with better user experience using safer method
+(
+echo @echo off
+echo chcp 65001 ^> nul
+echo title PhotoSystem
+echo.
+echo echo ========================================
+echo echo PhotoSystem
+echo echo ========================================
+echo echo.
+echo echo [INFO] Starting PhotoSystem, please wait...
+echo echo.
+echo cd /d "%%~dp0"
+echo echo [INFO] Program path: %%~dp0
+echo echo [INFO] Initializing components...
+echo echo.
+echo PhotoSystem.exe
+echo.
+echo echo.
+echo echo System closed, press any key to exit...
+echo pause ^> nul
+) > !DIST_DIR!\startup.bat
 
 echo DEBUG: Startup script created successfully
 
-echo.
-echo DEBUG: Creating installation guide...
-echo DEBUG: Creating install_guide.txt...
-
-REM Create installation guide - using simple approach
-echo PhotoSystem - Installation Guide > !DIST_DIR!\install_guide.txt
-echo ======================================== >> !DIST_DIR!\install_guide.txt
-echo. >> !DIST_DIR!\install_guide.txt
-echo File Description: >> !DIST_DIR!\install_guide.txt
-echo --------- >> !DIST_DIR!\install_guide.txt
-echo PhotoSystem.exe        - Main executable >> !DIST_DIR!\install_guide.txt
-echo startup.bat            - Startup script (recommended) >> !DIST_DIR!\install_guide.txt
-echo install.bat            - Installation script >> !DIST_DIR!\install_guide.txt
-echo installer.py           - Python installer >> !DIST_DIR!\install_guide.txt
-echo config.json            - Configuration file >> !DIST_DIR!\install_guide.txt
-echo config_default.json    - Default configuration >> !DIST_DIR!\install_guide.txt
-echo README.md              - Project description >> !DIST_DIR!\install_guide.txt
-echo INSTALL_README.md      - Detailed installation guide >> !DIST_DIR!\install_guide.txt
-if "!BUILD_MODE!"=="directory" (
-    echo _internal\             - Program dependencies (do not delete) >> !DIST_DIR!\install_guide.txt
-) else (
-    echo Note: Single file mode - all dependencies included in PhotoSystem.exe >> !DIST_DIR!\install_guide.txt
-)
-echo. >> !DIST_DIR!\install_guide.txt
-echo Usage: >> !DIST_DIR!\install_guide.txt
-echo --------- >> !DIST_DIR!\install_guide.txt
-echo 1. Direct run: Double-click "startup.bat" >> !DIST_DIR!\install_guide.txt
-echo 2. Install mode: Double-click "install.bat" for full installation >> !DIST_DIR!\install_guide.txt
-echo 3. Manual start: Double-click "PhotoSystem.exe" >> !DIST_DIR!\install_guide.txt
-echo. >> !DIST_DIR!\install_guide.txt
-echo Notes: >> !DIST_DIR!\install_guide.txt
-echo --------- >> !DIST_DIR!\install_guide.txt
-echo - First run will automatically create database and storage directories >> !DIST_DIR!\install_guide.txt
-echo - Program requires internet connection for AI analysis services >> !DIST_DIR!\install_guide.txt
-echo - Recommend using "startup.bat" to start the program >> !DIST_DIR!\install_guide.txt
-echo - If problems occur, check INSTALL_README.md >> !DIST_DIR!\install_guide.txt
-echo. >> !DIST_DIR!\install_guide.txt
-echo Technical Support: >> !DIST_DIR!\install_guide.txt
-echo --------- >> !DIST_DIR!\install_guide.txt
-echo Contact technical support team if you have any issues >> !DIST_DIR!\install_guide.txt
-echo. >> !DIST_DIR!\install_guide.txt
-
-echo DEBUG: Installation guide created successfully
 
 echo.
 echo DEBUG: Creating archive...
@@ -334,8 +339,13 @@ if exist "C:\Program Files\7-Zip\7z.exe" (
 
 echo.
 echo ========================================
-echo Build completed successfully!
+echo [SUCCESS] Complete Build Successful!
 echo ========================================
+echo.
+echo [OK] README.html generated
+echo [OK] PhotoSystem.exe built
+echo [OK] PhotoSystem-Installer.exe created
+echo [OK] All files packaged
 echo.
 echo Archive location: %CD%\PhotoSystem-Installer-Clean.zip
 echo Program directory: %CD%\!DIST_DIR!
@@ -343,7 +353,7 @@ echo.
 echo Distribution instructions:
 echo    1. Send PhotoSystem-Installer-Clean.zip to users
 echo    2. Users extract and run "startup.bat" directly
-echo    3. Or run "install.bat" for full installation
+echo    3. Or run "PhotoSystem-Installer.exe" for full installation
 echo.
 echo New features:
 echo    - Optimized package size (excluded TensorFlow, PyTorch, OpenCV)
@@ -351,8 +361,8 @@ echo    - Single file executable mode for better compatibility
 echo    - Fixed Python DLL loading issues
 echo    - Improved shortcut icon handling
 echo    - Added "startup.bat" startup script
-echo    - Added "install_guide.txt" usage guide
-echo    - Optimized file structure for clarity
+echo    - Streamlined package structure
+echo    - Removed redundant installation files
 echo.
 
 pause

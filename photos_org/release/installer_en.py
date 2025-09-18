@@ -20,6 +20,21 @@ import shutil
 import platform
 from pathlib import Path
 
+# Try to use bundled Python runtime from _internal directory
+current_dir = Path(__file__).parent
+internal_dir = current_dir / "_internal"
+
+if internal_dir.exists():
+    # Add _internal directory to Python path
+    internal_path = str(internal_dir)
+    if internal_path not in sys.path:
+        sys.path.insert(0, internal_path)
+
+    # Also add the base_library.zip if it exists
+    base_library = internal_dir / "base_library.zip"
+    if base_library.exists():
+        sys.path.insert(0, str(base_library))
+
 
 class PhotoSystemInstaller:
     """PhotoSystem Installer"""
@@ -28,7 +43,19 @@ class PhotoSystemInstaller:
         self.system = platform.system().lower()
         self.install_path = None
         self.storage_path = None
-        self.project_root = Path(__file__).parent
+
+        # Set project root based on execution environment
+        if getattr(sys, 'frozen', False):
+            # Running in PyInstaller bundle
+            exe_path = Path(sys.executable)
+            # For installer, files are in the same directory as the exe
+            self.project_root = exe_path.parent
+            print(f"DEBUG: Running in PyInstaller bundle, exe_path: {exe_path}")
+            print(f"DEBUG: Running in PyInstaller bundle, project_root: {self.project_root}")
+        else:
+            # Running as regular Python script
+            self.project_root = Path(__file__).parent
+            print(f"DEBUG: Running as Python script, project_root: {self.project_root}")
 
     def print_banner(self):
         """Print installer banner"""
@@ -123,6 +150,7 @@ Make photo management simple and smart!
                 'config.json',
                 'config_default.json',
                 'README.md',
+                'README.html',
                 'installer.py',
                 'startup.bat'
             ]
@@ -137,12 +165,12 @@ Make photo management simple and smart!
             # Copy files
             for file in files_to_copy:
                 src = self.project_root / file
-                print(f"DEBUG: Looking for {file} at {src}")
+                dst = self.install_path / file
                 if src.exists():
-                    shutil.copy2(src, self.install_path / file)
+                    shutil.copy2(src, dst)
                     print(f"SUCCESS: Copied file: {file}")
                 else:
-                    print(f"WARNING: File not found: {file}")
+                    print(f"WARNING: File not found: {file} at {src}")
 
             # Copy directories
             for dir_name in dirs_to_copy:
@@ -180,12 +208,18 @@ Make photo management simple and smart!
                 config['storage'] = {}
             config['storage']['base_path'] = str(self.storage_path)
 
+            # Record installation path for uninstaller
+            if 'installation' not in config:
+                config['installation'] = {}
+            config['installation']['install_path'] = str(self.install_path)
+
             # Save config
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
 
             print(f"SUCCESS: Configuration updated: {config_path}")
             print(f"   Storage path: {self.storage_path}")
+            print(f"   Install path: {self.install_path}")
 
         except Exception as e:
             print(f"ERROR: Failed to update configuration: {e}")
@@ -211,33 +245,38 @@ Make photo management simple and smart!
             print(f"ERROR: Failed to create shortcut: {e}")
 
     def _create_windows_shortcut(self):
-        """Create Windows shortcut using PowerShell"""
+        """Create Windows shortcut using PowerShell pointing to startup.bat"""
         try:
-            # Shortcut target
-            target = str(self.install_path / 'PhotoSystem.exe')
+            # Shortcut target (point to startup.bat)
+            target = str(self.install_path / 'startup.bat')
             working_dir = str(self.install_path)
-            
+
             # Convert Windows paths to PowerShell format (forward slashes)
             target = target.replace('\\', '/')
             working_dir = working_dir.replace('\\', '/')
-            
+
             # Desktop path
             desktop = os.path.join(os.path.expanduser('~'), 'Desktop')
             shortcut_path = os.path.join(desktop, 'PhotoSystem.lnk')
-            
-            # Icon path (use xuwh.ico if available, otherwise favicon.ico, then executable icon)
-            icon_path = str(self.install_path / 'xuwh.ico')
-            if not os.path.exists(icon_path):
-                icon_path = str(self.install_path / 'static' / 'images' / 'favicon.ico')
-            if not os.path.exists(icon_path):
-                icon_path = target  # Fallback to executable icon
-            
+
+            # Icon path - always use PhotoSystem.exe for the icon
+            icon_path = str(self.install_path / 'PhotoSystem.exe')
+
             # Convert Windows path to PowerShell format (forward slashes)
             icon_path = icon_path.replace('\\', '/')
-            
-            # Ensure icon file exists, if not use executable as icon
-            if not os.path.exists(icon_path.replace('/', '\\')):
-                icon_path = target
+
+            # Verify the exe exists for icon
+            exe_path = str(self.install_path / 'PhotoSystem.exe')
+            if not os.path.exists(exe_path):
+                # Fallback to ico file if exe doesn't exist
+                ico_path = str(self.install_path / 'xuwh.ico')
+                if os.path.exists(ico_path):
+                    icon_path = ico_path.replace('\\', '/')
+                else:
+                    # Final fallback to favicon
+                    favicon_path = str(self.install_path / 'static' / 'images' / 'favicon.ico')
+                    if os.path.exists(favicon_path):
+                        icon_path = favicon_path.replace('\\', '/')
 
             # Create shortcut using PowerShell
             ps_script = f'''
@@ -351,7 +390,7 @@ echo.
 
 cd /d "{self.install_path}"
 
-echo Starting system...
+echo Starting system（first time will be a little longer) ...
 echo Installation path: {self.install_path}
 echo Storage path: {self.storage_path}
 echo.
@@ -381,7 +420,7 @@ echo ""
 
 cd "{self.install_path}"
 
-echo "Starting system..."
+echo "Starting system（first time will be a little longer) ..."
 echo "Installation path: {self.install_path}"
 echo "Storage path: {self.storage_path}"
 echo ""
@@ -419,7 +458,54 @@ read
             print(f"   2. Run: {self.install_path}/startup.sh")
         print()
         print("Access URL: http://localhost:8000")
+
+        # Open README.html in browser
+        self.open_readme_in_browser()
+
         print("="*60)
+
+    def open_readme_in_browser(self):
+        """Open README.html in default browser"""
+        try:
+            import os
+            import webbrowser
+
+            readme_html_path = os.path.join(self.install_path, "README.html")
+
+            # Convert to absolute path and normalize
+            readme_html_path = os.path.abspath(readme_html_path)
+
+            if os.path.exists(readme_html_path):
+                print("\n📖 Opening user guide in browser...")
+
+                # Use file:// URL scheme for local files
+                file_url = f"file://{readme_html_path.replace(os.sep, '/')}"
+
+                # Try to open with default browser
+                try:
+                    # First try with webbrowser module (most reliable)
+                    webbrowser.open(file_url)
+                    print("✅ User guide opened in browser (webbrowser)")
+                except:
+                    # Fallback to system commands
+                    if self.system == "windows":
+                        os.startfile(readme_html_path)
+                        print("✅ User guide opened in browser (os.startfile)")
+                    else:
+                        # For Linux/macOS, try alternative methods
+                        import subprocess
+                        if self.system == "darwin":
+                            subprocess.run(["open", readme_html_path], check=False)
+                        else:
+                            subprocess.run(["xdg-open", readme_html_path], check=False)
+                        print("✅ User guide opened in browser (system command)")
+            else:
+                print("⚠️  User guide file not found")
+                print(f"   Expected location: {readme_html_path}")
+
+        except Exception as e:
+            print(f"⚠️  Could not open user guide: {e}")
+            print("   You can manually open README.html in your installation directory")
 
     def run(self):
         """Run installer"""
