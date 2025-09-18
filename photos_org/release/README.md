@@ -46,10 +46,11 @@
 #### Windows 用户
 1. 下载 `PhotoSystem-Portable.zip`
 2. 解压到任意目录
-3. **双击运行 `PhotoSystem.exe`** 直接启动
-4. 或者运行 `startup.bat` 获得更好的用户体验
-5. 初次启动，估计要等待1分钟
-6. 启动完成后，请不要关闭启动窗口
+3. **双击运行 `PhotoSystem Launcher.lnk`** 启动（推荐，有自定义图标）
+4. 或者双击运行 `PhotoSystem.exe` 直接启动
+5. 或者运行 `startup.bat` 获取详细启动信息
+6. 初次启动，估计要等待1分钟
+7. 启动完成后，请不要关闭启动窗口
 
 #### Linux/macOS 用户
 1. 下载 `PhotoSystem-Portable.tar.gz`

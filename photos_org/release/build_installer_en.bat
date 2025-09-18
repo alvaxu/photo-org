@@ -278,7 +278,19 @@ echo echo System closed, press any key to exit...
 echo pause ^> nul
 ) > !DIST_DIR!\startup.bat
 
-echo DEBUG: Startup script created successfully
+echo DEBUG: Creating PhotoSystem Launcher.lnk with custom icon...
+
+REM Create a shortcut (.lnk) file with custom icon
+if exist !DIST_DIR!\xuwh.ico (
+    REM Use PowerShell to create a shortcut with custom icon
+    powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('!DIST_DIR!\PhotoSystem Launcher.lnk'); $Shortcut.TargetPath = 'cmd.exe'; $Shortcut.Arguments = '/c startup.bat'; $Shortcut.WorkingDirectory = '!DIST_DIR!'; $Shortcut.IconLocation = '!DIST_DIR!\xuwh.ico,0'; $Shortcut.Description = 'PhotoSystem - Smart Photo Management System'; $Shortcut.Save()"
+    echo DEBUG: Shortcut with custom icon created successfully
+) else (
+    echo DEBUG: xuwh.ico not found, creating shortcut without custom icon
+    powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('!DIST_DIR!\PhotoSystem Launcher.lnk'); $Shortcut.TargetPath = 'cmd.exe'; $Shortcut.Arguments = '/c startup.bat'; $Shortcut.WorkingDirectory = '!DIST_DIR!'; $Shortcut.Description = 'PhotoSystem - Smart Photo Management System'; $Shortcut.Save()"
+)
+
+echo DEBUG: Startup scripts created successfully
 
 
 echo.
@@ -325,8 +337,9 @@ echo Program directory: %CD%\!DIST_DIR!
 echo.
 echo Distribution instructions:
 echo    1. Send PhotoSystem-Portable.zip to users
-echo    2. Users extract and run "PhotoSystem.exe" directly
-echo    3. Or run "startup.bat" for better user experience
+echo    2. Users extract and run "PhotoSystem Launcher.lnk" (recommended - has custom icon)
+echo    3. Or run "PhotoSystem.exe" directly
+echo    4. Or run "startup.bat" for detailed startup information
 echo.
 echo New features:
 echo    - Optimized package size (excluded TensorFlow, PyTorch, OpenCV)
