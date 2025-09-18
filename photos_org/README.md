@@ -35,6 +35,86 @@
 - **离线模式**：支持离线使用，AI分析结果可缓存
 - **数据安全**：敏感配置通过环境变量管理
 
+## 📦 快速开始（用户版）
+
+### 一键安装包
+如果您是普通用户，建议使用我们提供的一键安装包：
+
+#### Windows 用户
+1. 下载 `PhotoSystem-Installer.zip`
+2. 解压到任意目录
+3. 双击运行 `install.bat`
+4. 按照提示选择安装和存储路径
+5. 安装完成后，双击桌面快捷方式启动
+
+#### Linux/macOS 用户
+1. 下载 `PhotoSystem-Installer.tar.gz`
+2. 解压：`tar -xzf PhotoSystem-Installer.tar.gz`
+3. 运行：`chmod +x install.sh && ./install.sh`
+4. 按照提示选择安装和存储路径
+5. 安装完成后，点击桌面快捷图标启动
+
+### 访问系统
+安装完成后，在浏览器中访问：`http://localhost:8000`
+
+---
+
+## 🛠️ 开发者指南
+
+### 环境搭建
+
+#### 1. 克隆项目
+```bash
+git clone <repository-url>
+cd photos_org
+```
+
+#### 2. 创建虚拟环境
+```bash
+# Windows
+python -m venv venv
+venv\Scripts\activate
+
+# Linux/macOS
+python3 -m venv venv
+source venv/bin/activate
+```
+
+#### 3. 安装依赖
+```bash
+pip install -r requirements.txt
+```
+
+#### 4. 配置环境变量
+```bash
+# Windows
+set DASHSCOPE_API_KEY=your_api_key_here
+
+# Linux/macOS
+export DASHSCOPE_API_KEY=your_api_key_here
+```
+
+#### 5. 初始化数据库
+```bash
+python main.py
+```
+
+### 打包分发
+
+#### 生成安装包
+```bash
+# Windows
+build_installer.bat
+
+# Linux/macOS
+chmod +x build_installer.sh
+./build_installer.sh
+```
+
+打包完成后会在项目根目录生成：
+- `PhotoSystem-Installer.zip` (Windows)
+- `PhotoSystem-Installer.tar.gz` (Linux/macOS)
+
 ## 📋 系统要求
 
 ### 硬件要求

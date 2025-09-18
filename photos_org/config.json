@@ -50,7 +50,7 @@
     "debug": false
   },
   "ui": {
-    "photos_per_page": 18,
+    "photos_per_page": 12,
     "similar_photos_limit": 8,
     "hot_tags_limit": 10,
     "hot_categories_limit": 10

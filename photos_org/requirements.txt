@@ -1,82 +1,49 @@
-# 家庭版智能照片系统 - 依赖包列表
-# 基于实际项目使用情况整理，确保版本兼容性
+# PhotoSystem Requirements
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
 
-# ==================== 核心Web框架 ====================
-fastapi==0.104.1                    # 现代、快速的Web框架
-uvicorn[standard]==0.24.0           # ASGI服务器，支持WebSocket和HTTP/2
+# Image Processing
+Pillow==10.1.0
+opencv-python==4.8.1.78
+imagehash==4.3.2
+numpy>=1.21.0,<2.0.0
+pillow-heif==0.13.0
+scikit-image>=0.21.0
 
-# ==================== 数据库相关 ====================
-sqlalchemy==2.0.23                  # Python SQL工具包和ORM
-aiosqlite==0.19.0                   # 异步SQLite数据库驱动
+# AI Services
+dashscope==1.14.0
 
-# ==================== 图像处理 ====================
-Pillow==10.1.0                      # Python图像处理库（PIL）
-opencv-python==4.8.1.78            # 计算机视觉库
-imagehash==4.3.2                    # 图像感知哈希算法
-numpy>=1.21.0,<2.0.0               # 数值计算库（OpenCV依赖）
-pillow-heif==0.13.0                 # HEIC/HEIF格式支持（Pillow插件）
+# Text Processing
+jieba==0.42.1
+scikit-learn==1.7.2
 
-# ==================== AI服务 ====================
-dashscope==1.14.0                   # 阿里云DashScope大模型服务
+# Data Validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
 
-# ==================== 数据验证和序列化 ====================
-pydantic==2.5.0                     # 数据验证和设置管理
-pydantic-settings==2.1.0            # Pydantic设置管理
+# File Processing
+python-multipart==0.0.6
+python-dotenv==1.0.0
 
-# ==================== 文件处理和配置 ====================
-python-multipart==0.0.6             # 文件上传支持
-python-dotenv==1.0.0                # 环境变量管理
+# HTTP Client
+httpx==0.25.2
 
-# ==================== 节假日检测 ====================
-chinese_calendar==1.10.0            # 中国节假日检测
+# Calendar
+chinese_calendar==1.10.0
 
-# ==================== 开发和测试 ====================
-pytest==7.4.3                      # 测试框架
-pytest-asyncio==0.21.1             # 异步测试支持
-httpx==0.25.2                       # HTTP客户端（测试用）
+# Development and Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
 
-# ==================== 代码质量工具 ====================
-black==23.11.0                      # Python代码格式化
-flake8==6.1.0                       # 代码风格检查
-mypy==1.7.1                         # 静态类型检查
+# Code Quality
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
 
-# ==================== 文档生成 ====================
-mkdocs==1.5.3                       # 静态站点生成器
-mkdocs-material==9.4.8              # Material主题
+# Documentation
+mkdocs==1.5.3
+mkdocs-material==9.4.8
 
-# ==================== 可选依赖 ====================
-# 以下依赖包可根据需要安装，用于增强功能
-
-# 数据分析（可选）
-# pandas==2.1.3                     # 数据分析库
-# matplotlib==3.8.2                 # 数据可视化
-
-# 性能监控（可选）
-# psutil==5.9.6                     # 系统和进程监控
-# memory-profiler==0.61.0           # 内存使用分析
-
-# 高级图像处理（可选）
-# scikit-image==0.21.0              # 图像处理算法
-# scipy==1.11.4                     # 科学计算库
-
-# 数据库优化（可选）
-# alembic==1.13.1                   # 数据库迁移工具
-
-# ==================== 系统要求 ====================
-# Python >= 3.8, < 3.12
-# 推荐使用 Python 3.9 或 3.10
-# 所有依赖包版本都经过测试，确保兼容性
-
-# ==================== 安装说明 ====================
-# 1. 创建虚拟环境：python -m venv venv
-# 2. 激活虚拟环境：venv\Scripts\activate (Windows) 或 source venv/bin/activate (Linux/Mac)
-# 3. 安装依赖：pip install -r requirements.txt
-# 4. 可选依赖：pip install pandas matplotlib psutil
-
-# ==================== 版本兼容性 ====================
-# 本requirements.txt基于以下环境测试：
-# - Python 3.9.7
-# - Windows 10/11
-# - macOS 12+
-# - Ubuntu 20.04+
-# 如遇到版本冲突，请参考具体错误信息调整版本号
+scipy==1.16.1
+geopy==2.4.1

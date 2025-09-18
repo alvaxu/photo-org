@@ -1,0 +1,35 @@
+# 核心Web框架
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# 数据库
+sqlalchemy==2.0.23
+
+# 图像处理
+Pillow==10.1.0
+opencv-python==4.8.1.78
+imagehash==4.3.2
+numpy>=1.21.0,<2.0.0
+pillow-heif==0.13.0
+scikit-image>=0.21.0
+
+# AI服务
+dashscope==1.14.0
+
+# 文本处理
+jieba==0.42.1
+scikit-learn==1.7.2
+
+# 数据验证
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# 文件处理
+python-multipart==0.0.6
+python-dotenv==1.0.0
+
+# HTTP客户端
+httpx==0.25.2
+
+# 节假日检测
+chinese_calendar==1.10.0

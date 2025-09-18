@@ -11,6 +11,14 @@
 
 作者：AI助手
 创建日期：2025年9月9日
+
+打包说明：
+使用 PyInstaller 打包时，需要包含以下文件和目录：
+- app/ 整个应用目录
+- static/ 前端静态文件
+- templates/ HTML模板文件
+- config.json 配置文件
+- requirements.txt 依赖列表
 """
 
 import uvicorn
@@ -75,16 +83,65 @@ app.include_router(enhanced_search_router)
 
 
 # 挂载静态文件
-app.mount("/static", StaticFiles(directory="static"), name="static")
+import sys
+import os
+from pathlib import Path
+
+# 在PyInstaller打包环境中获取正确的静态文件路径
+if getattr(sys, 'frozen', False):
+    # PyInstaller打包后的环境
+    base_path = sys._MEIPASS
+    static_path = os.path.join(base_path, 'static')
+else:
+    # 开发环境
+    static_path = 'static'
+
+# 确保static目录存在
+if not os.path.exists(static_path):
+    print(f"Warning: Static directory not found at {static_path}")
+    # 如果static目录不存在，使用当前目录下的static
+    static_path = os.path.join(os.getcwd(), 'static')
+
+app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 # 动态挂载照片存储目录（根据用户配置）
-from pathlib import Path
 photos_storage_path = Path(settings.storage.base_path)
-if photos_storage_path.exists():
-    app.mount("/photos_storage", StaticFiles(directory=str(photos_storage_path)), name="photos_storage")
+
+# 在PyInstaller打包环境中处理存储路径
+if getattr(sys, 'frozen', False):
+    # PyInstaller打包后的环境
+    if photos_storage_path.is_absolute():
+        # 如果是绝对路径，直接使用
+        photos_storage_dir = str(photos_storage_path)
+    else:
+        # 如果是相对路径，相对于打包后的目录处理
+        base_path = sys._MEIPASS
+        if photos_storage_path.exists():
+            # 如果相对路径存在（相对于原始工作目录），保持原样
+            photos_storage_dir = str(photos_storage_path)
+        else:
+            # 如果不存在，尝试相对于打包目录查找
+            alt_path = os.path.join(base_path, photos_storage_path.name)
+            if os.path.exists(alt_path):
+                photos_storage_dir = alt_path
+            else:
+                # 创建一个默认的存储目录
+                photos_storage_dir = os.path.join(base_path, 'storage')
+                os.makedirs(photos_storage_dir, exist_ok=True)
 else:
-    # 如果配置的路径不存在，使用默认路径
-    app.mount("/photos_storage", StaticFiles(directory="photos_storage"), name="photos_storage")
+    # 开发环境
+    photos_storage_dir = str(photos_storage_path)
+
+# 挂载存储目录
+if os.path.exists(photos_storage_dir):
+    app.mount("/photos_storage", StaticFiles(directory=photos_storage_dir), name="photos_storage")
+    print(f"📁 Photos storage mounted at: {photos_storage_dir}")
+else:
+    # 如果存储目录不存在，创建一个默认的
+    default_storage = os.path.join(sys._MEIPASS if getattr(sys, 'frozen', False) else '.', 'storage')
+    os.makedirs(default_storage, exist_ok=True)
+    app.mount("/photos_storage", StaticFiles(directory=default_storage), name="photos_storage")
+    print(f"📁 Created default photos storage at: {default_storage}")
 
 # 配置页面路由
 from fastapi.responses import FileResponse
@@ -122,11 +179,17 @@ if __name__ == "__main__":
 
     # ===== 应用初始化开始 =====
 
+    # 确保数据库目录存在
+    from pathlib import Path
+    db_path = Path(settings.database.path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"✅ 数据库目录: {db_path.parent}")
+
     # 创建数据库表
     base.Base.metadata.create_all(bind=engine)
 
     # 初始化系统分类
-    from utilities.init_system_categories import init_system_categories
+    from app.services.init_system_categories import init_system_categories
     init_system_categories()
 
     # 初始化FTS表
@@ -186,7 +249,7 @@ if __name__ == "__main__":
 
     # 禁用reload模式，避免watchfiles检测问题
     uvicorn.run(
-        "main:app",
+        app,  # 直接传递app对象，避免PyInstaller环境下的模块导入问题
         host=settings.server_host,
         port=settings.server_port,
         reload=False,  # 完全禁用reload模式

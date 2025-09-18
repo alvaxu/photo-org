@@ -10,7 +10,7 @@
 - 保持向后兼容性，不影响现有分类数据
 
 ## 3. 使用方法
-python utilities/init_system_categories.py
+python -m app.services.init_system_categories
 """
 
 import sys
