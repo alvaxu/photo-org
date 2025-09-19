@@ -76,6 +76,11 @@ function bindBasicEvents() {
 function handleFileSelection(event) {
     const files = event.target.files;
     
+    // 隐藏之前的错误信息
+    if (window.hideImportError) {
+        window.hideImportError();
+    }
+    
     if (files && files.length > 0) {
         // 更新导入按钮状态
         elements.startImportBtn.disabled = false;

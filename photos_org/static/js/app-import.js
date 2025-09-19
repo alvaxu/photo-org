@@ -19,12 +19,46 @@
  */
 
 /**
+ * 在导入模态框内显示错误信息
+ * 
+ * @param {string} message - 错误信息
+ */
+function showImportError(message) {
+    const errorDiv = document.getElementById('importError');
+    const errorMessage = document.getElementById('importErrorMessage');
+    
+    if (errorDiv && errorMessage) {
+        errorMessage.textContent = message;
+        errorDiv.classList.remove('d-none');
+        
+        // 滚动到错误信息位置
+        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+        // 如果找不到模态框内的错误元素，回退到页面顶部显示
+        showError(message);
+    }
+}
+
+/**
+ * 隐藏导入模态框内的错误信息
+ */
+function hideImportError() {
+    const errorDiv = document.getElementById('importError');
+    if (errorDiv) {
+        errorDiv.classList.add('d-none');
+    }
+}
+
+/**
  * 切换导入方式
  * 
  * @param {string} method - 导入方式 ('file' 或 'folder')
  */
 function switchImportMethod(method) {
     console.log('切换导入方式:', method);
+    
+    // 切换时隐藏错误信息
+    hideImportError();
     
     const fileSection = document.getElementById('fileImportSection');
     const folderSection = document.getElementById('folderImportSection');
@@ -86,6 +120,9 @@ function handleFolderSelection(event) {
     console.log('📁 文件夹选择事件触发');
     const files = event.target.files;
     console.log('选择的文件数量:', files?.length || 0);
+    
+    // 隐藏之前的错误信息
+    hideImportError();
     
     if (files && files.length > 0) {
         // 获取第一个文件的路径，去掉文件名得到文件夹路径
@@ -192,9 +229,12 @@ async function startFileImport() {
     const files = elements.photoFiles.files;
     
     if (files.length === 0) {
-        showError('请先选择要导入的照片文件');
+        showImportError('请先选择要导入的照片文件');
         return;
     }
+    
+    // 隐藏之前的错误信息
+    hideImportError();
     
     // 显示进度
     elements.importProgress.classList.remove('d-none');
@@ -214,6 +254,14 @@ async function startFileImport() {
             body: formData
         });
         
+        // 检查HTTP状态码
+        if (!response.ok) {
+            const errorData = await response.json();
+            const errorMessage = errorData.detail || errorData.message || '请求失败';
+            showImportError(`上传失败：${errorMessage}`);
+            return;
+        }
+        
         const data = await response.json();
         
         if (data.success) {
@@ -230,14 +278,14 @@ async function startFileImport() {
         } else {
             // 根据错误类型显示不同的错误信息
             const errorMessage = data.message || '文件导入失败';
-            showError(`文件导入失败：${errorMessage}`);
+            showImportError(`文件导入失败：${errorMessage}`);
         }
     } catch (error) {
         console.error('文件导入失败:', error);
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            showError('网络连接失败，请检查服务器是否正常运行');
+            showImportError('网络连接失败，请检查服务器是否正常运行');
         } else {
-            showError(`文件导入失败：${error.message}\n\n请稍后重试或检查网络连接`);
+            showImportError(`文件导入失败：${error.message}\n\n请稍后重试或检查网络连接`);
         }
     } finally {
         elements.importProgress.classList.add('d-none');
@@ -261,7 +309,7 @@ async function startFolderImport() {
     
     if (!files || files.length === 0) {
         console.error('没有选择任何文件');
-        showError('请先选择照片目录');
+        showImportError('请先选择照片目录');
         return;
     }
     
@@ -270,9 +318,12 @@ async function startFolderImport() {
     console.log('图片文件数量:', imageFiles.length);
     
     if (imageFiles.length === 0) {
-        showError('选择的目录中没有找到图片文件');
+        showImportError('选择的目录中没有找到图片文件');
         return;
     }
+    
+    // 隐藏之前的错误信息
+    hideImportError();
     
     // 显示进度
     elements.importProgress.classList.remove('d-none');
@@ -297,6 +348,14 @@ async function startFolderImport() {
         
         console.log('API响应状态:', response.status);
         
+        // 检查HTTP状态码
+        if (!response.ok) {
+            const errorData = await response.json();
+            const errorMessage = errorData.detail || errorData.message || '请求失败';
+            showImportError(`上传失败：${errorMessage}`);
+            return;
+        }
+        
         const data = await response.json();
         
         if (data.success) {
@@ -313,14 +372,14 @@ async function startFolderImport() {
         } else {
             // 根据错误类型显示不同的错误信息
             const errorMessage = data.message || '文件夹导入失败';
-            showError(`文件夹导入失败：${errorMessage}`);
+            showImportError(`文件夹导入失败：${errorMessage}`);
         }
     } catch (error) {
         console.error('文件夹导入失败:', error);
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            showError('网络连接失败，请检查服务器是否正常运行');
+            showImportError('网络连接失败，请检查服务器是否正常运行');
         } else {
-            showError(`文件夹导入失败：${error.message}\n\n请稍后重试或检查网络连接`);
+            showImportError(`文件夹导入失败：${error.message}\n\n请稍后重试或检查网络连接`);
         }
     } finally {
         elements.importProgress.classList.add('d-none');
@@ -591,6 +650,8 @@ async function startBatchProcess() {
 // ============ 全局导出 ============
 
 // 将函数导出到全局作用域
+window.showImportError = showImportError;
+window.hideImportError = hideImportError;
 window.switchImportMethod = switchImportMethod;
 window.handleFolderPathChange = handleFolderPathChange;
 window.browseFolder = browseFolder;

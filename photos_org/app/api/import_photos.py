@@ -63,7 +63,7 @@ async def scan_folder(
             )
 
         # 如果文件数量较大，放到后台处理
-        if len(photo_files) > 10:
+        if len(photo_files) > settings.import_config.max_upload_files:
             # 创建后台任务ID，用于状态跟踪
             import uuid
             task_id = str(uuid.uuid4())
@@ -120,8 +120,8 @@ async def upload_photos(
     if not files:
         raise HTTPException(status_code=400, detail="未选择文件")
 
-    if len(files) > 50:  # 限制单次上传数量
-        raise HTTPException(status_code=400, detail="单次最多上传50个文件")
+    if len(files) > settings.import_config.max_upload_files:  # 限制单次上传数量
+        raise HTTPException(status_code=400, detail=f"单次最多上传{settings.import_config.max_upload_files}个文件")
 
     try:
         import_service = ImportService()
@@ -172,7 +172,7 @@ async def upload_photos(
                         skipped_count += 1
                     elif duplicate_type == 'full_duplicate_incomplete':
                         status_text = f"文件已存在但未完成智能处理 - 将重新处理"
-                        imported_count += 1  # 重新处理，计入成功
+                        skipped_count += 1  # 重复文件，计入跳过
                     elif duplicate_type == 'physical_only':
                         status_text = f"文件已存在（物理重复）"
                         imported_count += 1  # 物理重复，计入成功
@@ -387,7 +387,7 @@ async def process_photos_batch(photo_files: List[str], db) -> Tuple[int, int, in
                     print(f"继续处理重复文件: {file_path} - {status_text}")
                     # 注意：这里不需要创建新的数据库记录，因为记录已存在
                     # 只需要确保状态正确，让后续的智能处理来处理
-                    imported_count += 1  # 计入处理数量
+                    skipped_count += 1  # 重复文件，计入跳过
                     
                 elif duplicate_type == 'orphan_cleaned':
                     # 情况2：孤儿记录 - 清理后继续正常处理
@@ -529,7 +529,7 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
                             print(f"继续处理重复文件: {file_path} - {status_text}")
                             # 注意：这里不需要创建新的数据库记录，因为记录已存在
                             # 只需要确保状态正确，让后续的智能处理来处理
-                            imported_count += 1  # 计入处理数量
+                            skipped_count += 1  # 重复文件，计入跳过
                             
                         elif duplicate_type == 'orphan_cleaned':
                             # 情况2：孤儿记录 - 清理后继续正常处理

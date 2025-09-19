@@ -449,10 +449,12 @@ class ImportService:
         
         # 情况1：数据库有记录 + 物理文件存在 = 完全重复
         existing_photo = db_session.query(Photo).filter(Photo.file_hash == file_hash).first()
+        
         if existing_photo and existing_photo.original_path:
             # 构建完整的文件路径
             storage_base = Path(self.storage_base)
             full_path = storage_base / existing_photo.original_path
+            
             if full_path.exists():
                 # 检查智能处理状态
                 if existing_photo.status == 'completed':
