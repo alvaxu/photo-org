@@ -334,14 +334,36 @@ function showPhotosSection() {
  * 查看照片详情
  * @param {number} photoId - 照片ID
  */
-function viewPhotoDetail(photoId) {
-    // 从当前显示的照片中找到对应的照片对象
-    const photo = AppState.photos.find(p => p.id === photoId);
+async function viewPhotoDetail(photoId) {
+    // 首先从当前显示的照片中查找
+    let photo = AppState.photos.find(p => p.id === photoId);
+    
     if (photo) {
         showPhotoDetail(photo);
-    } else {
-        console.error('未找到照片:', photoId);
-        alert('未找到照片信息');
+        return;
+    }
+    
+    // 如果本地找不到，通过API获取照片详情
+    try {
+        console.log('从API获取照片详情:', photoId);
+        const response = await fetch(`${CONFIG.API_BASE_URL}/search/photos/${photoId}`);
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                photo = result.data;
+                showPhotoDetail(photo);
+            } else {
+                console.error('API返回错误:', result.message);
+                alert('获取照片信息失败: ' + result.message);
+            }
+        } else {
+            console.error('API请求失败:', response.status);
+            alert('获取照片信息失败: HTTP ' + response.status);
+        }
+    } catch (error) {
+        console.error('获取照片详情失败:', error);
+        alert('获取照片信息失败: ' + error.message);
     }
 }
 
@@ -349,7 +371,7 @@ function viewPhotoDetail(photoId) {
  * 编辑照片
  * @param {number} photoId - 照片ID
  */
-function editPhoto(photoId) {
+async function editPhoto(photoId) {
     console.log('编辑照片:', photoId);
     
     // 检查是否有相似照片模态框显示，如果有则先隐藏并标记
@@ -363,12 +385,34 @@ function editPhoto(photoId) {
         }
     }
     
-    // 从当前显示的照片中找到对应的照片对象
-    const photo = AppState.photos.find(p => p.id === photoId);
+    // 首先从当前显示的照片中查找
+    let photo = AppState.photos.find(p => p.id === photoId);
+    
     if (!photo) {
-        console.error('未找到照片:', photoId);
-        alert('未找到照片信息');
-        return;
+        // 如果本地找不到，通过API获取照片详情
+        try {
+            console.log('从API获取照片详情用于编辑:', photoId);
+            const response = await fetch(`${CONFIG.API_BASE_URL}/search/photos/${photoId}`);
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    photo = result.data;
+                } else {
+                    console.error('API返回错误:', result.message);
+                    alert('获取照片信息失败: ' + result.message);
+                    return;
+                }
+            } else {
+                console.error('API请求失败:', response.status);
+                alert('获取照片信息失败: HTTP ' + response.status);
+                return;
+            }
+        } catch (error) {
+            console.error('获取照片详情失败:', error);
+            alert('获取照片信息失败: ' + error.message);
+            return;
+        }
     }
     
     // 显示编辑模态框

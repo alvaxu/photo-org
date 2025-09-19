@@ -2056,3 +2056,18 @@ body {
     border-top-left-radius: 0 !important;
     border-top-right-radius: 0 !important;
 }
+
+/* ===== 导航栏图标样式 ===== */
+.navbar-brand img {
+    vertical-align: middle;
+    object-fit: contain;
+    /* 移除滤镜，保持图标原始颜色 */
+}
+
+/* 确保图标在不同分辨率下显示清晰 */
+@media (min-resolution: 2dppx) {
+    .navbar-brand img {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+}
