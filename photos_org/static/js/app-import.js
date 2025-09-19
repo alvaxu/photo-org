@@ -80,14 +80,8 @@ function switchImportMethod(method) {
  * 处理文件夹路径变化
  */
 function handleFolderPathChange() {
-    const hasPath = elements.folderPath.value.trim().length > 0;
-    elements.startImportBtn.disabled = !hasPath;
-    
-    if (hasPath) {
-        elements.startImportBtn.textContent = '开始导入';
-    } else {
-        elements.startImportBtn.textContent = '请先选择文件夹';
-    }
+    // 文件夹路径变化处理 - 现在只用于文件夹导入模式
+    // 文件导入模式已改为自动开始，无需按钮控制
 }
 
 /**
@@ -100,6 +94,8 @@ function browseFolder() {
     console.log('文件夹输入框:', folderFilesInput);
     if (folderFilesInput) {
         console.log('✅ 触发文件夹选择对话框');
+        // 先清空之前的选择，避免浏览器缓存
+        folderFilesInput.value = '';
         folderFilesInput.click();
     } else {
         console.error('❌ 找不到文件夹输入框');
@@ -124,6 +120,9 @@ function handleFolderSelection(event) {
     // 隐藏之前的错误信息
     hideImportError();
     
+    // 清空文件导入的预览数据
+    hideFilePreview();
+    
     if (files && files.length > 0) {
         // 获取第一个文件的路径，去掉文件名得到文件夹路径
         const firstFile = files[0];
@@ -136,35 +135,370 @@ function handleFolderSelection(event) {
         elements.folderPath.value = folderPath;
         
         // 显示选择的文件数量
-        const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        const imageFiles = Array.from(files).filter(file => {
+            // 检查MIME类型
+            const isImageByType = file.type.startsWith('image/');
+            // 检查文件扩展名（Windows对HEIC文件MIME类型支持有问题）
+            const ext = file.name.split('.').pop().toLowerCase();
+            const isImageByExt = ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp', 'bmp', 'gif', 'heic', 'heif'].includes(ext);
+            
+            return isImageByType || isImageByExt;
+        });
         console.log(`选择了文件夹，包含 ${imageFiles.length} 个图片文件`);
         
         // 更新导入按钮状态
         handleFolderPathChange();
         
-        // 显示选择结果（已删除，避免冗余通知）
-        
-        // 自动开始导入
-        console.log('🚀 准备自动开始文件夹导入...');
-        console.log('CONFIG 对象:', window.CONFIG);
-        console.log('AppState 对象:', window.AppState);
-        
-        // 确保导入方式设置为文件夹
-        const folderRadio = document.querySelector('input[name="importMethod"][value="folder"]');
-        if (folderRadio) {
-            folderRadio.checked = true;
-            console.log('✅ 已设置导入方式为文件夹');
-        } else {
-            console.error('❌ 找不到文件夹导入单选按钮');
-        }
-        
+        // 延迟显示文件预览信息，确保浏览器确认对话框关闭后再显示
         setTimeout(() => {
-            console.log('⏰ 延迟后开始执行文件夹导入...');
-            startFolderImport();
-        }, 1000); // 增加延迟时间到1秒
+            previewFolderContents(files);
+            console.log('📋 文件预览已显示，等待用户确认导入');
+        }, 100);
     } else {
         console.log('❌ 没有选择任何文件');
     }
+}
+
+/**
+ * 预览文件夹内容
+ * 
+ * @param {FileList} files - 选择的文件列表
+ */
+function previewFolderContents(files) {
+    const stats = analyzeFiles(files);
+    
+    // 显示预览区域
+    const previewDiv = document.getElementById('folderPreview');
+    if (previewDiv) {
+        previewDiv.style.display = 'block';
+    }
+    
+    displayFileStats(stats);
+    checkFileLimit(stats.count);
+    
+    // 显示确认按钮
+    showImportConfirmation(stats);
+}
+
+/**
+ * 分析文件统计信息
+ * 
+ * @param {FileList} files - 文件列表
+ * @returns {Object} 统计信息
+ */
+function analyzeFiles(files) {
+    // 先过滤出图片文件
+    const imageFiles = Array.from(files).filter(file => {
+        // 检查MIME类型
+        const isImageByType = file.type.startsWith('image/');
+        // 检查文件扩展名（Windows对HEIC文件MIME类型支持有问题）
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isImageByExt = ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp', 'bmp', 'gif', 'heic', 'heif'].includes(ext);
+        
+        return isImageByType || isImageByExt;
+    });
+    
+    const stats = {
+        count: imageFiles.length,
+        formats: {},
+        totalSize: 0,
+        supportedFiles: imageFiles.length  // 所有过滤后的文件都是支持的
+    };
+    
+    // 分析每个图片文件
+    for (let file of imageFiles) {
+        stats.totalSize += file.size;
+        
+        const ext = file.name.split('.').pop().toLowerCase();
+        stats.formats[ext] = (stats.formats[ext] || 0) + 1;
+    }
+    
+    return stats;
+}
+
+/**
+ * 检查文件格式是否支持
+ * 
+ * @param {string} ext - 文件扩展名
+ * @returns {boolean} 是否支持
+ */
+function isSupportedFormat(ext) {
+    const supported = ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp', 'bmp', 'gif', 'heic', 'heif'];
+    return supported.includes(ext.toLowerCase());
+}
+
+/**
+ * 格式化文件大小
+ * 
+ * @param {number} bytes - 字节数
+ * @returns {string} 格式化后的大小
+ */
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * 显示文件统计信息
+ * 
+ * @param {Object} stats - 统计信息
+ */
+function displayFileStats(stats) {
+    const statsDiv = document.getElementById('fileStats');
+    if (!statsDiv) {
+        console.error('找不到文件统计显示区域');
+        return;
+    }
+    
+    statsDiv.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">文件总数：</span>
+                    <strong>${stats.count}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">支持格式：</span>
+                    <strong>${stats.supportedFiles}</strong>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">文件大小：</span>
+                    <strong>${formatFileSize(stats.totalSize)}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">格式分布：</span>
+                    <strong>${Object.entries(stats.formats).map(([ext, count]) => `${ext}: ${count}`).join(', ')}</strong>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 检查文件数量限制
+ * 
+ * @param {number} fileCount - 文件数量
+ */
+function checkFileLimit(fileCount) {
+    const maxFiles = window.CONFIG?.importConfig?.max_upload_files || 50;
+    const limitDiv = document.getElementById('limitCheck');
+    
+    if (!limitDiv) {
+        console.error('找不到限制检查显示区域');
+        return;
+    }
+    
+    if (fileCount > maxFiles) {
+        limitDiv.innerHTML = `
+            <div class="alert alert-warning d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>
+                    <strong>文件数量超限</strong><br>
+                    <small>当前选择 ${fileCount} 个文件，超过限制 ${maxFiles} 个文件。建议分批导入或减少文件数量。</small>
+                </div>
+            </div>
+        `;
+    } else {
+        limitDiv.innerHTML = `
+            <div class="alert alert-success d-flex align-items-center">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <div>
+                    <strong>文件数量正常</strong><br>
+                    <small>当前选择 ${fileCount} 个文件，符合导入要求。</small>
+                </div>
+            </div>
+        `;
+    }
+}
+
+/**
+ * 显示文件预览信息
+ * 
+ * @param {Array} files - 文件列表
+ */
+function showFilePreview(files) {
+    // 分析文件信息
+    const stats = analyzeFiles(files);
+    
+    // 显示文件统计信息
+    displayFileStats(stats);
+    
+    // 检查文件数量限制
+    checkFileLimit(files.length);
+    
+    // 显示确认按钮
+    showFileImportConfirmation(stats);
+}
+
+/**
+ * 显示文件导入确认按钮
+ * 
+ * @param {Object} stats - 统计信息
+ */
+function showFileImportConfirmation(stats) {
+    // 创建确认按钮区域
+    const confirmDiv = document.getElementById('fileImportConfirmation');
+    if (!confirmDiv) {
+        // 如果不存在，创建一个
+        const fileImportSection = document.getElementById('fileImportSection');
+        const confirmArea = document.createElement('div');
+        confirmArea.id = 'fileImportConfirmation';
+        confirmArea.className = 'mt-3';
+        fileImportSection.appendChild(confirmArea);
+    }
+    
+    const confirmDivElement = document.getElementById('fileImportConfirmation');
+    confirmDivElement.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-file-earmark-image me-2"></i>
+                    文件预览与确认
+                </h6>
+            </div>
+            <div class="card-body">
+                <!-- 文件统计信息 -->
+                <div id="fileStats" class="mb-3"></div>
+                
+                <!-- 限制检查 -->
+                <div id="limitCheck" class="mb-3"></div>
+                
+                <!-- 确认按钮 -->
+                <div class="border-top pt-3">
+                    <div class="text-center mb-3">
+                        <h6 class="text-muted">准备导入 ${stats.count} 个文件</h6>
+                        <p class="small text-muted mb-0">其中 ${stats.supportedFiles} 个为支持的图片格式，总大小 ${formatFileSize(stats.totalSize)}</p>
+                    </div>
+                    <div class="d-flex justify-content-center gap-3">
+                        <button class="btn btn-primary px-4" onclick="confirmFileImport()">
+                            <i class="bi bi-check-circle me-2"></i>开始导入
+                        </button>
+                        <button class="btn btn-outline-secondary px-4" onclick="cancelFileImport()">
+                            <i class="bi bi-x-circle me-2"></i>取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 重新显示统计信息
+    displayFileStats(stats);
+    checkFileLimit(stats.count);
+}
+
+/**
+ * 确认文件导入
+ */
+function confirmFileImport() {
+    // 隐藏预览信息
+    hideFilePreview();
+    
+    // 开始文件导入
+    startFileImport();
+}
+
+/**
+ * 取消文件导入
+ */
+function cancelFileImport() {
+    // 清空文件选择
+    const fileInput = document.getElementById('photoFiles');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    
+    // 隐藏预览信息
+    hideFilePreview();
+}
+
+/**
+ * 隐藏文件预览
+ */
+function hideFilePreview() {
+    const confirmDiv = document.getElementById('fileImportConfirmation');
+    if (confirmDiv) {
+        confirmDiv.innerHTML = '';
+    }
+}
+
+/**
+ * 显示导入确认按钮
+ * 
+ * @param {Object} stats - 统计信息
+ */
+function showImportConfirmation(stats) {
+    const confirmDiv = document.getElementById('importConfirmation');
+    if (!confirmDiv) {
+        console.error('找不到导入确认显示区域');
+        return;
+    }
+    
+    confirmDiv.innerHTML = `
+        <div class="border-top pt-3">
+            <div class="text-center mb-3">
+                <h6 class="text-muted">准备导入 ${stats.count} 个文件</h6>
+                <p class="small text-muted mb-0">其中 ${stats.supportedFiles} 个为支持的图片格式，总大小 ${formatFileSize(stats.totalSize)}</p>
+            </div>
+            <div class="d-flex justify-content-center gap-3">
+                <button class="btn btn-primary px-4" onclick="confirmFolderImport()">
+                    <i class="bi bi-check-circle me-2"></i>确认导入
+                </button>
+                <button class="btn btn-outline-secondary px-4" onclick="cancelFolderImport()">
+                    <i class="bi bi-x-circle me-2"></i>取消
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 确认文件夹导入
+ */
+function confirmFolderImport() {
+    console.log('✅ 用户确认文件夹导入');
+    startFolderImport();
+}
+
+/**
+ * 取消文件夹导入
+ */
+function cancelFolderImport() {
+    console.log('❌ 用户取消文件夹导入');
+    // 清空文件选择
+    const folderFilesInput = document.getElementById('folderFiles');
+    if (folderFilesInput) {
+        folderFilesInput.value = '';
+    }
+    
+    // 清空路径显示
+    elements.folderPath.value = '';
+    
+    // 隐藏预览信息
+    hideFolderPreview();
+    
+    // 更新按钮状态
+    handleFolderPathChange();
+}
+
+/**
+ * 隐藏文件夹预览信息
+ */
+function hideFolderPreview() {
+    const statsDiv = document.getElementById('fileStats');
+    const limitDiv = document.getElementById('limitCheck');
+    const confirmDiv = document.getElementById('importConfirmation');
+    const previewDiv = document.getElementById('folderPreview');
+    
+    if (statsDiv) statsDiv.innerHTML = '';
+    if (limitDiv) limitDiv.innerHTML = '';
+    if (confirmDiv) confirmDiv.innerHTML = '';
+    if (previewDiv) previewDiv.style.display = 'none';
 }
 
 /**
@@ -238,7 +572,7 @@ async function startFileImport() {
     
     // 显示进度
     elements.importProgress.classList.remove('d-none');
-    elements.startImportBtn.disabled = true;
+        // elements.startImportBtn.disabled = true; // 已删除按钮
     elements.importStatus.textContent = `正在处理 ${files.length} 个图片文件...`;
     
     try {
@@ -289,7 +623,7 @@ async function startFileImport() {
         }
     } finally {
         elements.importProgress.classList.add('d-none');
-        elements.startImportBtn.disabled = false;
+        // elements.startImportBtn.disabled = false; // 已删除按钮
         elements.importStatus.textContent = '正在导入...';
     }
 }
@@ -314,7 +648,15 @@ async function startFolderImport() {
     }
     
     // 过滤出图片文件
-    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    const imageFiles = Array.from(files).filter(file => {
+        // 检查MIME类型
+        const isImageByType = file.type.startsWith('image/');
+        // 检查文件扩展名（Windows对HEIC文件MIME类型支持有问题）
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isImageByExt = ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp', 'bmp', 'gif', 'heic', 'heif'].includes(ext);
+        
+        return isImageByType || isImageByExt;
+    });
     console.log('图片文件数量:', imageFiles.length);
     
     if (imageFiles.length === 0) {
@@ -325,9 +667,12 @@ async function startFolderImport() {
     // 隐藏之前的错误信息
     hideImportError();
     
+    // 隐藏预览信息
+    hideFolderPreview();
+    
     // 显示进度
     elements.importProgress.classList.remove('d-none');
-    elements.startImportBtn.disabled = true;
+        // elements.startImportBtn.disabled = true; // 已删除按钮
     elements.importStatus.textContent = `正在处理 ${imageFiles.length} 个图片文件...`;
     
     try {
@@ -383,7 +728,7 @@ async function startFolderImport() {
         }
     } finally {
         elements.importProgress.classList.add('d-none');
-        elements.startImportBtn.disabled = false;
+        // elements.startImportBtn.disabled = false; // 已删除按钮
         elements.importStatus.textContent = '正在导入...';
     }
 }
@@ -763,3 +1108,18 @@ window.monitorScanProgress = monitorScanProgress;
 window.startBatchProcess = startBatchProcess;
 window.getPhotoCounts = getPhotoCounts;
 window.resetBatchModalState = resetBatchModalState;
+window.previewFolderContents = previewFolderContents;
+window.analyzeFiles = analyzeFiles;
+window.isSupportedFormat = isSupportedFormat;
+window.formatFileSize = formatFileSize;
+window.displayFileStats = displayFileStats;
+window.checkFileLimit = checkFileLimit;
+window.showFilePreview = showFilePreview;
+window.showFileImportConfirmation = showFileImportConfirmation;
+window.confirmFileImport = confirmFileImport;
+window.cancelFileImport = cancelFileImport;
+window.hideFilePreview = hideFilePreview;
+window.showImportConfirmation = showImportConfirmation;
+window.confirmFolderImport = confirmFolderImport;
+window.cancelFolderImport = cancelFolderImport;
+window.hideFolderPreview = hideFolderPreview;

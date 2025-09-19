@@ -142,7 +142,7 @@ class SimilarityConfig(BaseSettings):
 
 class ImportConfig(BaseSettings):
     """导入配置"""
-    supported_formats: list = Field(default=[".jpg", ".jpeg", ".png", ".tiff", ".webp", ".bmp", ".gif"], description="支持的文件格式")
+    supported_formats: list = Field(default=[".jpg", ".jpeg", ".png", ".tiff", ".tif", ".webp", ".bmp", ".gif", ".heic", ".heif"], description="支持的文件格式")
     max_upload_files: int = Field(default=50, description="单次最大上传文件数")
     scan_batch_size: int = Field(default=100, description="文件夹扫描批次大小")
 
@@ -284,6 +284,11 @@ class Settings(BaseSettings):
             },
             "analysis": {
                 "duplicate_threshold": self.analysis.duplicate_threshold
+            },
+            "import": {
+                "max_upload_files": self.import_config.max_upload_files,
+                "scan_batch_size": self.import_config.scan_batch_size,
+                "supported_formats": self.import_config.supported_formats
             }
         }
 

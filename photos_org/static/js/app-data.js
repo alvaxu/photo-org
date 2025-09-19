@@ -8,7 +8,10 @@ const CONFIG = {
     API_BASE_URL: '/api/v1',
     PAGE_SIZE: 12,  // 默认值，将从配置中动态加载
     DEBOUNCE_DELAY: 300,
-    IMAGE_PLACEHOLDER: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTAwSDE0MEwxMjAgMTIwSDEwMFYxNDBIMTZWMTAwWiIgZmlsbD0iIzk3OTdhNyIvPgo8L3N2Zz4K'
+    IMAGE_PLACEHOLDER: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTAwSDE0MEwxMjAgMTIwSDEwMFYxNDBIMTZWMTAwWiIgZmlsbD0iIzk3OTdhNyIvPgo8L3N2Zz4K',
+    importConfig: {
+        max_upload_files: 50  // 默认值，将从配置中动态加载
+    }
 };
 
 // 用户配置缓存
@@ -66,6 +69,7 @@ async function loadUserConfig() {
                 userConfig = result.data;
                 // 更新全局配置
                 CONFIG.PAGE_SIZE = userConfig.ui?.photos_per_page || 12;
+                CONFIG.importConfig = userConfig.import || {};
                 console.log('用户配置加载成功:', userConfig);
             }
         }
@@ -73,6 +77,7 @@ async function loadUserConfig() {
         console.error('加载用户配置失败:', error);
         // 使用默认配置
         CONFIG.PAGE_SIZE = 12;
+        CONFIG.importConfig = { max_upload_files: 50 };
     }
 }
 

@@ -126,7 +126,7 @@ function cacheElements() {
 
         // 导入相关
         photoFiles: document.getElementById('photoFiles'),
-        startImportBtn: document.getElementById('startImportBtn'),
+        // startImportBtn: document.getElementById('startImportBtn'), // 已删除按钮
         importFirstBtn: document.getElementById('importFirstBtn'),
         importProgress: document.getElementById('importProgress'),
         importProgressBar: document.getElementById('importProgressBar'),

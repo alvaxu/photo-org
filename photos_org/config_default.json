@@ -34,8 +34,8 @@
     "duplicate_threshold": 5,
     "quality_threshold": 0,
     "concurrent": 2,
-    "timeout": 30,
-    "batch_size": 10
+    "timeout": 60,
+    "batch_size": 250
   },
   "logging": {
     "level": "INFO",
@@ -102,7 +102,7 @@
       "exif_enabled": true
     },
     "performance": {
-      "batch_size": 100,
+      "batch_size": 250,
       "cache_enabled": true,
       "cache_ttl": 3600,
       "max_concurrent": 5
@@ -114,6 +114,7 @@
       ".jpeg",
       ".png",
       ".tiff",
+      ".tif",
       ".webp",
       ".bmp",
       ".gif",

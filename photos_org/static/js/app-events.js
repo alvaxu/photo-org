@@ -27,7 +27,7 @@ function bindBasicEvents() {
     // 导入相关事件
     window.elements.importFirstBtn.addEventListener('click', showImportModal);
     window.elements.photoFiles.addEventListener('change', handleFileSelection);
-    window.elements.startImportBtn.addEventListener('click', startImport);
+    // window.elements.startImportBtn.addEventListener('click', startImport); // 已删除 - 文件导入现在自动开始
     
     // 导入方式切换事件
     window.elements.fileImport.addEventListener('change', () => switchImportMethod('file'));
@@ -81,16 +81,28 @@ function handleFileSelection(event) {
         window.hideImportError();
     }
     
+    // 清空文件夹导入的预览数据
+    if (window.hideFolderPreview) {
+        window.hideFolderPreview();
+    }
+    
     if (files && files.length > 0) {
-        // 更新导入按钮状态
-        elements.startImportBtn.disabled = false;
-        
         // 显示选择的文件数量
-        const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        const imageFiles = Array.from(files).filter(file => {
+            // 检查MIME类型
+            const isImageByType = file.type.startsWith('image/');
+            // 检查文件扩展名（Windows对HEIC文件MIME类型支持有问题）
+            const ext = file.name.split('.').pop().toLowerCase();
+            const isImageByExt = ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp', 'bmp', 'gif', 'heic', 'heif'].includes(ext);
+            
+            return isImageByType || isImageByExt;
+        });
         console.log(`选择了 ${imageFiles.length} 个图片文件`);
         
-        // 显示选择结果
-        // 已删除选择文件的通知，避免冗余
+        // 显示文件预览信息，等待用户确认
+        if (imageFiles.length > 0) {
+            showFilePreview(imageFiles);
+        }
     }
 }
 

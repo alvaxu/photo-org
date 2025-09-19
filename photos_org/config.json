@@ -114,13 +114,14 @@
       ".jpeg",
       ".png",
       ".tiff",
+      ".tif",
       ".webp",
       ".bmp",
       ".gif",
       ".heic",
       ".heif"
     ],
-    "max_upload_files": 50,
+    "max_upload_files": 80,
     "scan_batch_size": 100
   },
   "quality": {
