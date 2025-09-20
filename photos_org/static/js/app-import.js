@@ -570,10 +570,10 @@ async function startFileImport() {
     // 隐藏之前的错误信息
     hideImportError();
     
-    // 显示进度
+    // 显示进度条
     elements.importProgress.classList.remove('d-none');
-        // elements.startImportBtn.disabled = true; // 已删除按钮
-    elements.importStatus.textContent = `正在处理 ${files.length} 个图片文件...`;
+    elements.importProgressBar.style.width = '0%';
+    elements.importStatus.textContent = `正在准备处理 ${files.length} 个文件...`;
     
     try {
         // 创建FormData对象
@@ -581,39 +581,81 @@ async function startFileImport() {
         Array.from(files).forEach(file => {
             formData.append('files', file);
         });
-        
-        // 发送请求
-        const response = await fetch(`${CONFIG.API_BASE_URL}/import/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        // 检查HTTP状态码
-        if (!response.ok) {
-            const errorData = await response.json();
-            const errorMessage = errorData.detail || errorData.message || '请求失败';
-            showImportError(`上传失败：${errorMessage}`);
-            return;
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            // 直接显示导入结果详情模态框
-            showImportDetails(data.data);
-            
-            // 重新加载照片列表
-            await loadPhotos();
-            // 关闭导入模态框
-            const modal = bootstrap.Modal.getInstance(elements.importModal);
-            if (modal) {
-                modal.hide();
+
+        // 使用XMLHttpRequest替代fetch以获取上传进度
+        const xhr = new XMLHttpRequest();
+
+        // 上传进度事件监听器
+        let lastReportedProgress = 0;
+        xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
+
+                // 避免过于频繁的更新（至少1%的变化才更新）
+                if (percentComplete - lastReportedProgress >= 1 || percentComplete === 100) {
+                    elements.importProgressBar.style.width = `${percentComplete}%`;
+                    elements.importStatus.textContent = `正在上传 ${files.length} 个文件... ${percentComplete}%`;
+                    lastReportedProgress = percentComplete;
+                }
             }
-        } else {
-            // 根据错误类型显示不同的错误信息
-            const errorMessage = data.message || '文件导入失败';
-            showImportError(`文件导入失败：${errorMessage}`);
-        }
+        });
+
+        // 上传开始
+        xhr.upload.addEventListener('loadstart', () => {
+            elements.importStatus.textContent = `开始上传 ${files.length} 个文件...`;
+        });
+
+        // 上传完成
+        xhr.upload.addEventListener('load', () => {
+            elements.importProgressBar.style.width = '100%';
+            elements.importStatus.textContent = `上传完成，后台正在处理 ${files.length} 个文件...`;
+        });
+
+        // 请求完成
+        xhr.addEventListener('load', () => {
+            // 检查HTTP状态码
+            if (xhr.status === 200 || xhr.status === 202) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+
+                    // 获取任务ID并开始进度监控
+                    if (data.success && data.data.task_id) {
+                        const taskId = data.data.task_id;
+                        console.log('获取到任务ID:', taskId);
+                        console.log('开始监控进度，总文件数:', files.length);
+                        monitorImportProgress(taskId, files.length);
+                    } else {
+                        console.error('获取任务ID失败:', data);
+                        showImportError(data.message || '导入失败');
+                        elements.importProgress.classList.add('d-none');
+                    }
+                } catch (parseError) {
+                    console.error('解析响应失败:', parseError);
+                    showImportError('服务器响应格式错误');
+                    elements.importProgress.classList.add('d-none');
+                }
+            } else {
+                try {
+                    const errorData = JSON.parse(xhr.responseText);
+                    const errorMessage = errorData.detail || errorData.message || '请求失败';
+                    showImportError(`上传失败：${errorMessage}`);
+                } catch (parseError) {
+                    showImportError('上传失败：服务器响应错误');
+                }
+                elements.importProgress.classList.add('d-none');
+            }
+        });
+
+        // 错误处理
+        xhr.addEventListener('error', () => {
+            showImportError('网络连接失败，请检查服务器是否正常运行');
+            elements.importProgress.classList.add('d-none');
+        });
+
+        // 发送请求
+        xhr.open('POST', `${CONFIG.API_BASE_URL}/import/upload`);
+        xhr.send(formData);
+        
     } catch (error) {
         console.error('文件导入失败:', error);
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
@@ -621,10 +663,7 @@ async function startFileImport() {
         } else {
             showImportError(`文件导入失败：${error.message}\n\n请稍后重试或检查网络连接`);
         }
-    } finally {
         elements.importProgress.classList.add('d-none');
-        // elements.startImportBtn.disabled = false; // 已删除按钮
-        elements.importStatus.textContent = '正在导入...';
     }
 }
 
@@ -670,10 +709,10 @@ async function startFolderImport() {
     // 隐藏预览信息
     hideFolderPreview();
     
-    // 显示进度
+    // 显示进度条
     elements.importProgress.classList.remove('d-none');
-        // elements.startImportBtn.disabled = true; // 已删除按钮
-    elements.importStatus.textContent = `正在处理 ${imageFiles.length} 个图片文件...`;
+    elements.importProgressBar.style.width = '0%';
+    elements.importStatus.textContent = `正在准备处理 ${imageFiles.length} 个文件...`;
     
     try {
         // 直接使用文件上传API处理选择的文件
@@ -681,44 +720,85 @@ async function startFolderImport() {
         imageFiles.forEach(file => {
             formData.append('files', file);
         });
-        
+
         const apiUrl = `${window.CONFIG.API_BASE_URL}/import/upload`;
         console.log('API URL:', apiUrl);
         console.log('发送的文件数量:', imageFiles.length);
-        
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            body: formData
-        });
-        
-        console.log('API响应状态:', response.status);
-        
-        // 检查HTTP状态码
-        if (!response.ok) {
-            const errorData = await response.json();
-            const errorMessage = errorData.detail || errorData.message || '请求失败';
-            showImportError(`上传失败：${errorMessage}`);
-            return;
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            // 直接显示导入结果详情模态框
-            showImportDetails(data.data);
-            
-            // 重新加载照片列表
-            await loadPhotos();
-            // 关闭导入模态框
-            const modal = bootstrap.Modal.getInstance(elements.importModal);
-            if (modal) {
-                modal.hide();
+
+        // 使用XMLHttpRequest替代fetch以获取上传进度
+        const xhr = new XMLHttpRequest();
+
+        // 上传进度事件监听器
+        let lastReportedProgress = 0;
+        xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
+
+                // 避免过于频繁的更新（至少1%的变化才更新）
+                if (percentComplete - lastReportedProgress >= 1 || percentComplete === 100) {
+                    elements.importProgressBar.style.width = `${percentComplete}%`;
+                    elements.importStatus.textContent = `正在上传文件夹文件... ${percentComplete}% (${event.loaded}/${event.total} 字节)`;
+                    lastReportedProgress = percentComplete;
+                }
             }
-        } else {
-            // 根据错误类型显示不同的错误信息
-            const errorMessage = data.message || '文件夹导入失败';
-            showImportError(`文件夹导入失败：${errorMessage}`);
-        }
+        });
+
+        // 上传开始
+        xhr.upload.addEventListener('loadstart', () => {
+            elements.importStatus.textContent = `开始上传 ${imageFiles.length} 个文件夹文件...`;
+        });
+
+        // 上传完成
+        xhr.upload.addEventListener('load', () => {
+            elements.importProgressBar.style.width = '100%';
+            elements.importStatus.textContent = `上传完成，后台正在处理 ${imageFiles.length} 个文件...`;
+        });
+
+        // 请求完成
+        xhr.addEventListener('load', () => {
+            console.log('API响应状态:', xhr.status);
+
+            // 检查HTTP状态码
+            if (xhr.status === 200 || xhr.status === 202) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+
+                    // 获取任务ID并开始进度监控
+                    if (data.success && data.data.task_id) {
+                        const taskId = data.data.task_id;
+                        monitorImportProgress(taskId, imageFiles.length);
+                    } else {
+                        console.error('获取任务ID失败:', data);
+                        showImportError(data.message || '导入失败');
+                        elements.importProgress.classList.add('d-none');
+                    }
+                } catch (parseError) {
+                    console.error('解析响应失败:', parseError);
+                    showImportError('服务器响应格式错误');
+                    elements.importProgress.classList.add('d-none');
+                }
+            } else {
+                try {
+                    const errorData = JSON.parse(xhr.responseText);
+                    const errorMessage = errorData.detail || errorData.message || '请求失败';
+                    showImportError(`上传失败：${errorMessage}`);
+                } catch (parseError) {
+                    showImportError('上传失败：服务器响应错误');
+                }
+                elements.importProgress.classList.add('d-none');
+            }
+        });
+
+        // 错误处理
+        xhr.addEventListener('error', () => {
+            showImportError('网络连接失败，请检查服务器是否正常运行');
+            elements.importProgress.classList.add('d-none');
+        });
+
+        // 发送请求
+        xhr.open('POST', apiUrl);
+        xhr.send(formData);
+        
     } catch (error) {
         console.error('文件夹导入失败:', error);
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
@@ -726,10 +806,7 @@ async function startFolderImport() {
         } else {
             showImportError(`文件夹导入失败：${error.message}\n\n请稍后重试或检查网络连接`);
         }
-    } finally {
         elements.importProgress.classList.add('d-none');
-        // elements.startImportBtn.disabled = false; // 已删除按钮
-        elements.importStatus.textContent = '正在导入...';
     }
 }
 
@@ -1123,3 +1200,86 @@ window.showImportConfirmation = showImportConfirmation;
 window.confirmFolderImport = confirmFolderImport;
 window.cancelFolderImport = cancelFolderImport;
 window.hideFolderPreview = hideFolderPreview;
+
+/**
+ * 监控导入任务进度
+ * 
+ * @param {string} taskId - 任务ID
+ * @param {number} totalFiles - 总文件数量
+ */
+function monitorImportProgress(taskId, totalFiles) {
+    let checkCount = 0;
+    const maxChecks = 120; // 最多检查120次，每次0.5秒，总共1分钟
+    
+    console.log('开始监控进度，任务ID:', taskId, '总文件数:', totalFiles);
+    
+    const progressInterval = setInterval(async () => {
+        checkCount++;
+        
+        console.log(`进度检查第${checkCount}次，任务ID: ${taskId}`);
+        
+        // 超时保护
+        if (checkCount > maxChecks) {
+            clearInterval(progressInterval);
+            console.error('进度监控超时');
+            showError('导入超时，请检查服务器状态');
+            elements.importProgress.classList.add('d-none');
+            return;
+        }
+        try {
+            const apiUrl = `${CONFIG.API_BASE_URL}/import/scan-status/${taskId}`;
+            console.log('调用API:', apiUrl);
+            
+            const response = await fetch(apiUrl);
+            
+            if (!response.ok) {
+                console.error('进度查询失败:', response.status, response.statusText);
+                return;
+            }
+            
+            const statusData = await response.json();
+            
+            console.log('进度监控数据:', statusData);
+            
+            // 更新进度条
+            const progress = statusData.progress_percentage || 0;
+            elements.importProgressBar.style.width = `${progress}%`;
+            elements.importStatus.textContent = `正在处理: ${statusData.processed_files || 0}/${totalFiles} (${progress}%) - 已导入: ${statusData.imported_count || 0}, 跳过: ${statusData.skipped_count || 0}, 失败: ${statusData.failed_count || 0}`;
+            
+            // 检查是否完成
+            if (statusData.status === 'completed') {
+                clearInterval(progressInterval);
+                
+                // 转换数据格式以匹配showImportDetails的期望
+                const detailsData = {
+                    total_files: statusData.total_files,
+                    imported_photos: statusData.imported_count,
+                    skipped_photos: statusData.skipped_count,
+                    failed_photos: statusData.failed_count,
+                    failed_files: statusData.failed_files
+                };
+                
+                // 显示导入结果详情
+                showImportDetails(detailsData);
+                
+                // 重新加载照片列表
+                await loadPhotos();
+                
+                // 关闭导入模态框
+                const modal = bootstrap.Modal.getInstance(elements.importModal);
+                if (modal) {
+                    modal.hide();
+                }
+            } else if (statusData.status === 'failed') {
+                clearInterval(progressInterval);
+                showError(`导入失败：${statusData.error || '未知错误'}`);
+                elements.importProgress.classList.add('d-none');
+            }
+        } catch (error) {
+            console.error('进度监控失败:', error);
+        }
+    }, 500); // 每0.5秒检查一次
+}
+
+// 导出函数到全局作用域
+window.monitorImportProgress = monitorImportProgress;
