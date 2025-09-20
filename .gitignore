@@ -12,6 +12,7 @@ develop-eggs/
 dist/
 downloads/
 eggs/
+PhotoSystem/
 .eggs/
 lib/
 lib64/
@@ -27,6 +28,9 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
+
+# ZIP
+*.zip
 
 # Installer logs
 pip-log.txt
@@ -157,6 +161,9 @@ models/
 *.h5
 *.pth
 *.ckpt
+
+# backup
+*.backup
 
 # RAG system database files
 rag_metadata.db
