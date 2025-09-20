@@ -174,11 +174,12 @@
 
                 <div class="info-box">
                     <h5><i class="bi bi-house-heart me-2"></i>家庭版智能照片系统</h5>
-                    <p>基于AI技术的智能照片管理平台，支持照片自动分析、分类、标签生成和重复检测。采用B/S架构，完全本地化部署，保护用户隐私。</p>
+                    <p>基于AI技术的智能照片管理平台，支持照片自动分析、分类、标签生成和重复检测。真正的便携式设计，解压即用，支持云盘同步和移动存储，一次配置处处可用，完全保护用户隐私。</p>
                 </div>
 
                 <div class="row g-4">
-                    <div class="col-lg-4 col-md-6">
+                    <!-- 第一行 -->
+                    <div class="col-lg-6 col-md-6">
                         <div class="feature-card p-4">
                             <div class="feature-icon">
                                 <i class="bi bi-house-heart"></i>
@@ -193,7 +194,23 @@
                         </div>
                     </div>
 
-                    <div class="col-lg-4 col-md-6">
+                    <div class="col-lg-6 col-md-6">
+                        <div class="feature-card p-4">
+                            <div class="feature-icon">
+                                <i class="bi bi-cloud-arrow-down"></i>
+                            </div>
+                            <h5 class="card-title text-center mb-3">真正的便携式，一次解压处处可用</h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>云端随身用</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>移动存储便携</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>完整系统随身</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>无痕安全使用</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- 第二行 -->
+                    <div class="col-lg-6 col-md-6">
                         <div class="feature-card p-4">
                             <div class="feature-icon">
                                 <i class="bi bi-robot"></i>
@@ -208,7 +225,7 @@
                         </div>
                     </div>
 
-                    <div class="col-lg-4 col-md-6">
+                    <div class="col-lg-6 col-md-6">
                         <div class="feature-card p-4">
                             <div class="feature-icon">
                                 <i class="bi bi-search"></i>
@@ -229,59 +246,50 @@
             <section class="mb-5">
                 <h2 class="h3 mb-3">二、快速开始</h2>
 
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5">步骤1：环境准备</h4>
-                    <div class="code-block">
-                        <strong>克隆项目：</strong><br>
-                        git clone &lt;项目仓库地址&gt;<br>
-                        cd photos_org<br><br>
-                        <strong>创建虚拟环境：</strong><br>
-                        python -m venv venv<br><br>
-                        <strong>激活虚拟环境：</strong><br>
-                        # Windows<br>
-                        venv\Scripts\activate<br>
-                        # macOS/Linux<br>
-                        source venv/bin/activate
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="step-card p-3 mb-3">
+                            <h4 class="h5"><i class="bi bi-windows me-2"></i>Windows 用户</h4>
+                            <ol>
+                                <li>下载 <code>PhotoSystem-Portable.zip</code></li>
+                                <li>解压到一个<strong>足够存储家庭照片</strong>的目录</li>
+                                <li><strong>双击运行 <code>PhotoSystem.exe</code></strong> 直接启动</li>
+                                <li>或者运行 <code>startup.bat</code> 获得更好的用户体验</li>
+                                <li>初次启动，估计要等待1分钟</li>
+                                <li>启动完成后，请不要关闭启动窗口</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="step-card p-3 mb-3">
+                            <h4 class="h5"><i class="bi bi-apple me-2"></i>Linux/macOS 用户</h4>
+                            <ol>
+                                <li>下载 <code>PhotoSystem-Portable.tar.gz</code></li>
+                                <li>解压：<code>tar -xzf PhotoSystem-Portable.tar.gz</code></li>
+                                <li><strong>运行 <code>./PhotoSystem</code></strong> 直接启动</li>
+                                <li>或者运行 <code>./startup.sh</code> 获得更好的用户体验</li>
+                                <li>初次启动，估计要等待1分钟</li>
+                                <li>启动完成后，请不要关闭启动窗口</li>
+                            </ol>
+                        </div>
                     </div>
                 </div>
 
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">步骤2：安装依赖</h4>
-                    <div class="code-block">
-                        <strong>升级pip：</strong><br>
-                        pip install --upgrade pip<br><br>
-                        <strong>安装项目依赖：</strong><br>
-                        pip install -r requirements.txt
+                    <h4 class="h5"><i class="bi bi-globe me-2"></i>访问系统</h4>
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>启动完成后，在浏览器中访问：<code>http://localhost:8000</code></strong>
                     </div>
+                    <p>也可在家庭的其他设备上，在浏览器中访问：<code>http://主机ip地址:8000</code></p>
                 </div>
 
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">步骤3：配置系统</h4>
-                    <p>访问 https://dashscope.aliyun.com/ 获取API密钥</p>
-                    <div class="code-block">
-                        <strong>设置环境变量（推荐）：</strong><br>
-                        # Windows<br>
-                        set DASHSCOPE_API_KEY=your_actual_api_key_here<br>
-                        # macOS/Linux<br>
-                        export DASHSCOPE_API_KEY=your_actual_api_key_here
-                    </div>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5">步骤4：启动系统</h4>
-                    <div class="code-block">
-                        <strong>启动服务：</strong><br>
-                        python main.py<br><br>
-                        <strong>访问系统：</strong><br>
-                        http://127.0.0.1:8000
-                    </div>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5">步骤5：首次使用</h4>
+                    <h4 class="h5"><i class="bi bi-gear me-2"></i>首次使用建议</h4>
                     <ol>
-                        <li>访问系统配置页面：http://127.0.0.1:8000/settings</li>
-                        <li>配置照片存储目录和数据库位置</li>
+                        <li>访问系统配置页面：http://localhost:8000/settings</li>
+                        <li><a href="#api-key-config" class="text-decoration-none">申请并配置免费的阿里云DashScope千问大模型API密钥</a></li>
                         <li>导入照片并开始AI分析</li>
                         <li>享受智能照片管理体验！</li>
                     </ol>
@@ -575,7 +583,7 @@
                     <p>通过系统配置，您可以根据个人需求调整系统的各项参数和功能设置。</p>
                     <ul>
                         <li><strong>存储设置：</strong>配置照片存储目录和数据库位置</li>
-                        <li><strong>AI设置：</strong>配置DashScope API密钥和模型选择</li>
+                        <li><strong>AI设置：</strong>配置免费阿里云千问大模型DashScope API密钥和模型选择</li>
                         <li><strong>界面设置：</strong>调整显示数量、排序方式等界面参数</li>
                         <li><strong>搜索设置：</strong>配置相似度阈值、重复检测参数</li>
                         <li><strong>备份设置：</strong>配置自动备份和数据同步选项</li>
@@ -639,8 +647,8 @@
                     <h4 class="h5">局域网访问设置</h4>
                     <ol>
                         <li><strong>确保设备在同一网络：</strong>电脑、手机、平板连接到同一个WiFi</li>
-                        <li><strong>获取服务器IP地址：</strong>在服务器上运行 <code>ipconfig</code> 或 <code>ifconfig</code></li>
-                        <li><strong>其他设备访问：</strong>浏览器输入 <code>http://服务器IP:8000</code></li>
+                        <li><strong>获取主机IP地址：</strong>在主机上运行 <code>ipconfig</code> 或 <code>ifconfig</code></li>
+                        <li><strong>其他设备访问：</strong>浏览器输入 <code>http://主机IP地址:8000</code></li>
                         <li><strong>防火墙设置：</strong>确保端口8000未被防火墙阻止</li>
                     </ol>
                 </div>
@@ -670,13 +678,82 @@
                 </div>
             </section>
 
+            <!-- 真正的便携式，一次解压处处可用 -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">六、真正的便携式，一次解压处处可用</h2>
+
+                <div class="info-box">
+                    <h5><i class="bi bi-cloud-arrow-down me-2"></i>独特的便携式设计</h5>
+                    <p>我们的系统采用了独特的便携式设计，让您的照片管理系统真正成为"随身携带"的个人资产，突破传统软件的限制。</p>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5"><i class="bi bi-cloud me-2"></i>云端同步使用</h4>
+                    <p><strong>解压到云盘同步目录：</strong>将安装文件解压到百度网盘、OneDrive等云盘的本地同步空间，只要有网络和电脑连接，您的完整系统就随时可用。</p>
+                    <div class="alert alert-info">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        <strong>应用场景：</strong>办公室、咖啡厅、旅行途中，只需登录云盘账户，就能立即访问您的个人照片库。
+                    </div>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5"><i class="bi bi-usb me-2"></i>移动存储便携</h4>
+                    <p><strong>解压到U盘或移动硬盘：</strong>将安装文件解压到U盘或移动硬盘，即插即用。无论在任何一台电脑上插入设备，都能直接运行您的完整照片管理系统。</p>
+                    <div class="alert alert-info">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        <strong>应用场景：</strong>特别适合演示、临时使用或在不同设备间切换的场景。
+                    </div>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5"><i class="bi bi-database me-2"></i>完整系统随身</h4>
+                    <p><strong>所有数据一并携带：</strong>照片库、智能分析结果、个人配置、分类标签等全部存储在同一个目录下。无需担心数据丢失或配置丢失，您的个性化设置和AI分析成果始终跟随您。</p>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5"><i class="bi bi-shield-check me-2"></i>无痕安全使用</h4>
+                    <p><strong>即拔即走，绝对安全：</strong>系统不会在使用的电脑上留下任何痕迹。使用完成后直接关闭即可，不会占用系统资源，也不会遗留个人数据。</p>
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>特别适合：</strong>在公共电脑或他人设备上临时使用。
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="step-card p-3 mb-3">
+                            <h5><i class="bi bi-briefcase me-2"></i>商务演示</h5>
+                            <p>技术人员携带U盘，在客户现场直接展示系统功能，无需提前安装。</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="step-card p-3 mb-3">
+                            <h5><i class="bi bi-house-heart me-2"></i>家庭聚会</h5>
+                            <p>将系统放在移动硬盘上，在任何亲戚家中展示家庭照片。</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="step-card p-3 mb-3">
+                            <h5><i class="bi bi-building me-2"></i>云端办公</h5>
+                            <p>将系统同步到公司云盘，在家或办公室无缝切换。</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="step-card p-3 mb-3">
+                            <h5><i class="bi bi-airplane me-2"></i>旅行分享</h5>
+                            <p>将最新照片同步到云盘，让远方的家人随时查看。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- API密钥配置 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">六、API密钥配置</h2>
+                <h2 class="h3 mb-3" id="api-key-config">七、API密钥配置</h2>
 
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    <strong>重要：</strong>AI功能需要有效的DashScope API密钥才能正常工作。
+                    <strong>重要：</strong>AI功能需要有效的阿里云DashScope千问大模型API密钥才能正常工作。
                     <a href="/help-api-key" class="alert-link ms-2" target="_blank">
                         <i class="bi bi-question-circle me-1"></i>
                         查看详细的API密钥获取和配置指南
@@ -726,7 +803,7 @@
 
             <!-- 常见问题 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">七、常见问题解答</h2>
+                <h2 class="h3 mb-3">八、常见问题解答</h2>
 
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5">配置相关问题</h4>
@@ -837,7 +914,7 @@
 
             <!-- 系统要求 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">八、系统要求</h2>
+                <h2 class="h3 mb-3">九、系统要求</h2>
 
                 <div class="row">
                     <div class="col-md-6">
@@ -867,7 +944,7 @@
 
             <!-- 技术支持 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">九、技术支持</h2>
+                <h2 class="h3 mb-3">十、技术支持</h2>
 
                 <div class="info-box">
                     <h5><i class="bi bi-headset me-2"></i>获取帮助</h5>
@@ -903,6 +980,61 @@
                 </div>
             </section>
 
+            <!-- 推广与支持 -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">十一、推广与支持</h2>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="step-card p-4 mb-3">
+                            <div class="text-center mb-3">
+                                <i class="bi bi-share text-primary" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title text-center mb-3">自由推广</h5>
+                            <p class="text-muted">如果您觉得这个照片管理系统好用，不妨分享给您的家人和朋友。您的推荐是我们最大的动力！</p>
+                            <div class="text-center">
+                                <small class="text-muted">让更多人享受到智能照片管理带来的便利</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="step-card p-4 mb-3">
+                            <div class="text-center mb-3">
+                                <i class="bi bi-heart text-danger" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title text-center mb-3">支持我们</h5>
+                            <p class="text-muted">作为独立开发者，我们致力于不断改进系统，为您提供更好的使用体验。如果您愿意，可以通过扫码支持我们继续前行。</p>
+
+                            <!-- 二维码占位符 -->
+                            <div class="text-center mt-3">
+                                <div class="border border-secondary rounded p-3 d-inline-block" style="background-color: #f8f9fa;">
+                                    <img src="/static/images/qr-code-placeholder.jpg"
+                                         alt="支持二维码"
+                                         class="img-fluid"
+                                         style="max-width: 250px; max-height: 250px;"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                    <div style="display: none;" class="text-center">
+                                        <i class="bi bi-qr-code text-secondary" style="font-size: 3rem;"></i>
+                                        <br>
+                                        <small class="text-muted">支持二维码</small><br>
+                                        <small class="text-muted">（请将您的收款码保存为 /static/images/qr-code-placeholder.jpg）</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-center mt-2">
+                                <small class="text-muted">您的每一份支持，都是对我们持续改进的鼓励</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-light text-center mt-3">
+                    <i class="bi bi-lightbulb text-warning me-2"></i>
+                    <strong>感谢您的使用！</strong> 您的反馈和支持是我们前进的动力。
+                </div>
+            </section>
 
             <!-- 底部操作按钮 -->
             <div class="text-center mt-5">

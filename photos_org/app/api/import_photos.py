@@ -7,6 +7,7 @@
 创建日期：2025年9月9日
 """
 
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -116,6 +117,7 @@ async def upload_photos(
     :param files: 上传的文件列表
     :param background_tasks: 后台任务
     :param db: 数据库会话
+    :return: 上传结果
     """
     if not files:
         raise HTTPException(status_code=400, detail="未选择文件")
@@ -124,92 +126,20 @@ async def upload_photos(
         raise HTTPException(status_code=400, detail=f"单次最多上传{settings.import_config.max_upload_files}个文件")
 
     try:
-        import_service = ImportService()
-        photo_service = PhotoService()
-        imported_count = 0
-        skipped_count = 0
-        failed_count = 0
-        failed_files = []
-
-        for file in files:
-            # 验证文件类型
-            file_ext = Path(file.filename).suffix.lower()
-            
-            # 特殊处理HEIC格式
-            if file_ext in ['.heic', '.heif']:
-                # HEIC格式的content_type可能为空，需要特殊处理
-                pass
-            elif not file.content_type or not file.content_type.startswith('image/'):
-                failed_files.append(f"{file.filename}: 不支持的文件类型")
-                failed_count += 1
-                continue
-
-            # 保存临时文件
-            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
-                shutil.copyfileobj(file.file, temp_file)
-                temp_path = temp_file.name
-
-            try:
-                # 处理照片
-                success, message, photo_data, duplicate_info = import_service.process_single_photo(temp_path, db_session=db)
-
-                if success and photo_data:
-                    # 保存到数据库
-                    photo = photo_service.create_photo(db, photo_data)
-                    if photo:
-                        imported_count += 1
-                    else:
-                        failed_files.append(f"{file.filename}: 数据库保存失败")
-                        failed_count += 1
-                elif duplicate_info:
-                    # 处理重复文件 - 使用完整的重复检测逻辑
-                    duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
-                    message = duplicate_info.get('message', '文件重复')
-                    
-                    # 根据重复类型生成更详细的提示
-                    if duplicate_type == 'full_duplicate_completed':
-                        status_text = f"文件已存在且已完成智能处理"
-                        skipped_count += 1
-                    elif duplicate_type == 'full_duplicate_incomplete':
-                        status_text = f"文件已存在但未完成智能处理 - 将重新处理"
-                        skipped_count += 1  # 重复文件，计入跳过
-                    elif duplicate_type == 'physical_only':
-                        status_text = f"文件已存在（物理重复）"
-                        imported_count += 1  # 物理重复，计入成功
-                    elif duplicate_type == 'orphan_cleaned':
-                        status_text = f"孤儿记录已清理，继续处理"
-                        imported_count += 1  # 清理后继续处理，计入成功
-                    else:
-                        status_text = message
-                        failed_files.append(f"{file.filename}: {status_text}")
-                        failed_count += 1
-                        continue
-                    
-                    # 只有需要跳过的才添加到失败列表（用于显示）
-                    if duplicate_type == 'full_duplicate_completed':
-                        failed_files.append(f"{file.filename}: {status_text}")
-                else:
-                    failed_files.append(f"{file.filename}: {message}")
-                    failed_count += 1
-
-            except Exception as e:
-                failed_files.append(f"{file.filename}: 处理异常 - {str(e)}")
-                failed_count += 1
-            finally:
-                # 清理临时文件
-                Path(temp_path).unlink(missing_ok=True)
+        # 统一使用后台任务处理
+        import uuid
+        task_id = str(uuid.uuid4())
+        background_tasks.add_task(process_photos_batch_with_status_from_upload, files, db, task_id)
 
         return JSONResponse(
-            status_code=200,
+            status_code=202,
             content={
                 "success": True,
-                "message": f"成功导入{imported_count}/{len(files)}个文件",
+                "message": f"已提交{len(files)}个文件进行后台处理",
                 "data": {
+                    "task_id": task_id,
                     "total_files": len(files),
-                    "imported_photos": imported_count,
-                    "skipped_photos": skipped_count,
-                    "failed_photos": failed_count,
-                    "failed_files": failed_files
+                    "status": "processing"
                 }
             }
         )
@@ -645,7 +575,149 @@ async def get_scan_status(task_id: str):
     
     :param task_id: 任务ID
     """
+    print(f"查询任务状态: {task_id}")
+    print(f"当前任务状态: {task_status}")
+    
     if task_id not in task_status:
+        print(f"任务 {task_id} 不存在")
         raise HTTPException(status_code=404, detail="任务不存在")
     
+    print(f"任务 {task_id} 状态: {task_status[task_id]}")
     return task_status[task_id]
+
+
+async def process_photos_batch_with_status_from_upload(files: List[UploadFile], db, task_id: str):
+    """
+    带状态跟踪的处理上传文件
+    
+    :param files: 上传的文件列表
+    :param db: 数据库会话
+    :param task_id: 任务ID
+    """
+    try:
+        # 初始化任务状态
+        task_status[task_id] = {
+            "status": "processing",
+            "total_files": len(files),
+            "processed_files": 0,
+            "imported_count": 0,
+            "skipped_count": 0,
+            "failed_count": 0,
+            "failed_files": [],
+            "progress_percentage": 0,
+            "start_time": datetime.now().isoformat(),
+            "end_time": None,
+            "error": None
+        }
+        
+        import_service = ImportService()
+        photo_service = PhotoService()
+        imported_count = 0
+        skipped_count = 0
+        failed_count = 0
+        failed_files = []
+        
+        # 使用数据库事务确保数据一致性
+        try:
+            for i, file in enumerate(files):
+                try:
+                    # 验证文件类型
+                    file_ext = Path(file.filename).suffix.lower()
+                    
+                    # 特殊处理HEIC格式
+                    if file_ext in ['.heic', '.heif']:
+                        # HEIC格式的content_type可能为空，需要特殊处理
+                        pass
+                    elif not file.content_type or not file.content_type.startswith('image/'):
+                        failed_files.append(f"{file.filename}: 不支持的文件类型")
+                        failed_count += 1
+                        continue
+
+                    # 保存临时文件
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
+                        shutil.copyfileobj(file.file, temp_file)
+                        temp_path = temp_file.name
+
+                    try:
+                        # 处理单个照片
+                        success, message, photo_data, duplicate_info = import_service.process_single_photo(
+                            temp_path, move_file=False, db_session=db
+                        )
+
+                        if success and photo_data:
+                            # 保存到数据库
+                            photo = photo_service.create_photo(db, photo_data)
+                            if photo:
+                                imported_count += 1
+                                print(f"成功导入: {file.filename}")
+                            else:
+                                failed_files.append(f"{file.filename}: 数据库保存失败")
+                                failed_count += 1
+                        elif duplicate_info:
+                            # 处理重复文件 - 使用完整的重复检测逻辑
+                            duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
+                            message = duplicate_info.get('message', '文件重复')
+                            
+                            # 根据重复类型生成更详细的提示
+                            if duplicate_type == 'full_duplicate_completed':
+                                status_text = f"文件已存在且已完成智能处理"
+                                skipped_count += 1
+                            elif duplicate_type == 'full_duplicate_incomplete':
+                                status_text = f"文件已存在但未完成智能处理 - 将重新处理"
+                                skipped_count += 1  # 重复文件，计入跳过
+                            elif duplicate_type == 'physical_only':
+                                status_text = f"文件已存在（物理重复）"
+                                imported_count += 1  # 物理重复，计入成功
+                            elif duplicate_type == 'orphan_cleaned':
+                                status_text = f"孤儿记录已清理，继续处理"
+                                imported_count += 1  # 清理后继续处理，计入成功
+                            else:
+                                status_text = message
+                                failed_files.append(f"{file.filename}: {status_text}")
+                                failed_count += 1
+                                continue
+                        else:
+                            failed_files.append(f"{file.filename}: {message}")
+                            failed_count += 1
+
+                    finally:
+                        # 清理临时文件
+                        if os.path.exists(temp_path):
+                            os.unlink(temp_path)
+
+                except Exception as e:
+                    failed_files.append(f"{file.filename}: 处理异常 - {str(e)}")
+                    failed_count += 1
+                
+                # 更新进度（每处理一个文件就+1，不管结果）
+                task_status[task_id]["processed_files"] = i + 1
+                task_status[task_id]["progress_percentage"] = int((i + 1) / len(files) * 100)
+                task_status[task_id]["imported_count"] = imported_count
+                task_status[task_id]["skipped_count"] = skipped_count
+                task_status[task_id]["failed_count"] = failed_count
+                task_status[task_id]["failed_files"] = failed_files
+                
+                print(f"进度更新: {i + 1}/{len(files)} ({int((i + 1) / len(files) * 100)}%) - 导入:{imported_count}, 跳过:{skipped_count}, 失败:{failed_count}")
+
+        except Exception as e:
+            task_status[task_id]["status"] = "failed"
+            task_status[task_id]["error"] = str(e)
+            task_status[task_id]["end_time"] = datetime.now().isoformat()
+            print(f"处理过程中发生错误: {str(e)}")
+            return
+
+        # 标记完成
+        task_status[task_id]["status"] = "completed"
+        task_status[task_id]["end_time"] = datetime.now().isoformat()
+        task_status[task_id]["imported_count"] = imported_count
+        task_status[task_id]["skipped_count"] = skipped_count
+        task_status[task_id]["failed_count"] = failed_count
+        task_status[task_id]["failed_files"] = failed_files
+        task_status[task_id]["progress_percentage"] = 100
+        print(f"处理完成: 导入{imported_count}个，跳过{skipped_count}个，失败{failed_count}个")
+
+    except Exception as e:
+        task_status[task_id]["status"] = "failed"
+        task_status[task_id]["error"] = str(e)
+        task_status[task_id]["end_time"] = datetime.now().isoformat()
+        print(f"任务初始化失败: {str(e)}")
