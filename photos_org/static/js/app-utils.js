@@ -309,10 +309,11 @@ function showBatchProcessDetails(detailsData) {
         icon = '✅';
         alertClass = 'alert-success';
         summaryText = `智能处理完成：${totalPhotos}张照片全部完整分析`;
-    } else {
-        icon = 'ℹ️';
-        alertClass = 'alert-info';
-        summaryText = `智能处理完成：没有照片被处理`;
+    } else if (totalPhotos > 0) {
+        // 有照片但没有成功和失败的，说明所有照片都已完成处理
+        icon = '✅';
+        alertClass = 'alert-success';
+        summaryText = `智能处理完成：所有${totalPhotos}张照片都已完成智能分析`;
     }
     
     const modalHtml = `
