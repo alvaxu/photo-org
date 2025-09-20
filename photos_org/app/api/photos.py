@@ -231,6 +231,7 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
                     "analyzed_at": analysis.created_at.isoformat() if analysis.created_at else None
                 }
 
+
         # 添加质量信息
         if photo.quality_assessments:
             latest_quality = max(photo.quality_assessments, key=lambda q: q.created_at)

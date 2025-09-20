@@ -191,7 +191,7 @@ function showImportDetails(detailsData) {
                         <div class="alert ${alertClass} mb-4">
                             <i class="bi bi-info-circle me-2"></i>
                             <strong>${icon} ${summaryText}</strong><br>
-                            <small class="text-muted">请点击"智能处理"按钮完成智能分析</small>
+                            <small class="text-muted">🎯 下一步：请点击上方导航栏的"智能处理"按钮，让AI为您分析照片内容、生成描述标签和智能分类</small>
                         </div>
                         <div class="row mb-3">
                             <div class="col-md-3">
@@ -278,26 +278,40 @@ function showImportDetails(detailsData) {
 
 function showBatchProcessDetails(detailsData) {
     console.log('showBatchProcessDetails 被调用，数据:', detailsData);
-    
-    // 根据处理结果确定图标和颜色
-    const totalPhotos = detailsData.batch_total_photos || 0;
-    const completedPhotos = detailsData.batch_completed_photos || 0;
-    const failedPhotos = totalPhotos - completedPhotos;
-    
-    console.log('处理结果统计:', { totalPhotos, completedPhotos, failedPhotos });
-    
+
+    // 解析新的统计数据
+    const totalPhotos = detailsData.total || detailsData.batch_total_photos || 0;
+    const fullyAnalyzed = detailsData.fully_analyzed || 0;
+    const unanalyzed = detailsData.unanalyzed || 0;
+    const missingQuality = detailsData.missing_quality || 0;
+    const missingAI = detailsData.missing_ai || 0;
+
+    // 计算成功和失败的数量
+    const successfulPhotos = fullyAnalyzed;
+    const failedPhotos = unanalyzed + missingQuality + missingAI;
+
+    console.log('处理结果统计:', {
+        totalPhotos,
+        fullyAnalyzed,
+        unanalyzed,
+        missingQuality,
+        missingAI,
+        successfulPhotos,
+        failedPhotos
+    });
+
     let icon, alertClass, summaryText;
     if (failedPhotos > 0) {
-        icon = '❌';
-        alertClass = 'alert-danger';
-        summaryText = `智能处理完成：${totalPhotos}张照片，${completedPhotos}张成功，${failedPhotos}张失败`;
-    } else if (completedPhotos > 0) {
-        icon = '✅';
-        alertClass = 'alert-success';
-        summaryText = `智能处理完成：${totalPhotos}张照片全部处理成功`;
-    } else {
         icon = '⚠️';
         alertClass = 'alert-warning';
+        summaryText = `智能处理完成：${totalPhotos}张照片中，${successfulPhotos}张完整分析，${failedPhotos}张需要补全`;
+    } else if (successfulPhotos > 0) {
+        icon = '✅';
+        alertClass = 'alert-success';
+        summaryText = `智能处理完成：${totalPhotos}张照片全部完整分析`;
+    } else {
+        icon = 'ℹ️';
+        alertClass = 'alert-info';
         summaryText = `智能处理完成：没有照片被处理`;
     }
     
@@ -318,7 +332,7 @@ function showBatchProcessDetails(detailsData) {
                         </div>
                         
                         <div class="row mb-3">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="card text-center">
                                     <div class="card-body">
                                         <h5 class="card-title text-primary">${totalPhotos}</h5>
@@ -326,19 +340,38 @@ function showBatchProcessDetails(detailsData) {
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-success">${fullyAnalyzed}</h5>
+                                        <p class="card-text">已完整分析</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
                             <div class="col-md-4">
                                 <div class="card text-center">
                                     <div class="card-body">
-                                        <h5 class="card-title text-success">${completedPhotos}</h5>
-                                        <p class="card-text">处理成功</p>
+                                        <h5 class="card-title text-muted">${unanalyzed}</h5>
+                                        <p class="card-text">未分析</p>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="card text-center">
                                     <div class="card-body">
-                                        <h5 class="card-title text-danger">${failedPhotos}</h5>
-                                        <p class="card-text">处理失败</p>
+                                        <h5 class="card-title text-warning">${missingQuality}</h5>
+                                        <p class="card-text">缺质量评估</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-info">${missingAI}</h5>
+                                        <p class="card-text">缺AI分析</p>
                                     </div>
                                 </div>
                             </div>
@@ -349,14 +382,17 @@ function showBatchProcessDetails(detailsData) {
                             <h6>处理详情：</h6>
                             <div class="alert alert-info">
                                 <i class="bi bi-info-circle me-2"></i>
-                                有 ${failedPhotos} 张照片处理失败，请检查照片格式或网络连接后重试。
+                                ${unanalyzed > 0 ? `有 ${unanalyzed} 张照片未分析；` : ''}
+                                ${missingQuality > 0 ? `${missingQuality} 张照片缺少质量评估；` : ''}
+                                ${missingAI > 0 ? `${missingAI} 张照片缺少AI分析；` : ''}
+                                这些照片将在下次处理时得到补全。
                             </div>
                         </div>
                         ` : `
                         <div class="mt-4">
                             <div class="alert alert-success">
                                 <i class="bi bi-check-circle me-2"></i>
-                               所有照片已成功完成智能处理，现在您可以搜索、查看和整理您的照片了！
+                                所有照片已成功完成智能分析和质量评估，现在您可以搜索、查看和整理您的照片了！
                             </div>
                         </div>
                         `}

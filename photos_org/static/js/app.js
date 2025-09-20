@@ -117,6 +117,7 @@ function cacheElements() {
         // 选择操作
         selectAllBtn: document.getElementById('selectAllBtn'),
         clearSelectionBtn: document.getElementById('clearSelectionBtn'),
+        processSelectedBtn: document.getElementById('processSelectedBtn'),
         deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
 
         // 模态框

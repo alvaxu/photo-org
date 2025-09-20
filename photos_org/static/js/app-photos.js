@@ -11,8 +11,47 @@
 // 旧的触摸延迟处理函数已移除，现在使用新的混合设备交互管理器
 
 /**
+ * 获取照片处理状态
+ *
+ * @param {Object} photo - 照片对象
+ * @returns {Object} 状态信息对象
+ */
+function getProcessingStatus(photo) {
+    // 处理中状态 - 优先级最高
+    if (photo.status === 'processing') {
+        return {
+            status: 'processing',
+            iconClass: 'bi-hourglass-split',
+            text: '分析中',
+            className: 'status-processing',
+            canProcess: false
+        };
+    }
+
+    // 已处理状态 - 有分析记录
+    if (photo.analysis || photo.quality) {
+        return {
+            status: 'completed',
+            iconClass: 'bi-check-circle',
+            text: '已分析',
+            className: 'status-completed',
+            canProcess: true  // 支持重新处理
+        };
+    }
+
+    // 未处理状态 - 默认状态
+    return {
+        status: 'unprocessed',
+        iconClass: 'bi-robot',
+        text: '未分析',
+        className: 'status-unprocessed',
+        canProcess: true
+    };
+}
+
+/**
  * 创建照片卡片
- * 
+ *
  * @param {Object} photo - 照片对象
  * @returns {string} HTML字符串
  */
@@ -35,7 +74,7 @@ function createPhotoCard(photo) {
     const qualityText = getQualityText(qualityLevel);
 
     // 根据照片尺寸判断方向并添加CSS类
-    let containerClass = 'photo-card';
+    let containerClass = 'photo-card selectable';
     if (photo.width && photo.height) {
         if (photo.height > photo.width) {
             containerClass += ' portrait';  // 竖版
@@ -46,8 +85,17 @@ function createPhotoCard(photo) {
         }
     }
 
+    // 获取照片处理状态
+    const processingStatus = getProcessingStatus(photo);
+
     return `
         <div class="${containerClass}" data-photo-id="${photo.id}">
+            <!-- 状态标识 -->
+            <div class="photo-status-badge status-${processingStatus.status}">
+                <i class="bi ${processingStatus.iconClass}"></i>
+                <span>${processingStatus.text}</span>
+            </div>
+
             <div class="photo-image-container">
                 <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
                      alt="${photo.filename}"
@@ -883,6 +931,215 @@ async function savePhotoEdit() {
 
 // ============ 全局导出 ============
 
+/**
+ * 照片选择管理器
+ */
+class PhotoSelector {
+    constructor() {
+        this.selectedPhotos = new Set();
+        this.initializeEventListeners();
+    }
+
+    // 初始化事件监听器
+    initializeEventListeners() {
+        console.log('=== 初始化PhotoSelector事件监听器 ===');
+
+        // 监听照片卡片点击（Ctrl+点击选择）
+        document.addEventListener('click', (e) => {
+            const photoCard = e.target.closest('.photo-card.selectable');
+            if (photoCard && !e.target.closest('.photo-overlay') && !e.target.closest('.photo-select-overlay')) {
+                if (e.ctrlKey || e.metaKey) {
+                    console.log('检测到Ctrl+点击照片:', photoCard.dataset.photoId);
+                    e.preventDefault();
+                    const photoId = photoCard.dataset.photoId;
+                    const isSelected = photoCard.classList.contains('selected');
+                    console.log('照片当前选中状态:', isSelected);
+                    this.togglePhotoSelection(photoId, !isSelected);
+                }
+            }
+        });
+    }
+
+    // 切换单张照片选择状态
+    togglePhotoSelection(photoId, isSelected) {
+        console.log('切换照片选择状态:', photoId, isSelected);
+
+        const photoCard = document.querySelector(`[data-photo-id="${photoId}"]`);
+        console.log('找到的照片卡片:', !!photoCard);
+
+        if (isSelected) {
+            this.selectedPhotos.add(parseInt(photoId));
+            photoCard?.classList.add('selected');
+        } else {
+            this.selectedPhotos.delete(parseInt(photoId));
+            photoCard?.classList.remove('selected');
+        }
+
+        console.log('当前选中照片数量:', this.selectedPhotos.size);
+        console.log('准备调用updateUI');
+        this.updateUI();
+    }
+
+    // 全选/取消全选
+    toggleSelectAll() {
+        const allPhotoCards = document.querySelectorAll('.photo-card.selectable[data-photo-id]');
+        const allSelected = allPhotoCards.length === this.selectedPhotos.size && allPhotoCards.length > 0;
+
+        if (allSelected) {
+            // 取消全选
+            this.clearSelection();
+        } else {
+            // 全选
+            allPhotoCards.forEach(card => {
+                const photoId = parseInt(card.dataset.photoId);
+                this.selectedPhotos.add(photoId);
+                card.classList.add('selected');
+            });
+        }
+
+        this.updateUI();
+    }
+
+    // 取消选择
+    clearSelection() {
+        this.selectedPhotos.clear();
+        document.querySelectorAll('.photo-card.selected').forEach(card => {
+            card.classList.remove('selected');
+        });
+        this.updateUI();
+    }
+
+    // 更新UI状态
+    updateUI() {
+        const selectedCount = this.selectedPhotos.size;
+        console.log('更新UI，选中数量:', selectedCount);
+
+        if (selectedCount > 0) {
+            // 启用智能处理按钮
+            console.log('选中数量 > 0，启用智能处理按钮');
+            this.enableProcessButtons();
+        } else {
+            // 禁用智能处理按钮
+            console.log('选中数量 = 0，禁用智能处理按钮');
+            this.disableProcessButtons();
+        }
+
+        // 更新全选按钮状态（如果存在）
+        this.updateSelectAllButton();
+    }
+
+    // 更新状态统计
+    updateStatusSummary() {
+        const statusCounts = {
+            unprocessed: 0,
+            processing: 0,
+            completed: 0
+        };
+
+        this.selectedPhotos.forEach(photoId => {
+            const photoCard = document.querySelector(`[data-photo-id="${photoId}"]`);
+            if (photoCard) {
+                const statusBadge = photoCard.querySelector('.photo-status-badge');
+                if (statusBadge) {
+                    const statusClass = Array.from(statusBadge.classList)
+                        .find(cls => cls.startsWith('status-'));
+                    if (statusClass) {
+                        const status = statusClass.replace('status-', '');
+                        statusCounts[status] = (statusCounts[status] || 0) + 1;
+                    }
+                }
+            }
+        });
+
+        const summaryParts = [];
+        if (statusCounts.unprocessed > 0) {
+            summaryParts.push(`${statusCounts.unprocessed}张未分析`);
+        }
+        if (statusCounts.processing > 0) {
+            summaryParts.push(`${statusCounts.processing}张分析中`);
+        }
+        if (statusCounts.completed > 0) {
+            summaryParts.push(`${statusCounts.completed}张已分析`);
+        }
+
+        document.getElementById('statusSummary').textContent =
+            summaryParts.length > 0 ? ` (${summaryParts.join(', ')})` : '';
+    }
+
+    // 更新全选按钮
+    updateSelectAllButton() {
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        if (selectAllBtn) {
+            const totalPhotos = document.querySelectorAll('.photo-card.selectable[data-photo-id]').length;
+            const allSelected = totalPhotos === this.selectedPhotos.size && totalPhotos > 0;
+
+            selectAllBtn.textContent = allSelected ? '取消全选' : '全选';
+        }
+    }
+
+    // 启用智能处理按钮
+    enableProcessButtons() {
+        console.log('=== 启用智能处理按钮 ===');
+        const processBtn = document.getElementById('processSelectedBtn');
+        console.log('找到按钮元素:', !!processBtn);
+
+        if (processBtn) {
+            console.log('按钮当前状态 - disabled:', processBtn.disabled, 'innerHTML:', processBtn.innerHTML);
+            processBtn.disabled = false;
+            processBtn.innerHTML = '<i class="bi bi-robot"></i> 智能处理';
+            console.log('按钮已启用，新的状态 - disabled:', processBtn.disabled);
+
+            // 验证按钮是否真的启用了
+            setTimeout(() => {
+                console.log('延迟检查按钮状态 - disabled:', processBtn.disabled);
+            }, 100);
+        } else {
+            console.error('未找到智能处理按钮');
+            console.log('页面中的所有按钮:');
+            const allButtons = document.querySelectorAll('button');
+            allButtons.forEach((btn, index) => {
+                console.log(`按钮 ${index}: id=${btn.id}, disabled=${btn.disabled}`);
+            });
+        }
+    }
+
+    // 禁用智能处理按钮
+    disableProcessButtons() {
+        console.log('禁用智能处理按钮');
+        const processBtn = document.getElementById('processSelectedBtn');
+        if (processBtn) {
+            processBtn.disabled = true;
+            processBtn.innerHTML = '<i class="bi bi-robot"></i> 智能处理';
+            console.log('按钮已禁用');
+        } else {
+            console.error('未找到智能处理按钮');
+        }
+    }
+
+    // 获取选中的照片ID列表
+    getSelectedPhotoIds() {
+        return Array.from(this.selectedPhotos);
+    }
+
+    // 获取照片详情（用于状态判断）
+    async getPhotoDetails(photoId) {
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/photos/${photoId}`);
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (error) {
+            console.error('获取照片详情失败:', error);
+        }
+        return null;
+    }
+}
+
+// 创建全局实例
+console.log('=== 创建PhotoSelector实例 ===');
+window.photoSelector = new PhotoSelector();
+console.log('PhotoSelector实例创建完成:', !!window.photoSelector);
+
 // 将函数导出到全局作用域
 window.createPhotoCard = createPhotoCard;
 window.createPhotoListItem = createPhotoListItem;
@@ -899,3 +1156,28 @@ window.searchSimilarPhotos = searchSimilarPhotos;
 window.displaySimilarPhotos = displaySimilarPhotos;
 window.showPhotoEditModal = showPhotoEditModal;
 window.savePhotoEdit = savePhotoEdit;
+
+// 照片选择相关函数
+window.processSelectedPhotos = () => {
+    console.log('processSelectedPhotos函数被调用');
+    console.log('window.batchProcessor是否存在:', !!window.batchProcessor);
+
+    if (window.batchProcessor) {
+        console.log('调用batchProcessor.processSelectedPhotos(true)');
+        // 所有选中的照片都要处理，包括已分析的
+        window.batchProcessor.processSelectedPhotos(true);
+    } else {
+        console.log('batchProcessor不存在，显示警告');
+        showWarning('智能处理功能未初始化');
+    }
+};
+
+window.reprocessSelectedPhotos = () => {
+    if (window.batchProcessor) {
+        window.batchProcessor.processSelectedPhotos(true);
+    } else {
+        showWarning('智能处理功能未初始化');
+    }
+};
+
+window.getProcessingStatus = getProcessingStatus;

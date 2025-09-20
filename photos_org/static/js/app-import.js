@@ -581,7 +581,7 @@ async function startFileImport() {
         Array.from(files).forEach(file => {
             formData.append('files', file);
         });
-
+        
         // 使用XMLHttpRequest替代fetch以获取上传进度
         const xhr = new XMLHttpRequest();
 
@@ -617,18 +617,18 @@ async function startFileImport() {
             if (xhr.status === 200 || xhr.status === 202) {
                 try {
                     const data = JSON.parse(xhr.responseText);
-
-                    // 获取任务ID并开始进度监控
-                    if (data.success && data.data.task_id) {
-                        const taskId = data.data.task_id;
-                        console.log('获取到任务ID:', taskId);
-                        console.log('开始监控进度，总文件数:', files.length);
-                        monitorImportProgress(taskId, files.length);
-                    } else {
-                        console.error('获取任务ID失败:', data);
-                        showImportError(data.message || '导入失败');
-                        elements.importProgress.classList.add('d-none');
-                    }
+        
+        // 获取任务ID并开始进度监控
+        if (data.success && data.data.task_id) {
+            const taskId = data.data.task_id;
+            console.log('获取到任务ID:', taskId);
+            console.log('开始监控进度，总文件数:', files.length);
+            monitorImportProgress(taskId, files.length);
+        } else {
+            console.error('获取任务ID失败:', data);
+            showImportError(data.message || '导入失败');
+            elements.importProgress.classList.add('d-none');
+        }
                 } catch (parseError) {
                     console.error('解析响应失败:', parseError);
                     showImportError('服务器响应格式错误');
@@ -720,11 +720,11 @@ async function startFolderImport() {
         imageFiles.forEach(file => {
             formData.append('files', file);
         });
-
+        
         const apiUrl = `${window.CONFIG.API_BASE_URL}/import/upload`;
         console.log('API URL:', apiUrl);
         console.log('发送的文件数量:', imageFiles.length);
-
+        
         // 使用XMLHttpRequest替代fetch以获取上传进度
         const xhr = new XMLHttpRequest();
 
@@ -762,16 +762,16 @@ async function startFolderImport() {
             if (xhr.status === 200 || xhr.status === 202) {
                 try {
                     const data = JSON.parse(xhr.responseText);
-
-                    // 获取任务ID并开始进度监控
-                    if (data.success && data.data.task_id) {
-                        const taskId = data.data.task_id;
-                        monitorImportProgress(taskId, imageFiles.length);
-                    } else {
+        
+        // 获取任务ID并开始进度监控
+        if (data.success && data.data.task_id) {
+            const taskId = data.data.task_id;
+            monitorImportProgress(taskId, imageFiles.length);
+        } else {
                         console.error('获取任务ID失败:', data);
-                        showImportError(data.message || '导入失败');
-                        elements.importProgress.classList.add('d-none');
-                    }
+            showImportError(data.message || '导入失败');
+            elements.importProgress.classList.add('d-none');
+        }
                 } catch (parseError) {
                     console.error('解析响应失败:', parseError);
                     showImportError('服务器响应格式错误');
@@ -905,16 +905,21 @@ async function startBatchProcess() {
     window.elements.batchStatus.textContent = '正在准备智能处理...';
     
     try {
-        // 首先获取所有照片的ID
+        // 获取所有照片，然后过滤出需要处理的照片（status为'imported'或'error'）
         const photosResponse = await fetch(`${window.CONFIG.API_BASE_URL}/photos?limit=1000`);
         const photosData = await photosResponse.json();
-        
+
         if (!photosResponse.ok) {
             showError('获取照片列表失败');
             return;
         }
-        
-        const photoIds = photosData.photos.map(photo => photo.id);
+
+        // 过滤出需要处理的照片（status为'imported'或'error'）
+        const photosToProcess = photosData.photos ? photosData.photos.filter(photo =>
+            photo.status === 'imported' || photo.status === 'error'
+        ) : [];
+
+        const photoIds = photosToProcess.map(photo => photo.id);
         
         if (photoIds.length === 0) {
             showWarning('没有找到需要处理的照片');
@@ -1049,12 +1054,7 @@ async function startBatchProcess() {
                     window.elements.startBatchBtn.disabled = false;
                 }
                 
-                // 超时保护
-                if (checkCount >= maxChecks) {
-                    clearInterval(statusCheckInterval);
-                    showWarning('智能处理超时，请手动检查结果');
-                    window.elements.startBatchBtn.disabled = false;
-                }
+                // 移除超时保护，让处理持续运行直到完成
             }, 1000);
             
         } else {
@@ -1280,6 +1280,500 @@ function monitorImportProgress(taskId, totalFiles) {
         }
     }, 500); // 每0.5秒检查一次
 }
+
+/**
+ * 批量处理器 - 处理选中的照片智能分析
+ */
+class BatchProcessor {
+    constructor() {
+        // 使用PhotoManager进行照片选择管理
+    }
+
+    // 处理选中的照片
+    async processSelectedPhotos(forceReprocess = false) {
+        // 使用PhotoManager获取选中的照片ID
+        const selectedIds = window.PhotoManager ?
+            Array.from(window.PhotoManager.selectedPhotos) :
+            [];
+
+        if (selectedIds.length === 0) {
+            showWarning('请先选择要处理的照片');
+            return;
+        }
+
+        // 显示确认模态框
+        await this.showProcessConfirmation(selectedIds, forceReprocess);
+    }
+
+    // 显示处理确认模态框
+    async showProcessConfirmation(photoIds, forceReprocess) {
+        const stats = await this.getProcessingStats(photoIds);
+
+        const modalHtml = `
+            <div class="modal fade" id="processConfirmationModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                ${forceReprocess ? '重新处理' : '智能分析'}确认
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                将对选中的所有照片进行智能分析，包括已分析的照片也会重新处理。
+                            </div>
+
+                            <div class="processing-preview">
+                                <h6>处理统计：</h6>
+                                <div class="row text-center mb-2">
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <div class="stat-value">${stats.total}</div>
+                                            <div class="stat-label">总照片</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="stat-item">
+                                            <div class="stat-value text-success">${stats.fully_analyzed}</div>
+                                            <div class="stat-label">已完整分析</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <div class="stat-item">
+                                            <div class="stat-value text-muted">${stats.unanalyzed}</div>
+                                            <div class="stat-label">未分析</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="stat-item">
+                                            <div class="stat-value text-warning">${stats.missing_quality}</div>
+                                            <div class="stat-label">缺质量评估</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="stat-item">
+                                            <div class="stat-value text-info">${stats.missing_ai}</div>
+                                            <div class="stat-label">缺AI分析</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                取消
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="startBatchProcessing(${JSON.stringify(photoIds)}, ${forceReprocess})">
+                                <i class="bi bi-play-fill me-1"></i> 开始处理
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 显示模态框
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('processConfirmationModal'));
+        modal.show();
+
+        // 模态框关闭时清理DOM
+        document.getElementById('processConfirmationModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
+
+    // 获取处理统计信息
+    async getProcessingStats(photoIds) {
+        const stats = {
+            total: photoIds.length,
+            unanalyzed: 0,      // 未分析（都没做）
+            fully_analyzed: 0,  // 已分析（完整分析）
+            missing_quality: 0, // 未质量评估（有AI分析，无质量评估）
+            missing_ai: 0       // 未AI分析（有质量评估，无AI分析）
+        };
+
+        try {
+            // 查询每张照片的状态
+            for (const photoId of photoIds) {
+                const photo = await this.getPhotoDetails(photoId);
+
+                if (photo) {
+                    // 简化判断逻辑：使用现有的API响应结构
+                    const hasAnalysis = !!photo.analysis;  // 是否有PhotoAnalysis记录
+                    const hasQuality = !!photo.quality;    // 是否有PhotoQuality记录
+
+                    console.log(`照片 ${photoId} 状态:`, {
+                        hasAnalysis,
+                        hasQuality,
+                        status: photo.status,
+                        analysis_type: photo.analysis ? photo.analysis.type : 'none'
+                    });
+
+                    if (!hasAnalysis && !hasQuality) {
+                        // 未分析（都没做）
+                        stats.unanalyzed++;
+                    } else if (hasAnalysis && hasQuality) {
+                        // 已分析（完整分析）
+                        stats.fully_analyzed++;
+                    } else if (hasAnalysis && !hasQuality) {
+                        // 未质量评估（有AI分析，无质量评估）
+                        stats.missing_quality++;
+                    } else if (!hasAnalysis && hasQuality) {
+                        // 未AI分析（有质量评估，无AI分析）
+                        stats.missing_ai++;
+                    }
+                } else {
+                    // 如果无法获取照片详情，假设为未分析
+                    stats.unanalyzed++;
+                }
+            }
+        } catch (error) {
+            console.error('获取照片状态失败:', error);
+            // 如果查询失败，假设所有照片都未分析
+            stats.unanalyzed = photoIds.length;
+            stats.fully_analyzed = 0;
+            stats.missing_quality = 0;
+            stats.missing_ai = 0;
+        }
+
+        return stats;
+    }
+
+    // 获取照片详情
+    async getPhotoDetails(photoId) {
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/photos/${photoId}`);
+            if (response.ok) {
+                const data = await response.json();
+                return data.data || data; // 处理不同的响应格式
+            }
+        } catch (error) {
+            console.error('获取照片详情失败:', error);
+        }
+        return null;
+    }
+
+    // 开始批量处理
+    async startBatchProcessing(photoIds, forceReprocess) {
+        // 关闭确认模态框
+        const confirmModal = bootstrap.Modal.getInstance(document.getElementById('processConfirmationModal'));
+        if (confirmModal) {
+            confirmModal.hide();
+        }
+
+        // 显示处理进度模态框
+        this.showProcessingModal();
+
+        // 短暂延迟，让用户看到进度模态框
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        try {
+            // 调用批量分析API
+            const response = await fetch(`${CONFIG.API_BASE_URL}/analysis/batch-analyze`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    photo_ids: photoIds,
+                    analysis_types: ['content', 'quality', 'duplicate'],
+                    force_reprocess: forceReprocess
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('批量分析请求失败');
+            }
+
+            const result = await response.json();
+
+            // FastAPI BackgroundTasks异步处理，需要监控处理进度
+            await this.monitorBatchProcessingProgress(photoIds, result);
+
+        } catch (error) {
+            console.error('批量处理启动失败:', error);
+
+            // 即使前端出错，后端可能仍在处理，显示友好的提示
+            if (error.message.includes('monitorBatchProcessingProgress') ||
+                error.message.includes('getPhotoDetails')) {
+                // 如果是监控过程中的错误，说明API调用成功但监控失败
+                showWarning('智能分析任务已启动，后台正在处理中。如需查看进度请刷新页面。');
+            } else {
+                // 如果是API调用失败，显示错误
+                showError('批量处理启动失败: ' + error.message);
+            }
+
+            this.hideProcessingModal();
+        }
+    }
+
+    // 监控批量处理进度
+    async monitorBatchProcessingProgress(photoIds, initialResult) {
+        console.log('开始监控批量处理进度:', photoIds);
+
+        const progressBar = document.querySelector('#batchProcessingModal .progress-bar');
+        const statusText = document.querySelector('#batchProcessingModal .processing-status span');
+        const totalPhotos = photoIds.length;
+
+        let completedPhotos = 0;
+        let checkCount = 0;
+        const maxChecks = 300; // 最多检查5分钟 (300 * 1秒)
+
+        // 更新进度条
+        const updateProgress = (completed, total) => {
+            const percentage = Math.round((completed / total) * 100);
+            progressBar.style.width = `${percentage}%`;
+            statusText.textContent = `正在处理照片... (${completed}/${total})`;
+        };
+
+        // 检查照片状态
+        const checkProgress = async () => {
+            checkCount++;
+
+            try {
+                // 获取所有选中照片的当前状态
+                const currentStates = [];
+                for (const photoId of photoIds) {
+                    const photo = await this.getPhotoDetails(photoId);
+                    if (photo) {
+                        currentStates.push({
+                            id: photoId,
+                            hasAnalysis: !!photo.analysis,
+                            hasQuality: !!photo.quality,
+                            status: photo.status
+                        });
+                    }
+                }
+
+                // 计算完成数量（有分析记录或质量记录的照片）
+                const newlyCompleted = currentStates.filter(state =>
+                    state.hasAnalysis || state.hasQuality || state.status === 'completed'
+                ).length;
+
+                // 更新进度
+                if (newlyCompleted > completedPhotos) {
+                    completedPhotos = newlyCompleted;
+                    updateProgress(completedPhotos, totalPhotos);
+                }
+
+                // 检查是否全部完成
+                if (completedPhotos >= totalPhotos || checkCount >= maxChecks) {
+                    console.log('批量处理完成或超时，显示结果');
+                    await this.showBatchProcessingResults(photoIds);
+                    return;
+                }
+
+                // 继续监控
+                setTimeout(checkProgress, 1000); // 每秒检查一次
+
+            } catch (error) {
+                console.error('检查处理进度失败:', error);
+
+                // 如果是网络错误，继续监控（后端可能仍在处理）
+                if (checkCount < maxChecks) {
+                    console.log('网络错误，继续监控处理进度...');
+                    setTimeout(checkProgress, 2000); // 2秒后重试
+                } else {
+                    console.log('监控超时，显示当前状态');
+                    // 即使监控失败，也尝试显示结果
+                    await this.showBatchProcessingResults(photoIds);
+                }
+            }
+        };
+
+        // 开始监控
+        updateProgress(0, totalPhotos);
+        setTimeout(checkProgress, 1000); // 1秒后开始第一次检查
+    }
+
+    // 显示批量处理结果
+    async showBatchProcessingResults(selectedIds) {
+        console.log('显示批量处理结果，重新计算统计信息');
+
+        // 隐藏处理进度模态框
+        this.hideProcessingModal();
+
+        // 重新获取所有选中照片的最终状态
+        let finalStats;
+        try {
+            finalStats = await this.getProcessingStats(selectedIds);
+        } catch (error) {
+            console.error('获取最终统计信息失败:', error);
+            // 如果获取统计失败，使用默认值
+            finalStats = {
+                total: selectedIds.length,
+                fully_analyzed: 0,
+                unanalyzed: selectedIds.length,
+                missing_quality: 0,
+                missing_ai: 0
+            };
+        }
+
+        // 显示最终统计结果
+        if (window.showBatchProcessDetails) {
+            // 适配现有的showBatchProcessDetails函数格式
+            const stats = {
+                batch_total_photos: finalStats.total,
+                batch_completed_photos: finalStats.fully_analyzed,
+                batch_failed_photos: finalStats.unanalyzed + finalStats.missing_quality + finalStats.missing_ai,
+                total: finalStats.total,
+                fully_analyzed: finalStats.fully_analyzed,
+                unanalyzed: finalStats.unanalyzed,
+                missing_quality: finalStats.missing_quality,
+                missing_ai: finalStats.missing_ai,
+                successful_analyses: finalStats.fully_analyzed,
+                failed_analyses: finalStats.unanalyzed + finalStats.missing_quality + finalStats.missing_ai,
+                results: [], // 可以后续扩展
+                errors: []   // 可以后续扩展
+            };
+
+            console.log('显示批量处理统计结果:', stats);
+            window.showBatchProcessDetails(stats);
+        } else {
+            // 降级处理：显示简单的成功消息
+            showSuccess(`智能分析完成！共处理 ${finalStats.total} 张照片，已完成 ${finalStats.fully_analyzed} 张`);
+        }
+
+        // 刷新照片列表
+        if (window.loadPhotos) {
+            window.loadPhotos();
+        }
+
+        // 清理选择状态
+        if (window.PhotoManager) {
+            window.PhotoManager.clearSelection();
+        }
+    }
+
+    // 显示处理进度模态框
+    showProcessingModal() {
+        const modalHtml = `
+            <div class="modal fade" id="batchProcessingModal" tabindex="-1" data-bs-backdrop="static">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">智能处理进度</h5>
+                        </div>
+                        <div class="modal-body">
+                            <div class="progress mb-3">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                     style="width: 0%"></div>
+                            </div>
+                            <div class="processing-status">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <span>正在进行智能分析，请稍候...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('batchProcessingModal'));
+        modal.show();
+    }
+
+    // 隐藏处理进度模态框
+    hideProcessingModal() {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('batchProcessingModal'));
+        if (modal) {
+            modal.hide();
+            document.getElementById('batchProcessingModal').remove();
+        }
+    }
+
+    // 监控处理进度
+    async monitorProcessingProgress(taskId, totalPhotos) {
+        const progressBar = document.querySelector('#batchProcessingModal .progress-bar');
+        const statusText = document.querySelector('#batchProcessingModal .processing-status span');
+
+        const checkProgress = async () => {
+            try {
+                const response = await fetch(`${CONFIG.API_BASE_URL}/analysis/queue/status?initial_total=${totalPhotos}`);
+                const status = await response.json();
+
+                if (status.is_complete) {
+                    // 处理完成
+                    progressBar.style.width = '100%';
+                    statusText.textContent = '智能处理完成！';
+
+                    // 显示详细的处理结果
+                    setTimeout(() => {
+                        this.showProcessingResults(status, totalPhotos);
+                    }, 1000);
+                } else {
+                    // 更新进度
+                    const progress = Math.min(status.progress_percentage || 0, 95);
+                    progressBar.style.width = `${progress}%`;
+                    statusText.textContent = `正在处理... ${Math.round(progress)}% (${status.batch_completed_photos}/${status.batch_total_photos})`;
+
+                    // 继续监控
+                    setTimeout(checkProgress, 1000);
+                }
+            } catch (error) {
+                console.error('进度检查失败:', error);
+                statusText.textContent = '进度检查失败，正在重试...';
+                setTimeout(checkProgress, 2000);
+            }
+        };
+
+        // 开始监控
+        checkProgress();
+    }
+
+    // 显示处理结果详情
+    showProcessingResults(status, totalPhotos) {
+        // 关闭处理进度模态框
+        this.hideProcessingModal();
+
+        // 构建结果数据
+        const completedPhotos = status.batch_completed_photos || 0;
+        const failedPhotos = totalPhotos - completedPhotos;
+
+        // 准备结果详情数据
+        const resultData = {
+            batch_total_photos: totalPhotos,
+            batch_completed_photos: completedPhotos,
+            batch_failed_photos: failedPhotos,
+            status: status,
+            errors: status.errors || []
+        };
+
+        // 调用现有的结果显示函数
+        if (window.showBatchProcessDetails) {
+            window.showBatchProcessDetails(resultData);
+        } else {
+            console.error('showBatchProcessDetails 函数不存在');
+            // 降级处理：直接刷新页面
+            if (window.loadPhotos) {
+                window.loadPhotos();
+            }
+            if (window.PhotoManager) {
+                window.PhotoManager.clearSelection();
+            }
+        }
+    }
+
+}
+
+// 创建全局实例
+console.log('=== 创建BatchProcessor实例 ===');
+window.batchProcessor = new BatchProcessor();
+console.log('BatchProcessor实例创建完成:', !!window.batchProcessor);
+
+// 更新全局函数
+// 所有选中的照片都要处理，包括已分析的
+window.processSelectedPhotos = () => window.batchProcessor.processSelectedPhotos(true);
+window.reprocessSelectedPhotos = () => window.batchProcessor.processSelectedPhotos(true);
+window.startBatchProcessing = (photoIds, forceReprocess) => window.batchProcessor.startBatchProcessing(photoIds, forceReprocess);
 
 // 导出函数到全局作用域
 window.monitorImportProgress = monitorImportProgress;
