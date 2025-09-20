@@ -191,7 +191,7 @@ function showImportDetails(detailsData) {
                         <div class="alert ${alertClass} mb-4">
                             <i class="bi bi-info-circle me-2"></i>
                             <strong>${icon} ${summaryText}</strong><br>
-                            <small class="text-muted">请点击"智能处理"按钮完成智能分析</small>
+                            <small class="text-muted">🎯 下一步：请点击上方导航栏的"智能处理"按钮，让AI为您分析照片内容、生成描述标签和智能分类</small>
                         </div>
                         <div class="row mb-3">
                             <div class="col-md-3">
