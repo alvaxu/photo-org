@@ -22,6 +22,7 @@ class AnalysisRequest(BaseModel):
     """分析请求"""
     photo_ids: List[int] = Field(..., description="要分析的照片ID列表")
     analysis_types: List[str] = Field(["content", "quality", "duplicate"], description="分析类型")
+    force_reprocess: bool = Field(False, description="是否强制重新处理已分析的照片")
 
 
 class AnalysisResponse(BaseModel):
@@ -126,8 +127,15 @@ async def batch_analyze_photos(
             missing_ids = set(request.photo_ids) - existing_ids
             raise HTTPException(status_code=404, detail=f"照片不存在: {list(missing_ids)}")
 
-        # 只处理imported和error状态的照片
-        photos_to_process = [photo for photo in existing_photos if photo.status in ['imported', 'error']]
+        # 根据force_reprocess参数决定处理哪些照片
+        if request.force_reprocess:
+            # 强制重新处理所有照片
+            photos_to_process = existing_photos
+            logger.info("启用强制重新处理模式，将处理所有选中的照片")
+        else:
+            # 只处理imported和error状态的照片
+            photos_to_process = [photo for photo in existing_photos if photo.status in ['imported', 'error']]
+            logger.info("使用默认模式，只处理未分析的照片")
         
         logger.info(f"批量分析请求: 总照片数={len(existing_photos)}, 需要处理的照片数={len(photos_to_process)}")
         for photo in existing_photos:
