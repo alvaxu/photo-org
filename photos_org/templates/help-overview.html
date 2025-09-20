@@ -217,10 +217,11 @@
                             </div>
                             <h5 class="card-title text-center mb-3">AI智能分析，解放双手</h5>
                             <ul class="list-unstyled">
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>自动识别内容</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>智能分类整理</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>自动打标签</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>AI一眼看懂照片</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>四大智能处理功能</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>AI内容识别与描述生成</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>专业质量评估分析</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>智能标签与分类</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>重复照片自动检测</li>
                             </ul>
                         </div>
                     </div>
@@ -290,7 +291,8 @@
                     <ol>
                         <li>访问系统配置页面：http://localhost:8000/settings</li>
                         <li><a href="#api-key-config" class="text-decoration-none">申请并配置免费的阿里云DashScope千问大模型API密钥</a></li>
-                        <li>导入照片并开始AI分析</li>
+                        <li>导入照片并开始AI智能处理</li>
+                        <li>体验四大AI功能：内容分析、质量评估、重复检测、智能分类</li>
                         <li>享受智能照片管理体验！</li>
                     </ol>
                 </div>
@@ -316,12 +318,90 @@
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5">3.2 AI智能分析</h4>
                     <p>利用先进的AI技术，系统可以自动分析照片内容，为您提供智能的照片管理体验。</p>
-                    <ul>
-                        <li><strong>自动分析：</strong>导入后自动进行内容识别、质量评估、重复检测</li>
-                        <li><strong>内容识别：</strong>识别场景、物体、人物、情感等照片内容</li>
-                        <li><strong>质量评估：</strong>分析照片清晰度、亮度、对比度等技术指标</li>
-                        <li><strong>智能分类：</strong>自动为照片添加标签和分类，便于后续搜索</li>
-                    </ul>
+
+                    <!-- 智能处理功能概述 -->
+                    <div class="info-box mb-3">
+                        <h6><i class="bi bi-robot me-2"></i>智能处理包含四大功能</h6>
+                        <ul class="mb-2">
+                            <li><strong>AI内容分析：</strong>使用千问大模型识别照片中的物体、场景、人脸、情感等，生成详细描述</li>
+                            <li><strong>质量评估：</strong>分析照片的技术质量，包括清晰度、亮度、对比度、色彩、构图等指标</li>
+                            <li><strong>重复检测：</strong>计算照片的感知哈希值，用于查找和识别重复照片</li>
+                            <li><strong>智能分类：</strong>基于AI分析结果自动为照片添加合适的标签和分类</li>
+                        </ul>
+                    </div>
+
+                    <!-- 智能处理的使用方式 -->
+                    <div class="mb-3">
+                        <h6><i class="bi bi-play-circle me-2"></i>智能处理的使用方式</h6>
+                        <ul class="small">
+                            <li><strong>导航栏智能处理：</strong>点击顶部导航栏的"智能处理"按钮，对所有未分析的照片进行批量处理</li>
+                            <li><strong>选择性智能处理：</strong>在照片展示区选择特定照片，点击"智能处理"按钮进行精确处理</li>
+                            <li><strong>重新处理：</strong>已分析的照片也可以重新选择进行智能分析，更新分析结果</li>
+                        </ul>
+                    </div>
+
+                    <!-- 智能处理的执行步骤 -->
+                    <div class="mb-3">
+                        <h6><i class="bi bi-list-ol me-2"></i>智能处理的执行步骤</h6>
+                        <ol class="small">
+                            <li>选择需要处理的照片（可多选或全选）</li>
+                            <li>点击"智能处理"按钮</li>
+                            <li>查看确认对话框中的处理统计信息</li>
+                            <li>确认后开始AI分析，显示实时进度</li>
+                            <li>处理完成后查看详细的结果统计</li>
+                        </ol>
+                    </div>
+
+                    <!-- 智能处理的统计信息 -->
+                    <div class="mb-3">
+                        <h6><i class="bi bi-bar-chart me-2"></i>智能处理的统计信息</h6>
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <div class="border rounded p-2 mb-2">
+                                    <div class="h5 mb-1 text-primary">总照片数</div>
+                                    <small class="text-muted">选中的照片总数</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="border rounded p-2 mb-2">
+                                    <div class="h5 mb-1 text-success">已完整分析</div>
+                                    <small class="text-muted">AI分析+质量评估完成</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="border rounded p-2 mb-2">
+                                    <div class="h5 mb-1 text-muted">未分析</div>
+                                    <small class="text-muted">从未进行过智能处理</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border rounded p-2 mb-2">
+                                    <div class="h5 mb-1 text-warning">缺质量评估</div>
+                                    <small class="text-muted">有AI分析，无质量评估</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border rounded p-2 mb-2">
+                                    <div class="h5 mb-1 text-info">缺AI分析</div>
+                                    <small class="text-muted">有质量评估，无AI分析</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 注意事项 -->
+                    <div class="warning-box">
+                        <h6><i class="bi bi-exclamation-triangle me-2"></i>智能处理注意事项</h6>
+                        <ul class="mb-0 small">
+                            <li>智能处理需要有效的阿里云DashScope千问大模型API密钥</li>
+                            <li>处理时间与照片数量、复杂度、网络状况有关</li>
+                            <li>已处理过的照片可以重新处理以更新AI分析结果</li>
+                            <li>建议在网络稳定时进行批量处理</li>
+                            <li>处理过程中请勿关闭浏览器窗口</li>
+                        </ul>
+                    </div>
                 </div>
 
                 <!-- 3.3 智能搜索 -->
@@ -905,6 +985,45 @@
                             <div id="ai2" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
                                 <div class="accordion-body">
                                     A: 选择需要重新分析的照片，点击"智能处理"按钮，或在批量操作中选择重新分析。
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ai3">
+                                    Q: 智能处理包含哪些功能？
+                                </button>
+                            </h2>
+                            <div id="ai3" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
+                                <div class="accordion-body">
+                                    A: 智能处理包含四大功能：AI内容分析、质量评估、重复检测、智能分类。AI内容分析使用千问大模型识别照片内容，质量评估分析技术指标，重复检测用于查找相似照片，智能分类自动添加标签。
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ai4">
+                                    Q: 智能处理的统计信息是什么意思？
+                                </button>
+                            </h2>
+                            <div id="ai4" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
+                                <div class="accordion-body">
+                                    A: 统计信息显示四种状态：总照片数、已完整分析（AI分析+质量评估完成）、未分析（从未处理过）、缺质量评估（有AI分析无质量评估）、缺AI分析（有质量评估无AI分析）。这帮助您了解照片的处理状态。
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ai5">
+                                    Q: 导航栏智能处理和选择性智能处理有什么区别？
+                                </button>
+                            </h2>
+                            <div id="ai5" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
+                                <div class="accordion-body">
+                                    A: 导航栏智能处理对所有未分析的照片进行批量处理，选择性智能处理允许您选择特定照片进行处理，包括重新处理已分析的照片。导航栏智能处理只处理status为'imported'或'error'的照片，选择性智能处理处理所有选中的照片。
                                 </div>
                             </div>
                         </div>

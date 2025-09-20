@@ -82,7 +82,12 @@ class PhotoService:
             照片对象或None
         """
         try:
-            photo = db.query(Photo).filter(Photo.id == photo_id).first()
+            # 加载关联关系，确保quality_assessments和analysis_results被加载
+            from sqlalchemy.orm import joinedload
+            photo = db.query(Photo).options(
+                joinedload(Photo.quality_assessments),
+                joinedload(Photo.analysis_results)
+            ).filter(Photo.id == photo_id).first()
             return photo
         except Exception as e:
             self.logger.error(f"获取照片失败 photo_id={photo_id}: {str(e)}")
@@ -526,7 +531,12 @@ class PhotoService:
         try:
             # 状态筛选
             if "status" in filters:
-                query = query.filter(Photo.status == filters["status"])
+                if isinstance(filters["status"], list):
+                    # 支持多个状态筛选
+                    query = query.filter(Photo.status.in_(filters["status"]))
+                else:
+                    # 单个状态筛选
+                    query = query.filter(Photo.status == filters["status"])
 
             # 格式筛选
             if "format" in filters:

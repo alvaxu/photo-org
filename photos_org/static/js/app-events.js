@@ -64,6 +64,31 @@ function bindBasicEvents() {
     window.elements.clearSelectionBtn.addEventListener('click', clearSelection);
     window.elements.deleteSelectedBtn.addEventListener('click', deleteSelectedPhotos);
 
+    // 智能处理按钮事件 - 使用PhotoManager
+    console.log('查找智能处理按钮:', !!window.elements.processSelectedBtn);
+    if (window.elements.processSelectedBtn) {
+        console.log('为智能处理按钮添加点击事件监听器');
+        window.elements.processSelectedBtn.addEventListener('click', () => {
+            console.log('智能处理按钮被点击');
+            if (window.PhotoManager && window.PhotoManager.selectedPhotos.size > 0) {
+                const selectedIds = Array.from(window.PhotoManager.selectedPhotos);
+                console.log('选中的照片ID:', selectedIds);
+
+                if (window.batchProcessor) {
+                console.log('调用batchProcessor.processSelectedPhotos');
+                // 所有选中的照片都要处理，包括已分析的
+                window.batchProcessor.processSelectedPhotos(true);
+                } else {
+                    console.log('batchProcessor不存在');
+                    showWarning('智能处理功能未初始化');
+                }
+            } else {
+                console.log('没有选中的照片');
+                showWarning('请先选择要处理的照片');
+            }
+        });
+    }
+
     // 键盘快捷键
     document.addEventListener('keydown', handleKeyboard);
 }

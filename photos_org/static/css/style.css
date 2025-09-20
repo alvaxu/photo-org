@@ -2071,3 +2071,125 @@ body {
         image-rendering: crisp-edges;
     }
 }
+
+/* ===== 照片选择相关样式 ===== */
+
+/* 照片卡片选择状态 */
+.photo-card.selectable {
+    position: relative;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.photo-card.selectable:hover {
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.photo-card.selectable.selected {
+    box-shadow: 0 0 0 3px #007bff;
+    transform: scale(0.98);
+}
+
+
+/* 状态标识样式 */
+.photo-status-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.photo-status-badge.status-unprocessed {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.photo-status-badge.status-processing {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+    animation: pulse 2s infinite;
+}
+
+.photo-status-badge.status-completed {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+
+/* 处理统计样式 */
+.processing-preview .stat-item {
+    padding: 16px 8px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.processing-preview .stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #495057;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.processing-preview .stat-label {
+    font-size: 12px;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+/* 处理进度模态框样式 */
+#batchProcessingModal .progress {
+    height: 8px;
+    border-radius: 4px;
+}
+
+#batchProcessingModal .progress-bar {
+    background: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
+}
+
+/* 动画效果 */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .photo-status-badge {
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+
+    .photo-card.selectable:hover {
+        transform: none; /* 移除悬停效果，避免误触 */
+    }
+}
+
+@media (max-width: 576px) {
+    .processing-preview .stat-value {
+        font-size: 20px;
+    }
+}
