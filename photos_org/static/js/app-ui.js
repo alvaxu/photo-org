@@ -97,6 +97,18 @@ function initializeUI() {
     // 监听模态框事件并确保正确清理
     document.addEventListener('show.bs.modal', function(e) {
         console.log('📱 模态框显示:', e.target.id);
+
+        // 特别检查importModal的显示，调用重置函数
+        if (e.target.id === 'importModal') {
+            console.log('🎯 importModal正在显示，调用重置函数');
+            resetImportModalState();
+        }
+
+        // 特别检查batchModal的显示，调用重置函数
+        if (e.target.id === 'batchModal') {
+            console.log('🎯 batchModal正在显示，调用重置函数');
+            resetBatchModalState();
+        }
     });
     
     document.addEventListener('hide.bs.modal', function(e) {
@@ -156,9 +168,6 @@ function initializeUI() {
 function showImportModal() {
     console.log('🚀 showImportModal 被调用');
 
-    // 重置模态框状态
-    resetImportModalState();
-
     // 使用Bootstrap API显示模态窗口
     const modal = new bootstrap.Modal(elements.importModal);
     modal.show();
@@ -197,6 +206,16 @@ function resetImportModalState() {
 
     // 重置导入方式为默认
     switchImportMethod('file');
+
+    // 重置单选按钮状态
+    const fileImportRadio = document.getElementById('fileImport');
+    const folderImportRadio = document.getElementById('folderImport');
+    if (fileImportRadio) {
+        fileImportRadio.checked = true;
+    }
+    if (folderImportRadio) {
+        folderImportRadio.checked = false;
+    }
 
     // 隐藏进度条区域
     const progressArea = document.getElementById('importProgress');
