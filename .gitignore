@@ -157,10 +157,16 @@ models/
 *.h5
 *.pth
 *.ckpt
+*.zip
 
-# RAG system database files
-rag_metadata.db
-*.db
+# Photesystem files
+PhotoSystem/
+release_install_version/
+build/
+dist/
+storage/
+photo_db
+
 
 # Node.js / Frontend
 node_modules/
