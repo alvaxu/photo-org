@@ -41,47 +41,17 @@ class EnhancedSimilarityService:
 
     def __init__(self):
         """初始化增强相似性服务"""
+        from app.core.config import settings
+
         self.logger = get_logger(__name__)
         self.hash_size = 16
         self.similarity_threshold = 0.55
-        
-        # 相似度权重配置
-        self.SIMILARITY_WEIGHTS = {
-            # 传统图像相似度
-            'perceptual_hash': 0.25,      # 感知哈希
-            'color_histogram': 0.15,      # 颜色直方图
-            'structural': 0.10,           # 结构相似度
-            
-            # AI内容分析相似度
-            'scene_type': 0.10,           # 场景类型
-            'objects': 0.15,              # 对象
-            'emotion': 0.05,              # 情感
-            'activity': 0.05,             # 活动
-            'description': 0.10,          # 描述
-            'tags': 0.05,                 # 标签
-            
-            # EXIF元数据相似度
-            'time': 0.15,                 # 时间
-            'location': 0.10,             # 位置
-            'camera': 0.05                # 相机参数
-        }
-        
-        # 默认阈值
-        self.DEFAULT_THRESHOLDS = {
-            'perceptual_hash': 0.6,      # 感知哈希阈值
-            'color_histogram': 0.7,      # 颜色直方图阈值
-            'structural': 0.8,           # 结构相似度阈值
-            'scene_type': 1.0,           # 场景类型阈值
-            'objects': 0.5,              # 对象相似度阈值
-            'emotion': 0.6,              # 情感相似度阈值
-            'activity': 0.6,             # 活动相似度阈值
-            'description': 0.5,          # 描述相似度阈值
-            'tags': 0.5,                 # 标签相似度阈值
-            'time': 0.8,                 # 时间相似度阈值
-            'location': 0.9,             # 位置相似度阈值
-            'camera': 0.7,               # 相机参数阈值
-            'combined': 0.55             # 综合相似度阈值
-        }
+
+        # 从配置文件读取相似度权重配置
+        self.SIMILARITY_WEIGHTS = settings.similarity.first_layer_weights
+
+        # 从配置文件读取默认阈值
+        self.DEFAULT_THRESHOLDS = settings.similarity.first_layer_thresholds
 
     def calculate_multiple_hashes(self, image_path: str) -> Dict[str, str]:
         """

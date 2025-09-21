@@ -354,7 +354,7 @@ class StorageService:
                 "total_photos": total_photos,
                 "total_size": total_size,
                 "storage_info": self.get_storage_info(),
-                "version": "1.0.0"
+                "version": "2.1.4"
             }
 
             db.close()

@@ -89,6 +89,14 @@ class UserConfigManager {
             this.selectDirectory('photosPath');
         });
 
+        // API密钥显示/隐藏切换
+        const toggleBtn = document.getElementById('toggleApiKeyVisibility');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.toggleApiKeyVisibility();
+            });
+        }
+
         // 帮助按钮
         const helpBtn = document.getElementById('helpApiKeyBtn');
         if (helpBtn) {
@@ -502,32 +510,47 @@ class UserConfigManager {
      * 重置配置
      */
     async resetConfig() {
-        if (!confirm('确定要重置所有配置为默认值吗？此操作不可撤销。')) {
+        if (!confirm('确定要将页面配置重置为默认值吗？此操作只会影响页面显示的配置项，其他配置保持不变。')) {
             return;
         }
 
         try {
             this.showLoading(true);
-            
-            const response = await fetch('/api/v1/config/user/reset', {
-                method: 'POST'
-            });
 
+            // 获取默认配置值
+            const response = await fetch('/api/v1/config/defaults');
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                throw new Error(`获取默认配置失败: HTTP ${response.status}`);
             }
 
-            const result = await response.json();
-            if (result.success) {
-                this.config = result.data;
-                this.originalConfig = JSON.parse(JSON.stringify(result.data));
-                this.populateForm();
-                this.hasChanges = false;
-                this.updateSaveButton();
-                this.showStatus('配置已重置为默认值', 'success');
-            } else {
-                throw new Error(result.message || '重置配置失败');
+            const defaults = await response.json();
+            if (!defaults.success) {
+                throw new Error(defaults.message || '获取默认配置失败');
             }
+
+            // 只重置页面管理的配置项
+            this.config.dashscope = {
+                model: defaults.data.dashscope.model,
+                api_key: defaults.data.dashscope.api_key,
+                available_models: defaults.data.dashscope.available_models
+            };
+            this.config.storage.thumbnail_quality = defaults.data.storage.thumbnail_quality;
+            this.config.storage.thumbnail_size = defaults.data.storage.thumbnail_size;
+            this.config.system.max_file_size = defaults.data.system.max_file_size;
+            this.config.ui.photos_per_page = defaults.data.ui.photos_per_page;
+            this.config.ui.similar_photos_limit = defaults.data.ui.similar_photos_limit;
+            this.config.search.similarity_threshold = defaults.data.search.similarity_threshold;
+            this.config.analysis.duplicate_threshold = defaults.data.analysis.duplicate_threshold;
+
+            // 更新原始配置副本
+            this.originalConfig = JSON.parse(JSON.stringify(this.config));
+
+            // 重新填充表单
+            this.populateForm();
+            this.hasChanges = false;
+            this.updateSaveButton();
+
+            this.showStatus('页面配置已重置为默认值，其他配置保持不变', 'success');
         } catch (error) {
             console.error('重置配置失败:', error);
             this.showStatus('重置配置失败: ' + error.message, 'danger');
@@ -647,12 +670,30 @@ class UserConfigManager {
     // selectFile 方法已移除，因为数据库文件位置已从用户界面移除
 
     /**
+     * 切换API密钥显示/隐藏
+     */
+    toggleApiKeyVisibility() {
+        const input = document.getElementById('apiKey');
+        const icon = document.getElementById('apiKeyIcon');
+
+        if (input && icon) {
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'bi bi-eye';
+            } else {
+                input.type = 'password';
+                icon.className = 'bi bi-eye-slash';
+            }
+        }
+    }
+
+    /**
      * 打开帮助页面
      */
     openHelpPage() {
         // 在新窗口中打开帮助页面
         const helpWindow = window.open('/help-api-key', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-        
+
         if (!helpWindow) {
             // 如果弹窗被阻止，则直接跳转
             window.location.href = '/help-api-key';

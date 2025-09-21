@@ -3,6 +3,7 @@
 """
 import json
 import os
+import sys
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
@@ -90,9 +91,16 @@ async def update_user_config(request: ConfigUpdateRequest, http_request: Request
             current_config["search"].update(request.search)
         if request.analysis:
             current_config["analysis"].update(request.analysis)
-        
+
         # 保存到配置文件
-        config_path = "config.json"
+        if getattr(sys, 'frozen', False):
+            # PyInstaller环境：配置文件位于可执行文件所在目录
+            from pathlib import Path
+            exe_path = Path(sys.executable)
+            config_path = exe_path.parent / "config.json"
+        else:
+            # 开发环境：配置文件位于当前目录
+            config_path = "config.json"
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(current_config, f, indent=2, ensure_ascii=False)
         
@@ -118,15 +126,24 @@ async def reset_user_config():
     """重置用户配置为默认值"""
     try:
         # 加载默认配置
-        default_config_path = "config.default.json"
+        if getattr(sys, 'frozen', False):
+            # PyInstaller环境：默认配置文件位于可执行文件所在目录
+            from pathlib import Path
+            exe_path = Path(sys.executable)
+            default_config_path = exe_path.parent / "config_default.json"
+            config_path = exe_path.parent / "config.json"
+        else:
+            # 开发环境：配置文件位于当前目录
+            default_config_path = "config_default.json"
+            config_path = "config.json"
+
         if not os.path.exists(default_config_path):
             raise HTTPException(status_code=404, detail="默认配置文件不存在")
-        
+
         with open(default_config_path, 'r', encoding='utf-8') as f:
             default_config = json.load(f)
-        
+
         # 保存为当前配置
-        config_path = "config.json"
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(default_config, f, indent=2, ensure_ascii=False)
         
@@ -342,7 +359,15 @@ async def get_default_config():
     """获取系统默认配置值"""
     try:
         # 读取 config_default.json 文件
-        default_config_path = "config_default.json"
+        if getattr(sys, 'frozen', False):
+            # PyInstaller环境：默认配置文件位于可执行文件所在目录
+            from pathlib import Path
+            exe_path = Path(sys.executable)
+            default_config_path = exe_path.parent / "config_default.json"
+        else:
+            # 开发环境：默认配置文件位于当前目录
+            default_config_path = "config_default.json"
+
         if not os.path.exists(default_config_path):
             raise HTTPException(status_code=404, detail="默认配置文件不存在")
         

@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# PhotoSystem - Linux/macOS Install Script
+
+echo ""
+echo "========================================"
+echo "PhotoSystem"
+echo "Installer"
+echo "========================================"
+echo ""
+
+echo "Starting installer..."
+echo ""
+
+if [ -f "PhotoSystem-Installer" ]; then
+    echo "Running standalone installer..."
+    chmod +x PhotoSystem-Installer
+    ./PhotoSystem-Installer
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Installation failed"
+        read -p "Press Enter to exit..."
+        exit 1
+    fi
+elif [ -f "installer.py" ]; then
+    echo "Running installer..."
+
+    # Try to use bundled Python runtime from _internal directory first
+    if [ -f "_internal/python" ]; then
+        echo "Using bundled Python runtime..."
+        ./_internal/python installer.py
+    elif [ -f "_internal/python3" ]; then
+        echo "Using bundled Python3 runtime..."
+        ./_internal/python3 installer.py
+    else
+        # Fallback to system python
+        python3 installer.py
+    fi
+
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Installation failed"
+        read -p "Press Enter to exit..."
+        exit 1
+    fi
+else
+    echo "ERROR: Neither PhotoSystem-Installer nor installer.py found"
+    echo "Please ensure all files are properly extracted"
+    echo ""
+    read -p "Press Enter to exit..."
+    exit 1
+fi
+
+echo ""
+echo "Installation completed!"
+read -p "Press Enter to exit..."

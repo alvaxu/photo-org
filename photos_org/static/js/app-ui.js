@@ -97,6 +97,18 @@ function initializeUI() {
     // 监听模态框事件并确保正确清理
     document.addEventListener('show.bs.modal', function(e) {
         console.log('📱 模态框显示:', e.target.id);
+
+        // 特别检查importModal的显示，调用重置函数
+        if (e.target.id === 'importModal') {
+            console.log('🎯 importModal正在显示，调用重置函数');
+            resetImportModalState();
+        }
+
+        // 特别检查batchModal的显示，调用重置函数
+        if (e.target.id === 'batchModal') {
+            console.log('🎯 batchModal正在显示，调用重置函数');
+            resetBatchModalState();
+        }
     });
     
     document.addEventListener('hide.bs.modal', function(e) {
@@ -154,15 +166,93 @@ function initializeUI() {
 // ============ 模态框管理 ============
 
 function showImportModal() {
+    console.log('🚀 showImportModal 被调用');
+
     // 使用Bootstrap API显示模态窗口
     const modal = new bootstrap.Modal(elements.importModal);
     modal.show();
+
+    console.log('✅ showImportModal 执行完成');
 }
 
 function showBatchModal() {
     // 使用Bootstrap API显示模态窗口
     const modal = new bootstrap.Modal(elements.batchModal);
     modal.show();
+}
+
+// ============ 模态框重置 ============
+
+/**
+ * 重置导入模态框状态
+ */
+function resetImportModalState() {
+    console.log('开始重置导入模态框状态...');
+
+    // 隐藏错误信息
+    hideImportError();
+
+    // 清空文件选择
+    const photoFiles = document.getElementById('photoFiles');
+    if (photoFiles) {
+        photoFiles.value = '';
+    }
+
+    // 清空文件夹路径
+    const folderPath = document.getElementById('folderPath');
+    if (folderPath) {
+        folderPath.value = '';
+    }
+
+    // 重置导入方式为默认
+    switchImportMethod('file');
+
+    // 重置单选按钮状态
+    const fileImportRadio = document.getElementById('fileImport');
+    const folderImportRadio = document.getElementById('folderImport');
+    if (fileImportRadio) {
+        fileImportRadio.checked = true;
+    }
+    if (folderImportRadio) {
+        folderImportRadio.checked = false;
+    }
+
+    // 隐藏进度条区域
+    const progressArea = document.getElementById('importProgress');
+    if (progressArea) {
+        progressArea.classList.add('d-none');
+    }
+
+    // 重置进度条
+    const progressBar = document.getElementById('importProgressBar');
+    if (progressBar) {
+        progressBar.style.width = '0%';
+    }
+
+    // 重置状态文本
+    const statusText = document.getElementById('importStatus');
+    if (statusText) {
+        statusText.textContent = '准备开始导入...';
+    }
+
+    // 隐藏文件预览区域
+    hideFilePreview();
+    hideFolderPreview();
+
+    // 确保文件夹预览区域完全隐藏
+    const folderPreview = document.getElementById('folderPreview');
+    if (folderPreview) {
+        folderPreview.style.display = 'none';
+    }
+
+    // 隐藏文件导入确认区域
+    const fileConfirm = document.getElementById('fileImportConfirmation');
+    if (fileConfirm) {
+        fileConfirm.innerHTML = '';
+        fileConfirm.style.display = 'none';
+    }
+
+    console.log('导入模态框状态已重置');
 }
 
 // ============ 视图切换 ============
@@ -493,6 +583,7 @@ window.initializeUI = initializeUI;
 // 导出模态框管理函数
 window.showImportModal = showImportModal;
 window.showBatchModal = showBatchModal;
+window.resetImportModalState = resetImportModalState;
 
 // 导出视图切换函数
 window.switchView = switchView;

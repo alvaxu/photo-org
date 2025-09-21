@@ -197,9 +197,18 @@ class Settings(BaseSettings):
 
     def _load_config_from_json(self) -> Dict[str, Any]:
         """从JSON配置文件加载配置"""
+        import sys
+
         # 获取项目根目录路径
-        current_path = Path(__file__).resolve()
-        project_root = current_path.parent.parent.parent  # app/core/config.py -> app -> project_root
+        if getattr(sys, 'frozen', False):
+            # PyInstaller打包环境：配置文件位于可执行文件所在目录
+            exe_path = Path(sys.executable)
+            project_root = exe_path.parent
+        else:
+            # 开发环境：配置文件位于项目根目录
+            current_path = Path(__file__).resolve()
+            project_root = current_path.parent.parent.parent  # app/core/config.py -> app -> project_root
+
         config_path = project_root / "config.json"
 
         if config_path.exists():

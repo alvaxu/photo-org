@@ -12,7 +12,6 @@ develop-eggs/
 dist/
 downloads/
 eggs/
-PhotoSystem/
 .eggs/
 lib/
 lib64/
@@ -28,9 +27,6 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
-
-# ZIP
-*.zip
 
 # Installer logs
 pip-log.txt
@@ -161,13 +157,16 @@ models/
 *.h5
 *.pth
 *.ckpt
+*.zip
 
-# backup
-*.backup
+# Photesystem files
+PhotoSystem/
+release_install_version/
+build/
+dist/
+storage/
+photo_db
 
-# RAG system database files
-rag_metadata.db
-*.db
 
 # Node.js / Frontend
 node_modules/

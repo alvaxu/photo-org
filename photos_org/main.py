@@ -49,102 +49,12 @@ def get_template_path(filename):
         return os.path.join('templates', filename)
 
 
-# 辅助函数：修正配置文件中的相对路径（兼容PyInstaller环境）
-def fix_config_paths():
-    """修正config.json中的相对路径，确保在PyInstaller环境中正确工作"""
-    import json
-    from pathlib import Path
-
-    if not getattr(sys, 'frozen', False):
-        return  # 开发环境不需要修正
-
-    try:
-        # 获取exe文件所在目录
-        exe_dir = Path(sys.executable).parent
-        config_path = exe_dir / 'config.json'
-
-        if not config_path.exists():
-            print(f"Warning: Config file not found at {config_path}")
-            return
-
-        # 读取配置文件
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-
-        # 需要修正的路径映射
-        path_mappings = {
-            'database.path': 'photo_db/photos.db',
-            'storage.base_path': 'storage',
-            'logging.file_path': 'logs/app.log'
-        }
-
-        # 修正路径
-        modified = False
-        for config_key, relative_path in path_mappings.items():
-            keys = config_key.split('.')
-            current = config
-
-            # 导航到配置项的父级
-            for key in keys[:-1]:
-                if key not in current:
-                    current[key] = {}
-                current = current[key]
-
-            # 获取当前的路径值
-            current_value = current.get(keys[-1], '')
-            if current_value and isinstance(current_value, str):
-                # 如果是相对路径，修正为基于exe目录的绝对路径
-                if current_value.startswith('./') or (not os.path.isabs(current_value) and current_value != relative_path):
-                    corrected_path = str(exe_dir / relative_path)
-                    current[keys[-1]] = corrected_path
-                    print(f"Fixed config path: {config_key} -> {corrected_path}")
-                    modified = True
-
-        # 只有在有修改时才保存
-        if modified:
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2, ensure_ascii=False)
-            print("Config paths fixed successfully")
-        else:
-            print("Config paths are already correct")
-
-    except Exception as e:
-        print(f"Error fixing config paths: {e}")
-
-
-# 辅助函数：更新settings对象以使用修正后的配置
-def update_settings_from_config():
-    """从修正后的配置文件更新settings对象"""
-    from app.core.config import settings
-    import json
-    from pathlib import Path
-
-    try:
-        exe_dir = Path(sys.executable).parent
-        config_path = exe_dir / 'config.json'
-
-        if config_path.exists():
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-
-            # 更新settings对象的路径
-            if 'database' in config and hasattr(settings.database, 'path'):
-                settings.database.path = config['database'].get('path', settings.database.path)
-            if 'storage' in config and hasattr(settings.storage, 'base_path'):
-                settings.storage.base_path = config['storage'].get('base_path', settings.storage.base_path)
-            if 'logging' in config and hasattr(settings.logging, 'file_path'):
-                settings.logging.file_path = config['logging'].get('file_path', settings.logging.file_path)
-
-            print("Settings updated from corrected config")
-
-    except Exception as e:
-        print(f"Error updating settings: {e}")
 
 # 创建FastAPI应用
 app = FastAPI(
     title="家庭版智能照片系统",
     description="基于AI技术的智能照片管理平台",
-    version="1.0.0",
+    version="2.1.2",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -215,46 +125,16 @@ photos_storage_path = Path(settings.storage.base_path)
 
 # 在PyInstaller打包环境中处理存储路径
 if getattr(sys, 'frozen', False):
-    # PyInstaller打包后的环境
-    if photos_storage_path.is_absolute():
-        # 如果是绝对路径，直接使用，但要确保路径格式正确
-        photos_storage_dir = os.path.abspath(str(photos_storage_path))
-        print(f"DEBUG: Using absolute path: {photos_storage_dir}")
-    else:
-        # 如果是相对路径，需要相对于原始工作目录检查
-        # PyInstaller可能会改变工作目录，所以要小心处理
-        original_cwd = os.getcwd()
-
-        # 尝试相对于原始工作目录（通常是exe所在目录的父目录）
-        exe_dir = os.path.dirname(sys.executable)
-        potential_path = os.path.join(exe_dir, str(photos_storage_path))
-
-        if os.path.exists(potential_path):
-            photos_storage_dir = potential_path
-            print(f"DEBUG: Found relative path: {photos_storage_dir}")
-        elif photos_storage_path.exists():
-            # 如果相对路径存在于当前工作目录
-            photos_storage_dir = str(photos_storage_path)
-            print(f"DEBUG: Using relative path from cwd: {photos_storage_dir}")
-        else:
-            # 创建一个默认的存储目录（在exe同级目录下）
-            photos_storage_dir = os.path.join(exe_dir, 'storage')
-            os.makedirs(photos_storage_dir, exist_ok=True)
-            print(f"DEBUG: Created default storage: {photos_storage_dir}")
+    # 解压目录运行时，storage目录与exe在同一级目录
+    exe_dir = Path(sys.executable).parent
+    photos_storage_dir = exe_dir / "storage"
+    photos_storage_dir.mkdir(exist_ok=True)
 else:
     # 开发环境
-    photos_storage_dir = str(photos_storage_path)
+    photos_storage_dir = Path(settings.storage.base_path)
 
 # 挂载存储目录
-if os.path.exists(photos_storage_dir):
-    app.mount("/photos_storage", StaticFiles(directory=photos_storage_dir), name="photos_storage")
-    print(f"📁 Photos storage mounted at: {photos_storage_dir}")
-else:
-    # 如果存储目录不存在，创建一个默认的
-    default_storage = os.path.join(sys._MEIPASS if getattr(sys, 'frozen', False) else '.', 'storage')
-    os.makedirs(default_storage, exist_ok=True)
-    app.mount("/photos_storage", StaticFiles(directory=default_storage), name="photos_storage")
-    print(f"📁 Created default photos storage at: {default_storage}")
+app.mount("/photos_storage", StaticFiles(directory=str(photos_storage_dir)), name="photos_storage")
 
 # 配置页面路由
 
@@ -303,22 +183,7 @@ if __name__ == "__main__":
     print("🚀 正在启动系统，请稍候...")
     print()
 
-    # 修正配置文件路径（仅在PyInstaller环境中）
-    print("🔧 正在修正配置文件路径...")
-    fix_config_paths()
-    print("✅ 配置文件路径修正完成")
-
-    # 更新settings对象以使用修正后的配置
-    print("🔄 正在更新配置对象...")
-    update_settings_from_config()
-    print("✅ 配置对象更新完成")
-
-    # 调试输出修正后的路径
-    print("📋 修正后的路径信息:")
-    print(f"   数据库路径: {settings.database.path}")
-    print(f"   存储路径: {settings.storage.base_path}")
-    print(f"   日志路径: {settings.logging.file_path}")
-    print()
+    # ===== 系统初始化 =====
 
     # 确保数据库目录存在
     print("📁 正在检查数据库目录...")
@@ -330,6 +195,7 @@ if __name__ == "__main__":
     # 创建数据库表
     print("🗄️  正在创建数据库表...")
     base.Base.metadata.create_all(bind=engine)
+    print("✅ 数据库表创建完成")
 
     # 初始化系统分类
     print("🏷️  正在初始化系统分类...")
@@ -349,15 +215,17 @@ if __name__ == "__main__":
     finally:
         db.close()
 
-    # 设置日志
+    # 设置日志系统
     print("📝 正在配置日志系统...")
     setup_logging()
     print("✅ 日志系统配置完成")
 
-    # 初始化存储服务（自动创建目录）
+    # 初始化存储服务
     print("💾 正在初始化存储服务...")
     storage_service = StorageService()
     print("✅ 存储服务初始化完成")
+
+    # ===== 系统状态检查 =====
 
     # 检查API_KEY配置
     print("🔑 正在检查API配置...")
@@ -374,43 +242,36 @@ if __name__ == "__main__":
     finally:
         db_check.close()
 
+    # ===== 初始化完成 =====
+    print("\n" + "="*60)
+    print("✅ 系统初始化完成")
+    print("="*60)
+    print(f"📁 存储路径: {settings.storage.base_path}")
+    print(f"🔑 API_KEY状态: {api_key_status}")
+    if api_key_warning:
+        print(f"   {api_key_warning}")
+
+    # ===== 启动服务器 =====
+    print("\n🌐 正在启动Web服务器...")
+    print(f"   主机: {settings.server_host}")
+    print(f"   端口: {settings.server_port}")
+    print(f"   日志级别: {settings.logging.level.lower()}")
     # 启动成功提示
     print("=" * 60)
     print("🚀 家庭版智能照片系统启动成功！")
     print("=" * 60)
-    print("🌐 正在启动Web服务器...")
     print()
-    print("✅ 数据库初始化完成")
-    print("✅ 系统分类初始化完成")
-    print("✅ 日志系统配置完成")
-    print("✅ 存储服务初始化完成")
-    print("✅ FastAPI应用配置完成")
-    print(f"🔍 全文搜索表: {fts_status}")
-    print(f"🔑 API_KEY状态: {api_key_status}")
-    if api_key_warning:
-        print(f"   {api_key_warning}")
-    print("-" * 25+"本机访问地址"+"-" * 25)
-    print(f"📁 存储路径: {settings.storage.base_path}")
+    print("-" * 15+"请按住ctrl键点击如下链接打开系统页面"+"-" * 15)
     print(f"🌐 主页面: http://127.0.0.1:{settings.server_port}")
     print(f"📖 帮助页面: http://127.0.0.1:{settings.server_port}/help-overview")
     print(f"⚙️  API密钥申请帮助页面: http://127.0.0.1:{settings.server_port}/help-api-key")
     print(f"⚙️  配置页面: http://127.0.0.1:{settings.server_port}/settings")
     if not settings.dashscope.api_key:
         print(f"🔧 配置API_KEY: http://127.0.0.1:{settings.server_port}/settings")
-   
-    print("-" * 25+"远程访问地址"+"-" * 25)
+    print("-" * 15+"如用其他设备访问，可在浏览器输入以下地址访问系统"+"-" * 15)
     print(f"🌐 主页面: http://主机ip地址:{settings.server_port}")
     print(f"📖 帮助页面: http://主机ip地址:{settings.server_port}/help-overview")
     print("=" * 60)
-    # ===== 应用初始化结束 =====
-
-    # 启动服务器
-    print("🌐 正在启动服务器...")
-    print(f"   主机: {settings.server_host}")
-    print(f"   端口: {settings.server_port}")
-    print(f"   日志级别: {settings.logging.level.lower()}")
-    print()
-
     # 禁用reload模式，避免watchfiles检测问题
     uvicorn.run(
         app,  # 直接传递app对象，避免PyInstaller环境下的模块导入问题
