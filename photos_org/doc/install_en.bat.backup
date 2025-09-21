@@ -1,0 +1,38 @@
+@echo off
+setlocal enabledelayedexpansion
+chcp 65001 >nul
+title PhotoSystem - Installer
+
+REM Force CMD environment for compatibility
+if not "%1"=="CMD_MODE" (
+    cmd /c "%~f0" CMD_MODE
+    exit /b %errorlevel%
+)
+
+echo.
+echo ========================================
+echo PhotoSystem
+echo Installer
+echo ========================================
+echo.
+
+echo Starting installer...
+echo.
+
+if exist PhotoSystem-Installer.exe (
+    echo Running standalone installer...
+    PhotoSystem-Installer.exe
+) else if exist installer.py (
+    echo Running installer with Python...
+    python installer.py
+) else (
+    echo ERROR: Neither PhotoSystem-Installer.exe nor installer.py found
+    echo Please ensure all files are properly extracted
+    echo.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Installation completed!
+pause

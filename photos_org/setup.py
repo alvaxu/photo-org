@@ -21,7 +21,7 @@ with open("release/README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="photos-system",
-    version="1.0.0",
+    version="2.1.2",
     author="AI助手",
     author_email="ai@example.com",
     description="家庭版智能照片系统",

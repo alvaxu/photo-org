@@ -386,7 +386,7 @@ function showBatchProcessDetails(detailsData) {
                                 ${unanalyzed > 0 ? `有 ${unanalyzed} 张照片未分析；` : ''}
                                 ${missingQuality > 0 ? `${missingQuality} 张照片缺少质量评估；` : ''}
                                 ${missingAI > 0 ? `${missingAI} 张照片缺少AI分析；` : ''}
-                                这些照片将在下次处理时得到补全。
+                                请在照片展示区选择这些照片，然后点击该区域的“智能处理”按钮，尝试再次处理。
                             </div>
                         </div>
                         ` : `
