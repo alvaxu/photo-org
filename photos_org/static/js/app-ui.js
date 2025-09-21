@@ -163,9 +163,6 @@ function showImportModal() {
 }
 
 function showBatchModal() {
-    // 重置模态框状态
-    resetBatchModalState();
-
     // 使用Bootstrap API显示模态窗口
     const modal = new bootstrap.Modal(elements.batchModal);
     modal.show();
@@ -177,6 +174,8 @@ function showBatchModal() {
  * 重置导入模态框状态
  */
 function resetImportModalState() {
+    console.log('开始重置导入模态框状态...');
+
     // 隐藏错误信息
     hideImportError();
 
@@ -195,7 +194,7 @@ function resetImportModalState() {
     // 重置导入方式为默认
     switchImportMethod('file');
 
-    // 隐藏进度条
+    // 隐藏进度条区域
     const progressArea = document.getElementById('importProgress');
     if (progressArea) {
         progressArea.classList.add('d-none');
@@ -216,6 +215,19 @@ function resetImportModalState() {
     // 隐藏文件预览区域
     hideFilePreview();
     hideFolderPreview();
+
+    // 确保文件夹预览区域完全隐藏
+    const folderPreview = document.getElementById('folderPreview');
+    if (folderPreview) {
+        folderPreview.style.display = 'none';
+    }
+
+    // 隐藏文件导入确认区域
+    const fileConfirm = document.getElementById('fileImportConfirmation');
+    if (fileConfirm) {
+        fileConfirm.innerHTML = '';
+        fileConfirm.style.display = 'none';
+    }
 
     console.log('导入模态框状态已重置');
 }
@@ -548,6 +560,7 @@ window.initializeUI = initializeUI;
 // 导出模态框管理函数
 window.showImportModal = showImportModal;
 window.showBatchModal = showBatchModal;
+window.resetImportModalState = resetImportModalState;
 
 // 导出视图切换函数
 window.switchView = switchView;
@@ -984,9 +997,6 @@ function testHeicTipDisplay() {
         console.log('HEIC 提示已隐藏');
     }, 3000);
 }
-
-// 导出模态框重置函数
-window.resetImportModalState = resetImportModalState;
 
 // 导出测试函数
 window.testHeicImageLoad = testHeicImageLoad;
