@@ -154,12 +154,16 @@ function initializeUI() {
 // ============ 模态框管理 ============
 
 function showImportModal() {
+    console.log('🚀 showImportModal 被调用');
+
     // 重置模态框状态
     resetImportModalState();
 
     // 使用Bootstrap API显示模态窗口
     const modal = new bootstrap.Modal(elements.importModal);
     modal.show();
+
+    console.log('✅ showImportModal 执行完成');
 }
 
 function showBatchModal() {
