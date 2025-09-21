@@ -89,6 +89,14 @@ class UserConfigManager {
             this.selectDirectory('photosPath');
         });
 
+        // API密钥显示/隐藏切换
+        const toggleBtn = document.getElementById('toggleApiKeyVisibility');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.toggleApiKeyVisibility();
+            });
+        }
+
         // 帮助按钮
         const helpBtn = document.getElementById('helpApiKeyBtn');
         if (helpBtn) {
@@ -647,12 +655,30 @@ class UserConfigManager {
     // selectFile 方法已移除，因为数据库文件位置已从用户界面移除
 
     /**
+     * 切换API密钥显示/隐藏
+     */
+    toggleApiKeyVisibility() {
+        const input = document.getElementById('apiKey');
+        const icon = document.getElementById('apiKeyIcon');
+
+        if (input && icon) {
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'bi bi-eye';
+            } else {
+                input.type = 'password';
+                icon.className = 'bi bi-eye-slash';
+            }
+        }
+    }
+
+    /**
      * 打开帮助页面
      */
     openHelpPage() {
         // 在新窗口中打开帮助页面
         const helpWindow = window.open('/help-api-key', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-        
+
         if (!helpWindow) {
             // 如果弹窗被阻止，则直接跳转
             window.location.href = '/help-api-key';

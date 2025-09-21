@@ -11,7 +11,7 @@
   "dashscope": {
     "api_key": "sk-206dcd3b03c9432fb1d76d4d9be7555b",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
-    "model": "qwen-vl-plus-latest",
+    "model": "qwen-vl-plus-2025-05-07",
     "available_models": [
       "qwen-vl-plus",
       "qwen-vl-plus-latest",
@@ -28,7 +28,7 @@
     "temp_path": "temp",
     "backups_path": "backups",
     "thumbnail_size": 300,
-    "thumbnail_quality": 86
+    "thumbnail_quality": 50
   },
   "analysis": {
     "duplicate_threshold": 5,

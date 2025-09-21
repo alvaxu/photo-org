@@ -154,15 +154,70 @@ function initializeUI() {
 // ============ 模态框管理 ============
 
 function showImportModal() {
+    // 重置模态框状态
+    resetImportModalState();
+
     // 使用Bootstrap API显示模态窗口
     const modal = new bootstrap.Modal(elements.importModal);
     modal.show();
 }
 
 function showBatchModal() {
+    // 重置模态框状态
+    resetBatchModalState();
+
     // 使用Bootstrap API显示模态窗口
     const modal = new bootstrap.Modal(elements.batchModal);
     modal.show();
+}
+
+// ============ 模态框重置 ============
+
+/**
+ * 重置导入模态框状态
+ */
+function resetImportModalState() {
+    // 隐藏错误信息
+    hideImportError();
+
+    // 清空文件选择
+    const photoFiles = document.getElementById('photoFiles');
+    if (photoFiles) {
+        photoFiles.value = '';
+    }
+
+    // 清空文件夹路径
+    const folderPath = document.getElementById('folderPath');
+    if (folderPath) {
+        folderPath.value = '';
+    }
+
+    // 重置导入方式为默认
+    switchImportMethod('file');
+
+    // 隐藏进度条
+    const progressArea = document.getElementById('importProgress');
+    if (progressArea) {
+        progressArea.classList.add('d-none');
+    }
+
+    // 重置进度条
+    const progressBar = document.getElementById('importProgressBar');
+    if (progressBar) {
+        progressBar.style.width = '0%';
+    }
+
+    // 重置状态文本
+    const statusText = document.getElementById('importStatus');
+    if (statusText) {
+        statusText.textContent = '准备开始导入...';
+    }
+
+    // 隐藏文件预览区域
+    hideFilePreview();
+    hideFolderPreview();
+
+    console.log('导入模态框状态已重置');
 }
 
 // ============ 视图切换 ============
@@ -929,6 +984,9 @@ function testHeicTipDisplay() {
         console.log('HEIC 提示已隐藏');
     }, 3000);
 }
+
+// 导出模态框重置函数
+window.resetImportModalState = resetImportModalState;
 
 // 导出测试函数
 window.testHeicImageLoad = testHeicImageLoad;

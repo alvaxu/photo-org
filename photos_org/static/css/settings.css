@@ -253,6 +253,26 @@
     border-radius: 0.375rem;
 }
 
+/* API密钥输入框样式 */
+#toggleApiKeyVisibility {
+    border-left: none;
+    min-width: 38px;
+    transition: all 0.2s ease;
+}
+
+#toggleApiKeyVisibility:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.02);
+}
+
+#toggleApiKeyVisibility:active {
+    transform: scale(0.98);
+}
+
+#apiKeyIcon {
+    transition: all 0.2s ease;
+}
+
 /* 模态框样式 */
 .modal-content {
     border: none;
