@@ -11,15 +11,14 @@
   "dashscope": {
     "api_key": "sk-9ade5a04da1a46c998a203db3ccd70fe",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
-    "model": "qwen-vl-plus",
+    "model": "qwen-vl-plus-0102",
     "available_models": [
       "qwen-vl-plus",
       "qwen-vl-plus-latest",
       "qwen-vl-plus-2025-08-15",
       "qwen-vl-plus-2025-05-07",
       "qwen-vl-plus-2025-01-25",
-      "qwen-vl-plus-0102",
-      "qwen-vl-plus-0809"
+      "qwen-vl-plus-0102"
     ],
     "timeout": 30,
     "max_retry_count": 3
@@ -124,7 +123,7 @@
       ".heic",
       ".heif"
     ],
-    "max_upload_files": 250,
+    "max_upload_files": 1000,
     "scan_batch_size": 100
   },
   "quality": {

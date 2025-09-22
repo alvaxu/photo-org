@@ -26,7 +26,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.formparsers import MultiPartParser
 import sys
 import os
 import socket
@@ -113,20 +112,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 创建自定义的multipart解析器
-from starlette.formparsers import MultiPartParser as OriginalMultiPartParser
-
-class CustomMultiPartParser(OriginalMultiPartParser):
-    """自定义MultiPartParser，支持更多文件"""
-
-    def __init__(self, headers, stream, *, max_files=5000, max_fields=5000):
-        super().__init__(headers, stream, max_files=max_files, max_fields=max_fields)
-
-# 替换默认的MultiPartParser
-import starlette.formparsers
-starlette.formparsers.MultiPartParser = CustomMultiPartParser
-
-print(f"✅ 已替换MultiPartParser类，默认限制: max_files=5000, max_fields=5000")
 
 # 注册API路由
 app.include_router(api_router, prefix="/api/v1")
