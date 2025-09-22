@@ -157,6 +157,13 @@ function createToastContainer() {
 // ============ 导入详情显示函数 ============
 
 function showImportDetails(detailsData) {
+    // 移除已存在的导入结果模态框
+    const existingModal = document.getElementById('importDetailsModal');
+    if (existingModal) {
+        console.log('移除已存在的导入结果模态框');
+        existingModal.remove();
+    }
+
     // 根据导入结果确定图标和颜色
     const importedCount = detailsData.imported_photos || 0;
     const skippedCount = detailsData.skipped_photos || 0;
@@ -259,16 +266,16 @@ function showImportDetails(detailsData) {
             </div>
         </div>
     `;
-    
+
     // 移除已存在的模态框
-    const existingModal = document.getElementById('importDetailsModal');
-    if (existingModal) {
-        existingModal.remove();
+    const existingModalToRemove = document.getElementById('importDetailsModal');
+    if (existingModalToRemove) {
+        existingModalToRemove.remove();
     }
-    
+
     // 添加新的模态框
     document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
+
     // 显示模态框
     const modal = new bootstrap.Modal(document.getElementById('importDetailsModal'));
     modal.show();

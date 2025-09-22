@@ -913,6 +913,20 @@ async function startBatchProcess() {
     window.elements.batchStatus.textContent = '正在准备智能处理...';
     
     try {
+        // 【新增】预先获取准确的待处理照片数量，用于进度计算
+        console.log('获取智能处理状态...');
+        const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/queue/status`);
+        const statusData = await statusResponse.json();
+
+        if (!statusResponse.ok) {
+            showError('获取智能处理状态失败');
+            return;
+        }
+
+        // 使用准确的待处理照片数量作为进度分母
+        const accurateTotal = statusData.batch_pending_photos;
+        console.log(`准确的待处理照片数量: ${accurateTotal}`);
+
         // 获取所有照片，然后过滤出需要处理的照片（status为'imported'或'error'）
         const photosResponse = await fetch(`${window.CONFIG.API_BASE_URL}/photos?limit=1000`);
         const photosData = await photosResponse.json();
@@ -974,7 +988,7 @@ async function startBatchProcess() {
             // 已删除智能处理开始通知，避免冗余（模态框已有进度条显示）
             
             // 保存初始总数，用于进度条计算
-            const initialTotal = data.total_photos;
+            const initialTotal = accurateTotal;  // 使用预先获取的准确待处理照片数量
             
             // 使用真实的状态检查API
             let checkCount = 0;
@@ -1257,7 +1271,7 @@ function monitorImportProgress(taskId, totalFiles) {
             // 检查是否完成
             if (statusData.status === 'completed') {
                 clearInterval(progressInterval);
-                
+
                 // 转换数据格式以匹配showImportDetails的期望
                 const detailsData = {
                     total_files: statusData.total_files,
@@ -1266,22 +1280,55 @@ function monitorImportProgress(taskId, totalFiles) {
                     failed_photos: statusData.failed_count,
                     failed_files: statusData.failed_files
                 };
-                
-                // 显示导入结果详情
-                showImportDetails(detailsData);
-                
-                // 重新加载照片列表
-                await loadPhotos();
-                
-                // 关闭导入模态框
+
+                // 【修改】先关闭导入模态框，然后监听关闭事件再显示结果
                 const modal = bootstrap.Modal.getInstance(elements.importModal);
                 if (modal) {
                     modal.hide();
+
+                    // 监听模态框关闭事件，确保模态框完全消失后才显示结果
+                    elements.importModal.addEventListener('hidden.bs.modal', function onModalHidden() {
+                        console.log('导入模态框已完全关闭，准备显示结果详情...');
+
+                        // 移除事件监听器，避免重复执行
+                        elements.importModal.removeEventListener('hidden.bs.modal', onModalHidden);
+
+                        try {
+                            // 显示导入结果详情
+                            showImportDetails(detailsData);
+
+                            // 重新加载照片列表
+                            loadPhotos();
+                        } catch (error) {
+                            console.error('显示导入结果详情失败:', error);
+                            showError('显示结果失败: ' + error.message);
+                        }
+                    });
+                } else {
+                    // 如果找不到模态框实例，直接显示结果（降级处理）
+                    console.warn('找不到导入模态框实例，直接显示结果');
+                    showImportDetails(detailsData);
+                    loadPhotos();
                 }
             } else if (statusData.status === 'failed') {
                 clearInterval(progressInterval);
-                showError(`导入失败：${statusData.error || '未知错误'}`);
-                elements.importProgress.classList.add('d-none');
+
+                // 【修改】失败时也先关闭模态框再显示错误
+                const modal = bootstrap.Modal.getInstance(elements.importModal);
+                if (modal) {
+                    modal.hide();
+
+                    // 监听模态框关闭事件
+                    elements.importModal.addEventListener('hidden.bs.modal', function onModalHidden() {
+                        elements.importModal.removeEventListener('hidden.bs.modal', onModalHidden);
+                        showError(`导入失败：${statusData.error || '未知错误'}`);
+                        elements.importProgress.classList.add('d-none');
+                    });
+                } else {
+                    // 降级处理
+                    showError(`导入失败：${statusData.error || '未知错误'}`);
+                    elements.importProgress.classList.add('d-none');
+                }
             }
         } catch (error) {
             console.error('进度监控失败:', error);
@@ -1785,3 +1832,4 @@ window.startBatchProcessing = (photoIds, forceReprocess) => window.batchProcesso
 
 // 导出函数到全局作用域
 window.monitorImportProgress = monitorImportProgress;
+

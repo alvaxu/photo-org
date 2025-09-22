@@ -134,6 +134,11 @@ if [ $? -ne 0 ]; then
     echo "ERROR: Failed to copy INSTALL_README.md"
     exit 1
 fi
+cp "功能说明正式版.pdf" "dist/PhotoSystem/"
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to copy 功能说明正式版.pdf"
+    exit 1
+fi
 
 echo "Copying icon files..."
 cp "xuwh.ico" "dist/PhotoSystem/"

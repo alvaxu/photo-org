@@ -238,6 +238,12 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+copy "功能说明正式版.pdf" "!DIST_DIR!\" >nul
+if errorlevel 1 (
+    echo ERROR: Failed to copy 功能说明正式版.pdf
+    pause
+    exit /b 1
+)
 echo DEBUG: All files copied successfully
 
 echo DEBUG: Copying icon files...
