@@ -482,54 +482,12 @@ class ImportService:
                 "duplicate_type": "orphan_cleaned"
             }
         
-        # 情况3：数据库无记录 + 物理文件存在 = 物理重复
-        existing_file_path = self._find_existing_file_by_hash(file_hash)
-        if existing_file_path:
-            return {
-                "is_duplicate": True,
-                "message": "文件已存在（重复）",
-                "existing_path": existing_file_path,
-                "duplicate_type": "physical_only"
-            }
-        
-        # 情况4：数据库无记录 + 物理文件不存在 = 全新文件
+        # 情况3：数据库无记录 = 全新文件
         return {
             "is_duplicate": False,
             "message": "全新文件",
             "duplicate_type": "new_file"
         }
-
-    def _find_existing_file_by_hash(self, file_hash: str) -> Optional[str]:
-        """
-        在物理存储中查找具有相同哈希值的文件
-        
-        :param file_hash: 文件哈希值
-        :return: 已存在文件的路径，如果不存在返回None
-        """
-        try:
-            # 遍历存储目录查找相同哈希的文件
-            for year_dir in self.originals_path.iterdir():
-                if not year_dir.is_dir():
-                    continue
-                    
-                for month_dir in year_dir.iterdir():
-                    if not month_dir.is_dir():
-                        continue
-                        
-                    for file_path in month_dir.iterdir():
-                        if file_path.is_file():
-                            try:
-                                existing_hash = self.calculate_file_hash(str(file_path))
-                                if existing_hash == file_hash:
-                                    return str(file_path)
-                            except Exception:
-                                # 跳过无法读取的文件
-                                continue
-                                
-        except Exception as e:
-            print(f"查找已存在文件失败: {str(e)}")
-            
-        return None
 
     def _check_thumbnail_by_hash(self, file_hash: str) -> Optional[str]:
         """基于哈希值检查缩略图是否存在"""

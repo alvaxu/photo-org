@@ -9,14 +9,17 @@
     "path": "./photo_db/photos.db"
   },
   "dashscope": {
-    "api_key": "sk-206dcd3b03c9432fb1d76d4d9be7555b",
+    "api_key": "sk-9ade5a04da1a46c998a203db3ccd70fe",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
-    "model": "qwen-vl-plus-2025-05-07",
+    "model": "qwen-vl-plus",
     "available_models": [
       "qwen-vl-plus",
       "qwen-vl-plus-latest",
+      "qwen-vl-plus-2025-08-15",
       "qwen-vl-plus-2025-05-07",
-      "qwen-vl-plus-2025-01-25"
+      "qwen-vl-plus-2025-01-25",
+      "qwen-vl-plus-0102",
+      "qwen-vl-plus-0809"
     ],
     "timeout": 30,
     "max_retry_count": 3
@@ -34,8 +37,8 @@
     "duplicate_threshold": 5,
     "quality_threshold": 0,
     "concurrent": 2,
-    "timeout": 60,
-    "batch_size": 250
+    "timeout": 30,
+    "batch_size": 10
   },
   "logging": {
     "level": "INFO",
@@ -69,8 +72,8 @@
       "time": 0.15,
       "color_histogram": 0.15,
       "scene_type": 0.1,
-      "location": 0.1,
-      "description": 0.1,
+      "location": 0.05,
+      "description": 0.15,
       "emotion": 0.05,
       "activity": 0.05,
       "tags": 0.05,
@@ -102,7 +105,7 @@
       "exif_enabled": true
     },
     "performance": {
-      "batch_size": 250,
+      "batch_size": 100,
       "cache_enabled": true,
       "cache_ttl": 3600,
       "max_concurrent": 5
@@ -121,7 +124,7 @@
       ".heic",
       ".heif"
     ],
-    "max_upload_files": 1500,
+    "max_upload_files": 250,
     "scan_batch_size": 100
   },
   "quality": {

@@ -101,6 +101,17 @@ else
     exit 1
 fi
 
+# Clean __pycache__ directories
+echo "Cleaning __pycache__ directories..."
+if [ -d "dist/PhotoSystem/_internal" ]; then
+    echo "Found _internal directory, cleaning all __pycache__ subdirectories..."
+    find "dist/PhotoSystem/_internal" -type d -name "__pycache__" -print -exec rm -rf {} \; 2>/dev/null || true
+fi
+if [ -d "__pycache__" ]; then
+    echo "Removing release/__pycache__"
+    rm -rf "__pycache__" 2>/dev/null || true
+fi
+
 # Copy necessary files
 echo "Copying config files..."
 cp "../config.json" "dist/PhotoSystem/"
@@ -189,6 +200,16 @@ echo "Copying documentation..."
 echo ""
 echo "Creating archive..."
 echo ""
+
+# Final cleanup before compression
+echo "Final cleanup before compression..."
+if [ -d "dist/PhotoSystem/_internal" ]; then
+    echo "Found _internal directory"
+    echo "Final cleaning of __pycache__ directories..."
+    find "dist/PhotoSystem/_internal" -type d -name "__pycache__" -exec rm -rf {} \; -print 2>/dev/null || true
+else
+    echo "_internal directory not found"
+fi
 
 # Create TAR archive
 if [ -f "PhotoSystem-Portable.tar.gz" ]; then

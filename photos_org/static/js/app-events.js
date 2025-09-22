@@ -112,6 +112,8 @@ function handleFileSelection(event) {
     }
     
     if (files && files.length > 0) {
+        console.log(`总共选择了 ${files.length} 个文件`);
+
         // 显示选择的文件数量
         const imageFiles = Array.from(files).filter(file => {
             // 检查MIME类型
@@ -119,15 +121,22 @@ function handleFileSelection(event) {
             // 检查文件扩展名（Windows对HEIC文件MIME类型支持有问题）
             const ext = file.name.split('.').pop().toLowerCase();
             const isImageByExt = ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp', 'bmp', 'gif', 'heic', 'heif'].includes(ext);
-            
+
+            console.log(`文件: ${file.name}, MIME: ${file.type}, 扩展名: ${ext}, 是图片: ${isImageByType || isImageByExt}`);
+
             return isImageByType || isImageByExt;
         });
-        console.log(`选择了 ${imageFiles.length} 个图片文件`);
-        
+        console.log(`过滤后剩余 ${imageFiles.length} 个图片文件`);
+
         // 显示文件预览信息，等待用户确认
         if (imageFiles.length > 0) {
+            console.log('调用showFilePreview');
             showFilePreview(imageFiles);
+        } else {
+            console.log('没有图片文件，跳过预览');
         }
+    } else {
+        console.log('没有选择任何文件');
     }
 }
 

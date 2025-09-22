@@ -322,17 +322,21 @@ function checkFileLimit(fileCount) {
  * @param {Array} files - 文件列表
  */
 function showFilePreview(files) {
+    console.log('📋 显示文件预览，文件数量:', files.length);
+
     // 分析文件信息
     const stats = analyzeFiles(files);
-    
+    console.log('📊 文件统计信息:', stats);
+
     // 显示文件统计信息
     displayFileStats(stats);
-    
+
     // 检查文件数量限制
     checkFileLimit(files.length);
-    
+
     // 显示确认按钮
     showFileImportConfirmation(stats);
+    console.log('✅ 文件预览显示完成');
 }
 
 /**
@@ -341,8 +345,11 @@ function showFilePreview(files) {
  * @param {Object} stats - 统计信息
  */
 function showFileImportConfirmation(stats) {
+    console.log('🔘 显示文件导入确认按钮，统计信息:', stats);
+
     // 创建确认按钮区域
     const confirmDiv = document.getElementById('fileImportConfirmation');
+    console.log('确认按钮区域元素:', confirmDiv);
     if (!confirmDiv) {
         // 如果不存在，创建一个
         const fileImportSection = document.getElementById('fileImportSection');
@@ -353,6 +360,7 @@ function showFileImportConfirmation(stats) {
     }
     
     const confirmDivElement = document.getElementById('fileImportConfirmation');
+    confirmDivElement.style.display = 'block'; // 确保显示
     confirmDivElement.innerHTML = `
         <div class="card">
             <div class="card-header">

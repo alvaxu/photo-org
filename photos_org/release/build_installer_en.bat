@@ -196,6 +196,22 @@ REM Clean old files
 echo DEBUG: Cleaning old files...
 if exist !DIST_DIR!\installer.py del !DIST_DIR!\installer.py
 
+REM Clean __pycache__ directories
+echo DEBUG: Cleaning __pycache__ directories...
+if exist !DIST_DIR!\_internal (
+    echo DEBUG: Found _internal directory, cleaning all __pycache__ subdirectories...
+    for /d /r "!DIST_DIR!\_internal" %%d in (__pycache__) do (
+        if exist "%%d" (
+            echo DEBUG: Removing %%d
+            rmdir /s /q "%%d" 2>nul
+        )
+    )
+)
+if exist __pycache__ (
+    echo DEBUG: Removing release\__pycache__
+    rmdir /s /q __pycache__ 2>nul
+)
+
 REM Copy necessary files
 echo DEBUG: Copying config files...
 copy "..\config.json" "!DIST_DIR!\" >nul
@@ -285,9 +301,26 @@ echo.
 echo DEBUG: Creating archive...
 echo DEBUG: Starting archive creation...
 
+REM Final cleanup before compression
+echo DEBUG: Final cleanup before compression...
+if exist "!DIST_DIR!\_internal" (
+    echo DEBUG: Starting recursive __pycache__ cleanup...
+    pushd "!DIST_DIR!\_internal"
+    for /d /r %%d in (__pycache__) do (
+        if exist "%%d" (
+            echo DEBUG: Final removing %%d
+            rmdir /s /q "%%d" 2>nul
+        )
+    )
+    popd
+)
+
 REM Create ZIP archive
 if exist PhotoSystem-Portable.zip (
     del PhotoSystem-Portable.zip
+)
+if exist PhotoSystem-Portable.zip.tmp (
+    del PhotoSystem-Portable.zip.tmp
 )
 
 REM Use 7-Zip to create archive

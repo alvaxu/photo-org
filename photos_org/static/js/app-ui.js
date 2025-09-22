@@ -95,18 +95,19 @@ function initializeUI() {
     };
 
     // 监听模态框事件并确保正确清理
-    document.addEventListener('show.bs.modal', function(e) {
-        console.log('📱 模态框显示:', e.target.id);
+    document.addEventListener('shown.bs.modal', function(e) {
+        console.log('📱 模态框完全显示:', e.target.id);
 
         // 特别检查importModal的显示，调用重置函数
         if (e.target.id === 'importModal') {
-            console.log('🎯 importModal正在显示，调用重置函数');
+            console.log('🎯 importModal完全显示，开始重置状态');
             resetImportModalState();
+            console.log('✅ importModal状态重置完成');
         }
 
         // 特别检查batchModal的显示，调用重置函数
         if (e.target.id === 'batchModal') {
-            console.log('🎯 batchModal正在显示，调用重置函数');
+            console.log('🎯 batchModal完全显示，开始重置状态');
             resetBatchModalState();
         }
     });
