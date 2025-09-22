@@ -29,6 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.formparsers import MultiPartParser
 import sys
 import os
+import socket
 from pathlib import Path
 
 from app.api import router as api_router
@@ -42,12 +43,33 @@ from app.services.storage_service import StorageService
 def get_template_path(filename):
     """获取模板文件路径，支持PyInstaller环境"""
     if getattr(sys, 'frozen', False):
-        # PyInstaller打包后的环境
-        base_path = sys._MEIPASS
-        return os.path.join(base_path, 'templates', filename)
+        # PyInstaller打包后的环境：模板文件在_internal目录中
+        exe_dir = Path(sys.executable).parent
+        internal_dir = exe_dir / '_internal'
+        return str(internal_dir / 'templates' / filename)
     else:
         # 开发环境
         return os.path.join('templates', filename)
+
+
+# 辅助函数：获取本机IP地址
+def get_local_ip():
+    """获取本机IP地址"""
+    try:
+        # 创建一个socket连接到外部服务器来获取本机IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # 连接到Google DNS服务器
+        local_ip = s.getsockname()[0]
+        s.close()
+        return local_ip
+    except Exception:
+        # 如果无法获取外部IP，尝试获取本地网络接口IP
+        try:
+            hostname = socket.gethostname()
+            local_ip = socket.gethostbyname(hostname)
+            return local_ip
+        except Exception:
+            return "127.0.0.1"  # 最后的fallback
 
 
 
@@ -119,20 +141,17 @@ import sys
 import os
 from pathlib import Path
 
-# 在PyInstaller打包环境中获取正确的静态文件路径
+# 获取正确的文件路径（支持PyInstaller环境）
 if getattr(sys, 'frozen', False):
-    # PyInstaller打包后的环境
-    base_path = sys._MEIPASS
-    static_path = os.path.join(base_path, 'static')
+    # PyInstaller打包后的环境：静态文件在_internal目录中
+    exe_dir = Path(sys.executable).parent
+    internal_dir = exe_dir / '_internal'
+    static_path = str(internal_dir / 'static')
+    templates_path = str(internal_dir / 'templates')
 else:
     # 开发环境
     static_path = 'static'
-
-# 确保static目录存在
-if not os.path.exists(static_path):
-    print(f"Warning: Static directory not found at {static_path}")
-    # 如果static目录不存在，使用当前目录下的static
-    static_path = os.path.join(os.getcwd(), 'static')
+    templates_path = 'templates'
 
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
@@ -204,9 +223,20 @@ if __name__ == "__main__":
     # 确保数据库目录存在
     print("📁 正在检查数据库目录...")
     from pathlib import Path
-    db_path = Path(settings.database.path)
+
+    # 在PyInstaller环境下，确保数据库路径相对于可执行文件目录
+    if getattr(sys, 'frozen', False):
+        exe_dir = Path(sys.executable).parent
+        db_path = exe_dir / settings.database.path.lstrip('./')
+    else:
+        db_path = Path(settings.database.path)
+
     db_path.parent.mkdir(parents=True, exist_ok=True)
     print(f"✅ 数据库目录: {db_path.parent}")
+
+    # 更新配置中的数据库路径（如果需要）
+    if getattr(sys, 'frozen', False) and not settings.database.path.startswith(str(exe_dir)):
+        settings.database.path = str(db_path)
 
     # 创建数据库表
     print("🗄️  正在创建数据库表...")
@@ -268,25 +298,30 @@ if __name__ == "__main__":
         print(f"   {api_key_warning}")
 
     # ===== 启动服务器 =====
+    # 获取本机IP地址用于显示
+    local_ip = get_local_ip()
+
     print("\n🌐 正在启动Web服务器...")
-    print(f"   主机: {settings.server_host}")
+    print(f"   绑定地址: {settings.server_host}")
     print(f"   端口: {settings.server_port}")
+    print(f"   本机IP: {local_ip}")
     print(f"   日志级别: {settings.logging.level.lower()}")
+
     # 启动成功提示
     print("=" * 60)
     print("🚀 家庭版智能照片系统启动成功！")
     print("=" * 60)
     print()
     print("-" * 15+"请按住ctrl键点击如下链接打开系统页面"+"-" * 15)
-    print(f"🌐 主页面: http://127.0.0.1:{settings.server_port}")
-    print(f"📖 帮助页面: http://127.0.0.1:{settings.server_port}/help-overview")
-    print(f"⚙️  API密钥申请帮助页面: http://127.0.0.1:{settings.server_port}/help-api-key")
-    print(f"⚙️  配置页面: http://127.0.0.1:{settings.server_port}/settings")
+    print(f"🌐 本机访问: http://127.0.0.1:{settings.server_port}")
+    print(f"📖 本机帮助页面: http://127.0.0.1:{settings.server_port}/help-overview")
+    print(f"⚙️ 本机配置页面: http://127.0.0.1:{settings.server_port}/settings")
     if not settings.dashscope.api_key:
         print(f"🔧 配置API_KEY: http://127.0.0.1:{settings.server_port}/settings")
-    print("-" * 15+"如用其他设备访问，可在浏览器输入以下地址访问系统"+"-" * 15)
-    print(f"🌐 主页面: http://主机ip地址:{settings.server_port}")
-    print(f"📖 帮助页面: http://主机ip地址:{settings.server_port}/help-overview")
+    print("-" * 15+"其他设备访问地址（同一网络）"+"-" * 15)
+    print(f"🌐 网络访问: http://{local_ip}:{settings.server_port}")
+    print(f"📖 网络帮助页面: http://{local_ip}:{settings.server_port}/help-overview")
+    print(f"⚙️ 网络配置页面: http://{local_ip}:{settings.server_port}/settings")
     print("=" * 60)
     # 禁用reload模式，避免watchfiles检测问题
     uvicorn.run(

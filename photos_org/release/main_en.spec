@@ -296,9 +296,9 @@ a = Analysis(
         'tqdm',            # Progress bar (not used in core functionality)
     ],
 
-    # Windows specific options
-    win_no_prefer_redirects=False,  # Don't redirect standard I/O
-    win_private_assemblies=False,  # Don't use private assemblies
+# Windows specific options
+win_no_prefer_redirects=False,  # Don't redirect standard I/O
+win_private_assemblies=False,  # Don't use private assemblies
 
     cipher=None,  # No encryption
     noarchive=False,  # Create archive file

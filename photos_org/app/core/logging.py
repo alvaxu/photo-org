@@ -21,8 +21,18 @@ from app.core.config import settings
 def setup_logging():
     """设置应用日志配置"""
 
+    # 在PyInstaller环境下，确保日志路径相对于可执行文件目录
+    import sys
+    if getattr(sys, 'frozen', False):
+        exe_dir = Path(sys.executable).parent
+        log_file_path = exe_dir / settings.logging.file_path.lstrip('./')
+        # 更新配置中的日志路径
+        settings.logging.file_path = str(log_file_path)
+    else:
+        log_file_path = Path(settings.logging.file_path)
+
     # 创建logs目录
-    log_dir = Path(settings.logging.file_path).parent
+    log_dir = log_file_path.parent
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # 创建logger
