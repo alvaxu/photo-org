@@ -1291,6 +1291,8 @@ function monitorImportProgress(taskId, totalFiles) {
                     showImportDetails(detailsData);
                     loadPhotos();
                 }
+                // 直接返回，避免继续执行后续的状态检查逻辑
+                return;
             } else if (statusData.status === 'failed') {
                 clearInterval(progressInterval);
 
@@ -1310,6 +1312,8 @@ function monitorImportProgress(taskId, totalFiles) {
                     showError(`导入失败：${statusData.error || '未知错误'}`);
                     elements.importProgress.classList.add('d-none');
                 }
+                // 直接返回，避免继续执行后续的状态检查逻辑
+                return;
             }
         } catch (error) {
             console.error('进度监控失败:', error);
