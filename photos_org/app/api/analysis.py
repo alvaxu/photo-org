@@ -274,6 +274,30 @@ async def detect_duplicates(photo_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"重复检测失败: {str(e)}")
 
 
+@router.get("/pending-photos")
+async def get_pending_photos(db: Session = Depends(get_db)):
+    """
+    获取所有待处理的照片ID列表
+
+    返回状态为'imported'或'error'的所有照片ID，用于智能处理
+    """
+    try:
+        # 获取所有状态为imported或error的照片ID
+        pending_photos = db.query(Photo.id).filter(Photo.status.in_(['imported', 'error'])).all()
+
+        photo_ids = [photo.id for photo in pending_photos]
+
+        return {
+            "photo_ids": photo_ids,
+            "total_count": len(photo_ids),
+            "message": f"找到 {len(photo_ids)} 张待处理的照片"
+        }
+
+    except Exception as e:
+        logger.error(f"获取待处理照片列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取待处理照片列表失败: {str(e)}")
+
+
 @router.get("/queue/status")
 async def get_analysis_queue_status(initial_total: int = None, db: Session = Depends(get_db)):
     """

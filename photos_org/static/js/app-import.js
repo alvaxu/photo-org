@@ -913,35 +913,16 @@ async function startBatchProcess() {
     window.elements.batchStatus.textContent = '正在准备智能处理...';
     
     try {
-        // 【新增】预先获取准确的待处理照片数量，用于进度计算
-        console.log('获取智能处理状态...');
-        const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/queue/status`);
-        const statusData = await statusResponse.json();
+        // 获取所有待处理的照片ID（直接从数据库查询，无分页限制）
+        const pendingResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/pending-photos`);
+        const pendingData = await pendingResponse.json();
 
-        if (!statusResponse.ok) {
-            showError('获取智能处理状态失败');
+        if (!pendingResponse.ok) {
+            showError('获取待处理照片列表失败');
             return;
         }
 
-        // 使用准确的待处理照片数量作为进度分母
-        const accurateTotal = statusData.batch_pending_photos;
-        console.log(`准确的待处理照片数量: ${accurateTotal}`);
-
-        // 获取所有照片，然后过滤出需要处理的照片（status为'imported'或'error'）
-        const photosResponse = await fetch(`${window.CONFIG.API_BASE_URL}/photos?limit=1000`);
-        const photosData = await photosResponse.json();
-
-        if (!photosResponse.ok) {
-            showError('获取照片列表失败');
-            return;
-        }
-
-        // 过滤出需要处理的照片（status为'imported'或'error'）
-        const photosToProcess = photosData.photos ? photosData.photos.filter(photo =>
-            photo.status === 'imported' || photo.status === 'error'
-        ) : [];
-
-        const photoIds = photosToProcess.map(photo => photo.id);
+        const photoIds = pendingData.photo_ids || [];
         
         if (photoIds.length === 0) {
             showWarning('没有找到需要处理的照片');
@@ -988,7 +969,7 @@ async function startBatchProcess() {
             // 已删除智能处理开始通知，避免冗余（模态框已有进度条显示）
             
             // 保存初始总数，用于进度条计算
-            const initialTotal = accurateTotal;  // 使用预先获取的准确待处理照片数量
+            const initialTotal = photoIds.length;  // 使用实际获取到的待处理照片数量
             
             // 使用真实的状态检查API
             let checkCount = 0;
