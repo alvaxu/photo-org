@@ -64,8 +64,8 @@ function getQualityText(level) {
 
 // 新增质量状态判断函数（支持"未评估"状态，用⭐️显示等级）
 function getQualityStatus(photo) {
-    // 检查是否有质量分析结果（实际字段名是 score 而不是 quality_score）
-    const qualityScore = photo.quality?.score || photo.quality?.quality_score || photo.analysis?.quality_score || 0;
+    // 检查是否有质量分析结果（API返回的字段名是 score）
+    const qualityScore = photo.quality?.score || 0;
 
     if (qualityScore > 0) {
         // 有质量评估结果，根据分数确定等级和⭐️数量
@@ -111,8 +111,8 @@ function getQualityLevelInfo(score) {
 // 新增AI分析状态判断函数
 function getAIAnalysisStatus(photo) {
     // 只检查AI内容分析结果，不检查基础分析
-    // 实际数据中可能没有analysis_type字段，通过confidence>0来判断是否有AI分析
-    if (photo.analysis && (photo.analysis.confidence > 0 || photo.analysis.confidence_score > 0)) {
+    // 通过confidence>0来判断是否有AI分析（API返回的字段名是confidence）
+    if (photo.analysis && photo.analysis.confidence > 0) {
         return {
             hasAIAnalysis: true,
             iconClass: 'bi-robot',
