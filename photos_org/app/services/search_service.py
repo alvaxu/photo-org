@@ -419,16 +419,17 @@ class SearchService:
 
             # AI分析结果
             "analysis": {
+                "analysis_type": "content",
                 "description": analysis.analysis_result.get("description", "") if analysis else "",
                 "scene_type": analysis.analysis_result.get("scene_type", "") if analysis else "",
                 "objects": analysis.analysis_result.get("objects", []) if analysis else [],
                 "tags": analysis.analysis_result.get("tags", []) if analysis else [],
-                "confidence": analysis.confidence_score if analysis else 0.0
+                "confidence_score": analysis.confidence_score if analysis else 0.0
             } if analysis else None,
 
             # 质量评估
             "quality": {
-                "score": quality.quality_score if quality else 0.0,
+                "quality_score": quality.quality_score if quality else 0.0,
                 "level": quality.quality_level if quality else "",
                 "sharpness": quality.sharpness_score if quality else 0.0,
                 "brightness": quality.brightness_score if quality else 0.0,
