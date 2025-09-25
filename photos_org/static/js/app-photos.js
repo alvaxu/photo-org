@@ -72,27 +72,6 @@ function createPhotoCard(photo) {
     const qualityStatus = getQualityStatus(photo);
     const aiStatus = getAIAnalysisStatus(photo);
 
-    // 调试输出 - 直接打印计算过程
-    console.log(`=== 照片 ${photo.id}: ${photo.filename} ===`);
-    console.log('原始数据 - quality:', photo.quality);
-    console.log('原始数据 - analysis:', photo.analysis);
-
-    // 手动计算qualityScore（实际字段名是 score）
-    const manualQualityScore = photo.quality?.score || photo.quality?.quality_score || photo.analysis?.quality_score || 0;
-    console.log('手动计算qualityScore:', manualQualityScore);
-
-    // 手动检查AI分析（通过confidence>0判断）
-    const manualHasAIAnalysis = photo.analysis && (photo.analysis.confidence > 0 || photo.analysis.confidence_score > 0);
-    console.log('手动检查AI分析:', manualHasAIAnalysis);
-
-    console.log('函数返回质量状态:', qualityStatus);
-    console.log('函数返回AI状态:', aiStatus);
-
-    // 检查HTML模板中的值
-    console.log('HTML模板使用值 - qualityStatus.stars:', qualityStatus.stars);
-    console.log('HTML模板使用值 - qualityStatus.level:', qualityStatus.level);
-    console.log('HTML模板使用值 - aiStatus.iconClass:', aiStatus.iconClass);
-
     // 根据照片尺寸判断方向并添加CSS类
     let containerClass = 'photo-card selectable';
     if (photo.width && photo.height) {
