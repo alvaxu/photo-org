@@ -126,6 +126,7 @@ function createPhotoCard(photo) {
                     <div class="photo-title">${photo.filename}</div>
                     <div class="photo-quality-container">
                         <span class="quality-stars ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
+                              data-level="${qualityStatus.level}"
                               title="${qualityStatus.title}">${qualityStatus.stars}</span>
                         <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
                            title="${aiStatus.title}"></i>
@@ -232,6 +233,7 @@ function createPhotoListItem(photo) {
                         <div class="photo-title">${photo.filename}</div>
                         <div class="photo-quality-container">
                             <span class="quality-stars ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
+                                  data-level="${qualityStatus.level}"
                                   title="${qualityStatus.title}">${qualityStatus.stars}</span>
                             <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
                                title="${aiStatus.title}"></i>
