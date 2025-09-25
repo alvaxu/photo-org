@@ -78,11 +78,23 @@ function createPhotoCard(photo) {
         filename: photo.filename,
         hasQuality: !!photo.quality,
         qualityScore: photo.quality?.quality_score,
+        qualityLevel: photo.quality?.level,
         hasAnalysis: !!photo.analysis,
-        analysisType: photo.analysis?.analysis_type
+        analysisType: photo.analysis?.analysis_type,
+        confidenceScore: photo.analysis?.confidence_score
     });
-    console.log('质量状态:', qualityStatus);
-    console.log('AI状态:', aiStatus);
+    console.log('质量状态:', {
+        score: qualityStatus.score,
+        level: qualityStatus.level,
+        stars: qualityStatus.stars,
+        isAssessed: qualityStatus.isAssessed,
+        title: qualityStatus.title
+    });
+    console.log('AI状态:', {
+        hasAIAnalysis: aiStatus.hasAIAnalysis,
+        iconClass: aiStatus.iconClass,
+        title: aiStatus.title
+    });
 
     // 根据照片尺寸判断方向并添加CSS类
     let containerClass = 'photo-card selectable';
