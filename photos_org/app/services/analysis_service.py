@@ -71,11 +71,10 @@ class AnalysisService:
 
             self.logger.info(f"开始分析照片 {photo_id}: {photo.filename}")
 
-            # 并发执行各项分析
+            # 并发执行各项分析（移除重复的哈希计算，因为导入时已计算）
             tasks = [
                 self._analyze_content_async(str(full_path)),
-                self._analyze_quality_async(str(full_path)),
-                self._calculate_duplicate_hash_async(str(full_path))
+                self._analyze_quality_async(str(full_path))
             ]
 
             # 等待所有分析完成
@@ -84,7 +83,7 @@ class AnalysisService:
             # 处理结果
             content_result = results[0] if not isinstance(results[0], Exception) else None
             quality_result = results[1] if not isinstance(results[1], Exception) else None
-            hash_result = results[2] if not isinstance(results[2], Exception) else None
+            hash_result = None  # 感知哈希已在导入时计算，不再重复计算
 
             # 保存分析结果到数据库
             analysis_result = self._save_analysis_results(
@@ -136,22 +135,6 @@ class AnalysisService:
             image_path
         )
 
-    async def _calculate_duplicate_hash_async(self, image_path: str) -> str:
-        """
-        异步计算重复检测哈希
-
-        Args:
-            image_path: 照片文件路径
-
-        Returns:
-            感知哈希值
-        """
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            self.executor,
-            self.duplicate_service.calculate_perceptual_hash,
-            image_path
-        )
 
     def _save_analysis_results(self, photo_id: int, content_result: Optional[Dict],
                             quality_result: Optional[Dict], hash_result: Optional[str],
@@ -195,11 +178,9 @@ class AnalysisService:
                 )
                 db.add(quality_record)
 
-            # 更新照片的哈希值和状态
+            # 更新照片状态（感知哈希已在导入时保存）
             photo = db.query(Photo).filter(Photo.id == photo_id).first()
             if photo:
-                if hash_result:
-                    photo.perceptual_hash = hash_result
                 # 更新照片状态为已完成
                 photo.status = 'completed'
                 photo.updated_at = datetime.now()
@@ -221,12 +202,12 @@ class AnalysisService:
             # 提交分类服务的数据库操作
             db.commit()
 
-            # 返回综合结果
+            # 返回综合结果（移除感知哈希，因为已在导入时计算）
             return {
                 "photo_id": photo_id,
                 "content_analysis": content_result,
                 "quality_analysis": quality_result,
-                "perceptual_hash": hash_result,
+                "perceptual_hash_calculated_at_import": True,  # 标记哈希在导入时已计算
                 "analyzed_at": datetime.now().isoformat()
             }
 
@@ -343,19 +324,19 @@ class AnalysisService:
                 PhotoQuality.photo_id == photo_id
             ).first()
 
-            # 查询照片哈希
+            # 查询照片（感知哈希已在导入时设置）
             photo = db_session.query(Photo).filter(Photo.id == photo_id).first()
-            hash_value = photo.perceptual_hash if photo else None
+            has_perceptual_hash = photo.perceptual_hash is not None if photo else False
 
             status = {
                 "photo_id": photo_id,
                 "has_content_analysis": content_analysis is not None,
                 "has_quality_analysis": quality_analysis is not None,
-                "has_perceptual_hash": hash_value is not None,
+                "has_perceptual_hash": has_perceptual_hash,  # 仅用于状态检查，不再在分析时计算
                 "analysis_complete": (
                     content_analysis is not None and
-                    quality_analysis is not None and
-                    hash_value is not None
+                    quality_analysis is not None
+                    # 不再要求必须有感知哈希，因为导入时已计算
                 )
             }
 
@@ -413,7 +394,8 @@ class AnalysisService:
                     "quality_level": quality_analysis.quality_level if quality_analysis else None,
                     "technical_issues": quality_analysis.technical_issues if quality_analysis else None
                 } if quality_analysis else None,
-                "perceptual_hash": photo.perceptual_hash if photo else None
+                "perceptual_hash": photo.perceptual_hash if photo else None,  # 保留以保持API兼容性
+                "note": "感知哈希在导入时已计算，此处仅为显示"
             }
 
             return result
