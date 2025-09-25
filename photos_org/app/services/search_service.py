@@ -417,19 +417,18 @@ class SearchService:
             "status": photo.status,
             "created_at": photo.created_at.isoformat() if photo.created_at else None,
 
-            # AI分析结果
+            # AI分析结果（字段名必须与Pydantic模型匹配）
             "analysis": {
-                "analysis_type": "content",
                 "description": analysis.analysis_result.get("description", "") if analysis else "",
                 "scene_type": analysis.analysis_result.get("scene_type", "") if analysis else "",
                 "objects": analysis.analysis_result.get("objects", []) if analysis else [],
                 "tags": analysis.analysis_result.get("tags", []) if analysis else [],
-                "confidence_score": analysis.confidence_score if analysis else 0.0
+                "confidence": analysis.confidence_score if analysis else 0.0
             } if analysis else None,
 
-            # 质量评估
+            # 质量评估（字段名必须与Pydantic模型匹配）
             "quality": {
-                "quality_score": quality.quality_score if quality else 0.0,
+                "score": quality.quality_score if quality else 0.0,
                 "level": quality.quality_level if quality else "",
                 "sharpness": quality.sharpness_score if quality else 0.0,
                 "brightness": quality.brightness_score if quality else 0.0,
