@@ -49,7 +49,7 @@ function getQualityText(level) {
     if (['优秀', '良好', '一般', '较差', '很差'].includes(level)) {
         return level;
     }
-    
+
     // 如果是英文，转换为中文
     const texts = {
         'excellent': '优秀',
@@ -60,6 +60,70 @@ function getQualityText(level) {
         'bad': '很差'
     };
     return texts[level] || '一般';
+}
+
+// 新增质量状态判断函数（支持"未评估"状态，用⭐️显示等级）
+function getQualityStatus(photo) {
+    // 检查是否有质量分析结果
+    const qualityScore = photo.quality?.quality_score || photo.analysis?.quality_score || 0;
+
+    if (qualityScore > 0) {
+        // 有质量评估结果，根据分数确定等级和⭐️数量
+        const levelInfo = getQualityLevelInfo(qualityScore);
+        return {
+            score: qualityScore,
+            level: levelInfo.level,
+            stars: levelInfo.stars,
+            text: levelInfo.text,
+            class: getQualityClass(levelInfo.level),
+            isAssessed: true,
+            title: `质量评分：${qualityScore}分 - ${levelInfo.text}`
+        };
+    } else {
+        // 未进行质量评估（分数为0或无质量数据）
+        return {
+            score: 0,
+            level: 'unassessed',
+            stars: '❓',
+            text: '未评估',
+            class: 'unassessed',
+            isAssessed: false,
+            title: '尚未进行质量评估'
+        };
+    }
+}
+
+// 新增根据分数确定等级和⭐️的函数
+function getQualityLevelInfo(score) {
+    if (score >= 85) {
+        return { level: 'excellent', text: '优秀', stars: '⭐️⭐️⭐️⭐️⭐️' };
+    } else if (score >= 70) {
+        return { level: 'good', text: '良好', stars: '⭐️⭐️⭐️⭐️' };
+    } else if (score >= 50) {
+        return { level: 'average', text: '一般', stars: '⭐️⭐️⭐️' };
+    } else if (score >= 30) {
+        return { level: 'poor', text: '较差', stars: '⭐️⭐️' };
+    } else {
+        return { level: 'bad', text: '很差', stars: '⭐️' };
+    }
+}
+
+// 新增AI分析状态判断函数
+function getAIAnalysisStatus(photo) {
+    // 只检查AI内容分析结果，不检查基础分析
+    if (photo.analysis && photo.analysis.analysis_type === 'content') {
+        return {
+            hasAIAnalysis: true,
+            iconClass: 'bi-robot',
+            title: 'AI已分析'
+        };
+    } else {
+        return {
+            hasAIAnalysis: false,
+            iconClass: 'bi-circle',
+            title: 'AI未分析'
+        };
+    }
 }
 
 // ============ 通知函数 ============
@@ -481,6 +545,9 @@ window.formatDate = formatDate;
 window.formatDateTime = formatDateTime;
 window.getQualityClass = getQualityClass;
 window.getQualityText = getQualityText;
+window.getQualityStatus = getQualityStatus;
+window.getQualityLevelInfo = getQualityLevelInfo;
+window.getAIAnalysisStatus = getAIAnalysisStatus;
 window.showError = showError;
 window.showSuccess = showSuccess;
 window.showWarning = showWarning;

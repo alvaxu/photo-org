@@ -1485,30 +1485,99 @@ body {
     flex-shrink: 0;
 }
 
-/* 列表模式质量标签颜色样式 */
-.photo-list-item .photo-quality-badge.excellent {
-    background: var(--success-color);
-    color: white;
+/* ===== 新的质量⭐️显示样式 ===== */
+.quality-stars {
+    font-size: 0.85rem;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    white-space: nowrap;
 }
 
-.photo-list-item .photo-quality-badge.good {
-    background: #28a745;
+/* 已评估的质量等级样式 */
+.quality-stars.quality-assessed {
+    background: linear-gradient(135deg, #28a745, #20c997);
     color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    border-color: #28a745;
 }
 
-.photo-list-item .photo-quality-badge.average {
-    background: var(--warning-color);
-    color: var(--dark-color);
+/* 未评估状态样式 */
+.quality-stars.quality-unassessed {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+    font-size: 0.9rem;
 }
 
-.photo-list-item .photo-quality-badge.poor {
-    background: var(--danger-color);
-    color: white;
+/* 不同质量等级的颜色区分 */
+.quality-stars.quality-assessed.excellent {
+    background: linear-gradient(135deg, #28a745, #20c997); /* 绿色 */
 }
 
-.photo-list-item .photo-quality-badge.bad {
-    background: #6c757d;
-    color: white;
+.quality-stars.quality-assessed.good {
+    background: linear-gradient(135deg, #17a2b8, #20c997); /* 青色 */
+}
+
+.quality-stars.quality-assessed.average {
+    background: linear-gradient(135deg, #ffc107, #fd7e14); /* 橙色 */
+}
+
+.quality-stars.quality-assessed.poor {
+    background: linear-gradient(135deg, #fd7e14, #dc3545); /* 红色 */
+}
+
+.quality-stars.quality-assessed.bad {
+    background: linear-gradient(135deg, #dc3545, #6c757d); /* 深红 */
+}
+
+/* AI状态图标样式 */
+.ai-status-icon {
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
+
+.ai-status-icon.ai-analyzed {
+    color: #28a745; /* 绿色表示已分析 */
+}
+
+.ai-status-icon.ai-not-analyzed {
+    color: #6c757d; /* 灰色表示未分析 */
+    opacity: 0.6;
+}
+
+/* 网格视图的质量容器样式 */
+.photo-card .photo-quality-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+/* 列表视图的质量容器样式 */
+.photo-list-item .photo-quality-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .quality-stars {
+        font-size: 0.75rem;
+        padding: 1px 4px;
+    }
+
+    .ai-status-icon {
+        font-size: 0.65rem;
+        margin-left: 0.2rem;
+    }
 }
 
 .photo-list-item .photo-actions {

@@ -68,10 +68,9 @@ function createPhotoCard(photo) {
         `<span class="photo-tag">${tag}</span>`
     ).join('');
 
-    // 获取质量信息
-    const qualityLevel = photo.quality?.level || photo.analysis?.quality_rating || '';
-    const qualityClass = getQualityClass(qualityLevel);
-    const qualityText = getQualityText(qualityLevel);
+    // 获取质量状态和AI分析状态
+    const qualityStatus = getQualityStatus(photo);
+    const aiStatus = getAIAnalysisStatus(photo);
 
     // 根据照片尺寸判断方向并添加CSS类
     let containerClass = 'photo-card selectable';
@@ -119,8 +118,11 @@ function createPhotoCard(photo) {
             <div class="photo-info">
                 <div class="photo-header">
                     <div class="photo-title">${photo.filename}</div>
-                    <div class="photo-quality ${qualityClass}">
-                        ${qualityText}
+                    <div class="photo-quality-container">
+                        <span class="quality-stars ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
+                              title="${qualityStatus.title}">${qualityStatus.stars}</span>
+                        <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
+                           title="${aiStatus.title}"></i>
                     </div>
                 </div>
                 <div class="photo-meta">
@@ -165,8 +167,9 @@ function createPhotoListItem(photo) {
         `<span class="badge bg-secondary me-1 mb-1">${tag}</span>`
     ).join('');
 
-    const qualityClass = getQualityClass(photo.quality?.level || '');
-    const qualityText = getQualityText(photo.quality?.level || '');
+    // 获取质量状态和AI分析状态（列表视图）
+    const qualityStatus = getQualityStatus(photo);
+    const aiStatus = getAIAnalysisStatus(photo);
 
     // 根据照片尺寸判断方向并添加CSS类
     let containerClass = 'photo-list-item';
@@ -221,7 +224,12 @@ function createPhotoListItem(photo) {
                 <div class="photo-header">
                     <div class="photo-title-container">
                         <div class="photo-title">${photo.filename}</div>
-                        <span class="badge ${qualityClass} photo-quality-badge">${qualityText}</span>
+                        <div class="photo-quality-container">
+                            <span class="quality-stars ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
+                                  title="${qualityStatus.title}">${qualityStatus.stars}</span>
+                            <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
+                               title="${aiStatus.title}"></i>
+                        </div>
                     </div>
                     <div class="photo-actions">
                         <!-- 操作按钮可以在这里添加 -->
