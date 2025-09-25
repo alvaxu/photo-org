@@ -72,6 +72,16 @@ function createPhotoCard(photo) {
     const qualityStatus = getQualityStatus(photo);
     const aiStatus = getAIAnalysisStatus(photo);
 
+    // 调试输出 - 检查数据结构
+    console.log('照片数据:', {
+        id: photo.id,
+        filename: photo.filename,
+        quality: photo.quality,
+        analysis: photo.analysis,
+        qualityStatus: qualityStatus,
+        aiStatus: aiStatus
+    });
+
     // 根据照片尺寸判断方向并添加CSS类
     let containerClass = 'photo-card selectable';
     if (photo.width && photo.height) {
