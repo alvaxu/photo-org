@@ -72,6 +72,18 @@ function createPhotoCard(photo) {
     const qualityStatus = getQualityStatus(photo);
     const aiStatus = getAIAnalysisStatus(photo);
 
+    // 调试输出
+    console.log('照片数据结构:', {
+        id: photo.id,
+        filename: photo.filename,
+        hasQuality: !!photo.quality,
+        qualityScore: photo.quality?.quality_score,
+        hasAnalysis: !!photo.analysis,
+        analysisType: photo.analysis?.analysis_type
+    });
+    console.log('质量状态:', qualityStatus);
+    console.log('AI状态:', aiStatus);
+
     // 根据照片尺寸判断方向并添加CSS类
     let containerClass = 'photo-card selectable';
     if (photo.width && photo.height) {
@@ -89,12 +101,6 @@ function createPhotoCard(photo) {
 
     return `
         <div class="${containerClass}" data-photo-id="${photo.id}">
-            <!-- 状态标识 -->
-            <div class="photo-status-badge status-${processingStatus.status}">
-                <i class="bi ${processingStatus.iconClass}"></i>
-                <span>${processingStatus.text}</span>
-            </div>
-
             <div class="photo-image-container">
                 <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
                      alt="${photo.filename}"
