@@ -573,18 +573,95 @@ async def process_photos_batch_with_status(photo_files: List[str], db, task_id: 
 async def get_scan_status(task_id: str):
     """
     获取扫描任务状态
-    
+
     :param task_id: 任务ID
     """
     print(f"查询任务状态: {task_id}")
     print(f"当前任务状态: {task_status}")
-    
+
     if task_id not in task_status:
         print(f"任务 {task_id} 不存在")
         raise HTTPException(status_code=404, detail="任务不存在")
-    
+
     print(f"任务 {task_id} 状态: {task_status[task_id]}")
     return task_status[task_id]
+
+
+@router.post("/batch-status")
+async def get_batch_status(task_ids: List[str]):
+    """
+    获取多个批次任务的聚合状态
+
+    :param task_ids: 任务ID列表
+    :return: 批次聚合状态
+    """
+    print(f"查询批次状态，任务数量: {len(task_ids)}")
+
+    if not task_ids:
+        raise HTTPException(status_code=400, detail="任务ID列表不能为空")
+
+    batch_results = []
+    total_files = 0
+    total_processed = 0
+    total_imported = 0
+    total_skipped = 0
+    total_failed = 0
+    failed_files = []
+    completed_tasks = 0
+
+    for task_id in task_ids:
+        if task_id in task_status:
+            task_data = task_status[task_id]
+            batch_results.append({
+                "task_id": task_id,
+                "status": task_data.get("status", "unknown"),
+                "total_files": task_data.get("total_files", 0),
+                "processed_files": task_data.get("processed_files", 0),
+                "imported_count": task_data.get("imported_count", 0),
+                "skipped_count": task_data.get("skipped_count", 0),
+                "failed_count": task_data.get("failed_count", 0),
+                "failed_files": task_data.get("failed_files", []),
+                "progress_percentage": task_data.get("progress_percentage", 0)
+            })
+
+            # 累积统计
+            total_files += task_data.get("total_files", 0)
+            total_processed += task_data.get("processed_files", 0)
+            total_imported += task_data.get("imported_count", 0)
+            total_skipped += task_data.get("skipped_count", 0)
+            total_failed += task_data.get("failed_count", 0)
+            failed_files.extend(task_data.get("failed_files", []))
+
+            if task_data.get("status") == "completed":
+                completed_tasks += 1
+        else:
+            # 任务不存在，视为失败
+            batch_results.append({
+                "task_id": task_id,
+                "status": "not_found",
+                "error": "任务不存在"
+            })
+
+    # 计算总体状态
+    overall_status = "completed" if completed_tasks == len(task_ids) else "processing"
+    overall_progress = (completed_tasks / len(task_ids) * 100) if task_ids else 0
+
+    result = {
+        "overall_status": overall_status,
+        "overall_progress_percentage": round(overall_progress, 1),
+        "completed_tasks": completed_tasks,
+        "total_tasks": len(task_ids),
+        "total_files": total_files,
+        "total_processed_files": total_processed,
+        "total_imported_count": total_imported,
+        "total_skipped_count": total_skipped,
+        "total_failed_count": total_failed,
+        "failed_files": failed_files,
+        "task_details": batch_results
+    }
+
+    print(f"批次聚合状态: {completed_tasks}/{len(task_ids)} 完成，总体进度: {overall_progress}%")
+    return result
 
 
 async def process_photos_batch_with_status_from_upload(files: List[UploadFile], db, task_id: str):
@@ -622,21 +699,20 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
         try:
             for i, file in enumerate(files):
                 try:
-                    # 清理文件名：移除可能包含的路径前缀（如分批上传时的批次信息）
-                    clean_filename = Path(file.filename).name
-                    file_ext = Path(clean_filename).suffix.lower()
+                    # 验证文件类型
+                    file_ext = Path(file.filename).suffix.lower()
                     
                     # 特殊处理HEIC格式
                     if file_ext in ['.heic', '.heif']:
                         # HEIC格式的content_type可能为空，需要特殊处理
                         pass
                     elif not file.content_type or not file.content_type.startswith('image/'):
-                        failed_files.append(f"{clean_filename}: 不支持的文件类型")
+                        failed_files.append(f"{file.filename}: 不支持的文件类型")
                         failed_count += 1
                         continue
 
                     # 保存临时文件
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
                         shutil.copyfileobj(file.file, temp_file)
                         temp_path = temp_file.name
 
@@ -651,9 +727,9 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                             photo = photo_service.create_photo(db, photo_data)
                             if photo:
                                 imported_count += 1
-                                print(f"成功导入: {clean_filename}")
+                                print(f"成功导入: {file.filename}")
                             else:
-                                failed_files.append(f"{clean_filename}: 数据库保存失败")
+                                failed_files.append(f"{file.filename}: 数据库保存失败")
                                 failed_count += 1
                         elif duplicate_info:
                             # 处理重复文件 - 使用完整的重复检测逻辑
@@ -675,7 +751,7 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                                 imported_count += 1  # 清理后继续处理，计入成功
                             else:
                                 status_text = message
-                                failed_files.append(f"{clean_filename}: {status_text}")
+                                failed_files.append(f"{file.filename}: {status_text}")
                                 failed_count += 1
                                 continue
                         else:
@@ -701,16 +777,17 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
 
                 print(f"进度更新: {i + 1}/{len(files)} ({int((i + 1) / len(files) * 100)}%) - 导入:{imported_count}, 跳过:{skipped_count}, 失败:{failed_count}")
 
-                # 动态延迟：仅对小批量文件添加延迟，让前端能看到进度变化
-                # 大批量文件移除延迟以提高性能，前端每秒检查一次进度足够
+                # 动态延迟：根据文件数量调整，让前端能看到进度变化
+                # 小批量文件(<10)：500ms，大批量文件：减少延迟以提高性能
                 total_files = len(files)
-                if total_files <= 20:
-                    delay = 0.2  # 200ms for small batches, allow frontend to show progress
+                if total_files <= 10:
+                    delay = 0.5  # 500ms for small batches
+                elif total_files <= 50:
+                    delay = 0.2  # 200ms for medium batches
                 else:
-                    delay = 0.0  # No delay for large batches, rely on frontend polling
+                    delay = 0.05  # 50ms for large batches, minimal impact on performance
 
-                if delay > 0:
-                    await asyncio.sleep(delay)
+                await asyncio.sleep(delay)
 
         except Exception as e:
             task_status[task_id]["status"] = "failed"

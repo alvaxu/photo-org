@@ -686,21 +686,15 @@ async function startFileImport() {
                 return;
             }
 
-            // 所有批次上传成功，显示总体处理状态
+            // 所有批次上传成功，开始监控批次完成状态
             console.log(`所有批次上传成功，共${successfulBatches.length}批，${successfulBatches.reduce((sum, b) => sum + b.files, 0)}个文件`);
 
-            // 显示总体处理状态
-            const totalUploadedFiles = successfulBatches.reduce((sum, b) => sum + b.files, 0);
-            elements.importStatus.textContent = `所有批次上传完成，正在后台处理 ${totalUploadedFiles} 个文件...`;
-            elements.importDetails.textContent = `已提交${successfulBatches.length}个后台处理任务，请等待服务器完成处理`;
+            // 收集所有批次的任务ID
+            const batchTaskIds = successfulBatches.map(batch => batch.taskId);
+            console.log('收集到批次任务ID:', batchTaskIds);
 
-            // 由于所有批次都在同时处理，我们显示一个总体状态
-            // 不再监控单个任务进度，而是等待用户刷新页面查看结果
-            setTimeout(() => {
-                elements.importStatus.textContent = `后台处理中，请稍后刷新页面查看结果`;
-                elements.importDetails.textContent = `所有文件已上传，服务器正在处理中...`;
-                elements.importProgressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
-            }, 3000);
+            // 开始监控批次聚合状态
+            monitorBatchProgress(batchTaskIds, files.length);
 
         } catch (error) {
             console.error('分批上传失败:', error);
@@ -927,20 +921,15 @@ async function startFolderImport() {
                 return;
             }
 
-            // 所有批次上传成功，显示总体处理状态
+            // 所有批次上传成功，开始监控批次完成状态
             console.log(`目录所有批次上传成功，共${successfulBatches.length}批，${successfulBatches.reduce((sum, b) => sum + b.files, 0)}个文件`);
 
-            // 显示总体处理状态
-            const totalUploadedFiles = successfulBatches.reduce((sum, b) => sum + b.files, 0);
-            elements.importStatus.textContent = `目录所有批次上传完成，正在后台处理 ${totalUploadedFiles} 个文件...`;
-            elements.importDetails.textContent = `已提交${successfulBatches.length}个后台处理任务，请等待服务器完成处理`;
+            // 收集所有批次的任务ID
+            const batchTaskIds = successfulBatches.map(batch => batch.taskId);
+            console.log('收集到目录批次任务ID:', batchTaskIds);
 
-            // 由于所有批次都在同时处理，我们显示一个总体状态
-            setTimeout(() => {
-                elements.importStatus.textContent = `后台处理中，请稍后刷新页面查看结果`;
-                elements.importDetails.textContent = `所有目录文件已上传，服务器正在处理中...`;
-                elements.importProgressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
-            }, 3000);
+            // 开始监控批次聚合状态
+            monitorBatchProgress(batchTaskIds, imageFiles.length);
 
         } catch (error) {
             console.error('目录分批上传失败:', error);
@@ -1648,6 +1637,134 @@ function monitorImportProgress(taskId, totalFiles) {
             }
         } catch (error) {
             console.error('进度监控失败:', error);
+        }
+    }, 1000); // 每1秒检查一次
+}
+
+/**
+ * 监控批次聚合进度
+ *
+ * @param {Array<string>} taskIds - 批次任务ID数组
+ * @param {number} totalFiles - 总文件数量
+ */
+function monitorBatchProgress(taskIds, totalFiles) {
+    let checkCount = 0;
+    const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
+
+    console.log('开始监控批次聚合进度，总任务数:', taskIds.length, '总文件数:', totalFiles);
+
+    const progressInterval = setInterval(async () => {
+        checkCount++;
+
+        // 超时保护
+        if (checkCount > maxChecks) {
+            clearInterval(progressInterval);
+            console.error('批次进度监控超时');
+            elements.importStatus.textContent = '处理超时';
+            elements.importDetails.textContent = '服务器处理时间过长，请检查服务器状态';
+            elements.importProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            elements.importProgressBar.classList.add('bg-warning');
+            showError('导入超时，请检查服务器状态');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/import/batch-status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(taskIds)
+            });
+
+            if (!response.ok) {
+                console.error('批次状态查询失败:', response.status, response.statusText);
+                return;
+            }
+
+            const batchData = await response.json();
+            console.log('批次聚合状态:', batchData);
+
+            // 更新进度条 - 显示批次完成进度
+            const batchProgress = batchData.overall_progress_percentage || 0;
+            elements.importProgressBar.style.width = `${batchProgress}%`;
+            elements.importProgressBar.setAttribute('aria-valuenow', batchProgress);
+
+            // 更新状态文本
+            elements.importStatus.textContent = `批次处理中: ${batchData.completed_tasks}/${batchData.total_tasks} 批完成 (${batchProgress}%)`;
+
+            // 显示详细统计
+            const processedFiles = batchData.total_processed_files || 0;
+            const importedCount = batchData.total_imported_count || 0;
+            const skippedCount = batchData.total_skipped_count || 0;
+            const failedCount = batchData.total_failed_count || 0;
+
+            elements.importDetails.textContent = `已处理: ${processedFiles}/${totalFiles} 个文件 | 导入: ${importedCount}, 跳过: ${skippedCount}, 失败: ${failedCount}`;
+
+            // 检查是否完成
+            if (batchData.overall_status === 'completed') {
+                clearInterval(progressInterval);
+                console.log('所有批次处理完成，开始显示结果');
+
+                // 更新最终状态显示
+                elements.importProgressBar.style.width = '100%';
+                elements.importProgressBar.setAttribute('aria-valuenow', '100');
+                elements.importStatus.textContent = `批次处理完成！共处理 ${totalFiles} 个文件`;
+
+                // 计算成功率
+                const totalProcessed = importedCount + skippedCount + failedCount;
+                const successRate = totalProcessed > 0 ? ((importedCount / totalProcessed) * 100).toFixed(1) : '0.0';
+                elements.importDetails.textContent = `最终结果: 成功率 ${successRate}% | 导入: ${importedCount}, 跳过: ${skippedCount}, 失败: ${failedCount}`;
+
+                // 更新统计信息
+                elements.processedCount.textContent = processedFiles;
+                elements.importedCount.textContent = importedCount;
+                elements.skippedCount.textContent = skippedCount;
+                elements.failedCount.textContent = failedCount;
+
+                // 转换数据格式以匹配showImportDetails的期望
+                const detailsData = {
+                    total_files: totalFiles,
+                    imported_photos: importedCount,
+                    skipped_photos: skippedCount,
+                    failed_photos: failedCount,
+                    failed_files: batchData.failed_files || []
+                };
+
+                // 【关键】执行和非分批处理完全相同的UI流程
+                const modal = bootstrap.Modal.getInstance(elements.importModal);
+                if (modal) {
+                    modal.hide();
+
+                    // 监听模态框关闭事件，确保模态框完全消失后才显示结果
+                    elements.importModal.addEventListener('hidden.bs.modal', function onModalHidden() {
+                        console.log('导入模态框已完全关闭，准备显示批次处理结果...');
+
+                        // 移除事件监听器，避免重复执行
+                        elements.importModal.removeEventListener('hidden.bs.modal', onModalHidden);
+
+                        try {
+                            // 显示导入结果详情
+                            showImportDetails(detailsData);
+
+                            // 重新加载照片列表
+                            loadPhotos();
+                        } catch (error) {
+                            console.error('显示批次处理结果详情失败:', error);
+                            showError('显示结果失败: ' + error.message);
+                        }
+                    });
+                } else {
+                    // 如果找不到模态框实例，直接显示结果（降级处理）
+                    console.warn('找不到导入模态框实例，直接显示批次处理结果');
+                    showImportDetails(detailsData);
+                    loadPhotos();
+                }
+                // 直接返回，避免继续执行后续的状态检查逻辑
+                return;
+            }
+        } catch (error) {
+            console.error('批次进度监控失败:', error);
         }
     }, 1000); // 每1秒检查一次
 }
@@ -3236,6 +3353,7 @@ function resetAIModal() {
 
 // 导出函数到全局作用域
 window.monitorImportProgress = monitorImportProgress;
+window.monitorBatchProgress = monitorBatchProgress;
 window.resetBasicModal = resetBasicModal;
 window.resetAIModal = resetAIModal;
 
