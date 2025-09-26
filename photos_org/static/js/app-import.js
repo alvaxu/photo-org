@@ -650,13 +650,13 @@ async function startFileImport() {
             elements.importDetails.textContent = `已上传 ${files.length} 个文件，正在初始化处理任务...`;
             console.log('文件上传完成，立即显示后台处理进度条...');
 
-            // 文件上传完成后立即重置进度条为后台处理状态
+            // 文件上传完成后显示等待状态
             setTimeout(() => {
-                elements.importProgressBar.style.width = '0%';
-                elements.importProgressBar.setAttribute('aria-valuenow', '0');
+                elements.importProgressBar.style.width = '50%';
+                elements.importProgressBar.setAttribute('aria-valuenow', '50');
                 elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
                 elements.importDetails.textContent = '正在等待服务器响应...';
-                console.log('进度条已重置为后台处理状态，等待task_id...');
+                console.log('进度条显示等待服务器响应状态...');
             }, 300); // 短暂延迟，让用户看到上传完成状态
         });
 
@@ -673,9 +673,9 @@ async function startFileImport() {
                         console.log('获取到任务ID:', taskId);
                         console.log('开始监控进度，总文件数:', files.length);
 
-                        // 更新状态文本，进度条已经在上传完成后重置了
+                        // 获取到task_id，立即开始监控实际进度
                         elements.importDetails.textContent = '正在初始化处理任务...';
-                        console.log('开始监控后台处理进度...');
+                        console.log('获取到task_id，开始监控实际处理进度...');
 
                         monitorImportProgress(taskId, files.length);
                     } else {
@@ -1318,7 +1318,7 @@ window.startAIProcess = startAIProcess;
  */
 function monitorImportProgress(taskId, totalFiles) {
     let checkCount = 0;
-    const maxChecks = 120; // 最多检查120次，每次0.5秒，总共1分钟
+    const maxChecks = 300; // 最多检查300次，每次0.2秒，总共1分钟
 
     console.log('开始监控进度，任务ID:', taskId, '总文件数:', totalFiles);
 
@@ -1476,7 +1476,7 @@ function monitorImportProgress(taskId, totalFiles) {
         } catch (error) {
             console.error('进度监控失败:', error);
         }
-    }, 500); // 每0.5秒检查一次
+    }, 200); // 每0.2秒检查一次
 }
 
 /**
