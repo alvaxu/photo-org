@@ -781,18 +781,9 @@ async function startFileImport() {
         xhr.upload.addEventListener('load', () => {
             elements.importProgressBar.style.width = '100%';
             elements.importProgressBar.setAttribute('aria-valuenow', '100');
-            elements.importStatus.textContent = `上传完成，正在准备后台处理...`;
-            elements.importDetails.textContent = `已上传 ${files.length} 个文件，正在初始化处理任务...`;
-            console.log('文件上传完成，立即显示后台处理进度条...');
-
-            // 文件上传完成后显示等待状态
-            setTimeout(() => {
-                elements.importProgressBar.style.width = '50%';
-                elements.importProgressBar.setAttribute('aria-valuenow', '50');
-                elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
-                elements.importDetails.textContent = '正在等待服务器响应...';
-                console.log('进度条显示等待服务器响应状态...');
-            }, 300); // 短暂延迟，让用户看到上传完成状态
+            elements.importStatus.textContent = `上传完成，正在等待服务器响应...`;
+            elements.importDetails.textContent = `已上传 ${files.length} 个文件，服务器正在处理中...`;
+            console.log('文件上传完成，等待服务器响应...');
         });
 
         // 请求完成
@@ -808,6 +799,7 @@ async function startFileImport() {
                         console.log('开始监控文件处理进度，总文件数:', files.length);
 
                         // 获取到task_id，立即开始监控实际进度
+                        elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
                         elements.importDetails.textContent = '正在初始化处理任务...';
 
                         monitorImportProgress(taskId, files.length);
