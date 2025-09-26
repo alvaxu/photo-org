@@ -781,9 +781,18 @@ async function startFileImport() {
         xhr.upload.addEventListener('load', () => {
             elements.importProgressBar.style.width = '100%';
             elements.importProgressBar.setAttribute('aria-valuenow', '100');
-            elements.importStatus.textContent = `上传完成，正在等待服务器响应...`;
-            elements.importDetails.textContent = `已上传 ${files.length} 个文件，服务器正在处理中...`;
-            console.log('文件上传完成，等待服务器响应...');
+            elements.importStatus.textContent = `上传完成，正在准备后台处理...`;
+            elements.importDetails.textContent = `已上传 ${files.length} 个文件，正在初始化处理任务...`;
+            console.log('文件上传完成，立即显示后台处理进度条...');
+
+            // 文件上传完成后显示等待状态
+            setTimeout(() => {
+                elements.importProgressBar.style.width = '50%';
+                elements.importProgressBar.setAttribute('aria-valuenow', '50');
+                elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
+                elements.importDetails.textContent = '正在等待服务器响应...';
+                console.log('进度条显示等待服务器响应状态...');
+            }, 300); // 短暂延迟，让用户看到上传完成状态
         });
 
         // 请求完成
@@ -799,7 +808,6 @@ async function startFileImport() {
                         console.log('开始监控文件处理进度，总文件数:', files.length);
 
                         // 获取到task_id，立即开始监控实际进度
-                        elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
                         elements.importDetails.textContent = '正在初始化处理任务...';
 
                         monitorImportProgress(taskId, files.length);
@@ -1225,7 +1233,7 @@ async function startBatchProcess() {
             
             // 使用真实的状态检查API
             let checkCount = 0;
-            const maxChecks = 120; // 最多检查120次，每次1秒，总共2分钟
+            const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
             
             const statusCheckInterval = setInterval(async () => {
                 checkCount++;
@@ -1497,18 +1505,9 @@ window.startAIProcess = startAIProcess;
  */
 function monitorImportProgress(taskId, totalFiles) {
     let checkCount = 0;
-    // 根据文件数量动态调整超时时间
-    // 小批量(≤50): 2分钟, 中批量(≤200): 5分钟, 大批量: 10分钟
-    let maxChecks;
-    if (totalFiles <= 50) {
-        maxChecks = 120; // 2分钟
-    } else if (totalFiles <= 200) {
-        maxChecks = 300; // 5分钟
-    } else {
-        maxChecks = 600; // 10分钟
-    }
+    const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
 
-    console.log(`开始监控文件处理进度，总文件数: ${totalFiles}, 超时时间: ${maxChecks}秒`);
+    console.log('开始监控文件处理进度，总文件数:', totalFiles);
 
     const progressInterval = setInterval(async () => {
         checkCount++;
@@ -1517,12 +1516,11 @@ function monitorImportProgress(taskId, totalFiles) {
         if (checkCount > maxChecks) {
             clearInterval(progressInterval);
             console.error('进度监控超时');
-            const timeoutMinutes = Math.round(maxChecks / 60);
             elements.importStatus.textContent = '处理超时';
-            elements.importDetails.textContent = `服务器处理时间超过${timeoutMinutes}分钟，请检查服务器状态或减少文件数量`;
+            elements.importDetails.textContent = '服务器处理时间过长，请检查服务器状态';
             elements.importProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
             elements.importProgressBar.classList.add('bg-warning');
-            showError(`导入超时，请检查服务器状态。处理大量文件需要较长时间，请耐心等待或分批导入。`);
+            showError('导入超时，请检查服务器状态');
             return;
         }
         try {
@@ -2795,7 +2793,7 @@ async function waitForAIBatchComplete(batchSize) {
  */
 async function monitorBasicAnalysisProgress(taskId, totalPhotos, initialTotal) {
     let checkCount = 0;
-    const maxChecks = 120; // 最多检查120次，每次1秒，总共2分钟
+    const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
 
     const statusCheckInterval = setInterval(async () => {
         checkCount++;
@@ -2879,7 +2877,7 @@ async function monitorBasicAnalysisProgress(taskId, totalPhotos, initialTotal) {
  */
 async function monitorAIAnalysisProgress(taskId, totalPhotos, initialTotal) {
     let checkCount = 0;
-    const maxChecks = 120; // 最多检查120次，每次1秒，总共2分钟
+    const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
 
     const statusCheckInterval = setInterval(async () => {
         checkCount++;
