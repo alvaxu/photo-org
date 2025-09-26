@@ -1502,9 +1502,13 @@ window.startAIProcess = startAIProcess;
  */
 function monitorImportProgress(taskId, totalFiles) {
     let checkCount = 0;
-    const maxChecks = 120; // 最多检查120次，每次1秒，总共2分钟
+    // 根据文件数量动态调整超时时间
+    // 基础时间2分钟 + 每10个文件增加30秒
+    const baseChecks = 120; // 2分钟
+    const additionalChecks = Math.ceil(totalFiles / 10) * 30; // 每10个文件增加30秒
+    const maxChecks = baseChecks + additionalChecks;
 
-    console.log('开始监控文件处理进度，总文件数:', totalFiles);
+    console.log(`开始监控文件处理进度，总文件数: ${totalFiles}, 超时时间: ${Math.round(maxChecks / 60)}分钟`);
 
     const progressInterval = setInterval(async () => {
         checkCount++;
@@ -1512,12 +1516,58 @@ function monitorImportProgress(taskId, totalFiles) {
         // 超时保护
         if (checkCount > maxChecks) {
             clearInterval(progressInterval);
-            console.error('进度监控超时');
-            elements.importStatus.textContent = '处理超时';
-            elements.importDetails.textContent = '服务器处理时间过长，请检查服务器状态';
+            console.warn('进度监控超时，但后台可能仍在处理');
+
+            // 不要直接报错，而是提示用户刷新页面检查
+            elements.importStatus.textContent = '监控超时';
+            elements.importDetails.textContent = '服务器可能仍在处理中，请稍后刷新页面查看结果';
             elements.importProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
-            elements.importProgressBar.classList.add('bg-warning');
-            showError('导入超时，请检查服务器状态');
+            elements.importProgressBar.classList.add('bg-info');
+
+            // 显示提示信息
+            const timeoutModal = `
+                <div class="modal fade" id="timeoutModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-clock-history text-warning me-2"></i>
+                                    处理时间较长
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p>文件处理时间超过预期，但服务器可能仍在后台处理中。</p>
+                                <div class="alert alert-info">
+                                    <strong>可能原因：</strong>
+                                    <ul class="mb-0">
+                                        <li>文件较大或数量较多</li>
+                                        <li>服务器负载较高</li>
+                                        <li>网络条件影响</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">继续等待</button>
+                                <button type="button" class="btn btn-primary" onclick="location.reload()">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>
+                                    刷新页面查看结果
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', timeoutModal);
+            const modal = new bootstrap.Modal(document.getElementById('timeoutModal'));
+            modal.show();
+
+            // 模态框关闭时清理
+            document.getElementById('timeoutModal').addEventListener('hidden.bs.modal', function() {
+                this.remove();
+            });
+
             return;
         }
         try {
