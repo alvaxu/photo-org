@@ -661,6 +661,10 @@ async function startFileImport() {
                     if (data.success && data.data.task_id) {
                         const taskId = data.data.task_id;
                         console.log('获取到任务ID:', taskId);
+                        console.log('调用monitorImportProgress之前，进度条状态:');
+                        console.log('进度条区域可见:', !elements.importProgress.classList.contains('d-none'));
+                        console.log('进度条宽度:', elements.importProgressBar.style.width);
+                        console.log('状态文本:', elements.importStatus.textContent);
                         console.log('开始监控进度，总文件数:', files.length);
                         elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
                         elements.importDetails.textContent = '正在初始化处理任务...';
@@ -812,6 +816,10 @@ async function startFolderImport() {
                     if (data.success && data.data.task_id) {
                         const taskId = data.data.task_id;
                         console.log('获取到任务ID:', taskId);
+                        console.log('调用monitorImportProgress之前，进度条状态:');
+                        console.log('进度条区域可见:', !elements.importProgress.classList.contains('d-none'));
+                        console.log('进度条宽度:', elements.importProgressBar.style.width);
+                        console.log('状态文本:', elements.importStatus.textContent);
                         console.log('开始监控进度，总文件数:', imageFiles.length);
                         elements.importStatus.textContent = `后台正在处理 ${imageFiles.length} 个文件...`;
                         elements.importDetails.textContent = '正在初始化处理任务...';
@@ -1295,13 +1303,18 @@ function monitorImportProgress(taskId, totalFiles) {
     console.log('开始监控进度，任务ID:', taskId, '总文件数:', totalFiles);
 
     // 立即设置初始状态，确保进度条显示
+    console.log('设置进度条初始状态...');
     elements.importProgressBar.style.width = '0%';
     elements.importProgressBar.setAttribute('aria-valuenow', '0');
     elements.importStatus.textContent = `正在处理: 0/${totalFiles} (0%)`;
     elements.importDetails.textContent = '正在初始化处理任务...';
 
     // 确保进度条区域可见
+    console.log('移除进度条隐藏类...');
     elements.importProgress.classList.remove('d-none');
+    console.log('进度条显示状态:', !elements.importProgress.classList.contains('d-none'));
+    console.log('进度条元素:', elements.importProgress);
+    console.log('进度条宽度:', elements.importProgressBar.style.width);
 
     const progressInterval = setInterval(async () => {
         checkCount++;
