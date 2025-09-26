@@ -656,8 +656,8 @@ async function startFileImport() {
         return;
     }
 
-    // 如果文件数量超过900个，使用分批上传（留出缓冲空间）
-    const BATCH_THRESHOLD = 900;
+    // 如果文件数量超过200个，使用分批上传（获得并行处理优势）
+    const BATCH_THRESHOLD = 200;
     if (files.length > BATCH_THRESHOLD) {
         console.log(`文件数量(${files.length})超过阈值(${BATCH_THRESHOLD})，使用分批上传`);
 
@@ -894,8 +894,8 @@ async function startFolderImport() {
         return;
     }
 
-    // 如果文件数量超过900个，使用分批上传（留出缓冲空间）
-    const BATCH_THRESHOLD = 900;
+    // 如果文件数量超过200个，使用分批上传（获得并行处理优势）
+    const BATCH_THRESHOLD = 200;
     if (imageFiles.length > BATCH_THRESHOLD) {
         console.log(`目录文件数量(${imageFiles.length})超过阈值(${BATCH_THRESHOLD})，使用分批上传`);
 
