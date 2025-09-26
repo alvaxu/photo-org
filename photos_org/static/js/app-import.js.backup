@@ -1916,39 +1916,23 @@ async function startAIAnalysis() {
 
         const countInfo = document.getElementById('aiPhotoCountInfo');
         const countText = document.getElementById('aiPhotoCountText');
-        const batchSetup = document.getElementById('aiBatchSetup');
         const startBtn = document.getElementById('startAIBtn');
 
         if (countResponse.ok && countData.count > 0) {
             // 有照片需要分析
             countInfo.style.display = 'block';
             countText.textContent = `发现 ${countData.count} 张照片需要AI分析`;
-
-            // 总是显示批次设置
-            batchSetup.style.display = 'block';
-
-            // 动态设置批次数输入框的最大值和默认值
-            const batchInput = document.getElementById('aiBatchCount');
-            if (batchInput) {
-                batchInput.max = countData.count; // 最大值不能超过照片数量
-                batchInput.value = Math.min(5, countData.count); // 默认值为5或照片数量的较小值
-            }
-
-            updateAIBatchPreview(countData.count);
-
             startBtn.disabled = false;
             startBtn.textContent = '开始AI分析';
         } else if (countResponse.ok && countData.count === 0) {
             // 所有照片都已完成AI分析
             countInfo.style.display = 'block';
             countText.textContent = '所有照片都已完成AI分析';
-            batchSetup.style.display = 'none';
             startBtn.disabled = true;
             startBtn.textContent = '无需分析';
         } else {
             // API调用失败
             countInfo.style.display = 'none';
-            batchSetup.style.display = 'none';
             startBtn.disabled = true;
             startBtn.textContent = '开始AI分析';
         }
@@ -1956,7 +1940,6 @@ async function startAIAnalysis() {
         console.error('获取AI分析统计失败:', error);
         // 出错时隐藏统计信息并禁用按钮
         document.getElementById('aiPhotoCountInfo').style.display = 'none';
-        document.getElementById('aiBatchSetup').style.display = 'none';
         document.getElementById('startAIBtn').disabled = true;
         document.getElementById('startAIBtn').textContent = '开始AI分析';
     }
@@ -2040,6 +2023,12 @@ async function startBasicProcess() {
 async function startAIProcess() {
     console.log('执行AI分析处理');
 
+    // 显示进度
+    document.getElementById('aiProgress').classList.remove('d-none');
+    document.getElementById('startAIBtn').disabled = true;
+    document.getElementById('aiProgressBar').style.width = '0%';
+    document.getElementById('aiStatus').textContent = '正在准备AI分析...';
+
     try {
         // 获取需要AI分析的照片ID
         const pendingResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/ai-pending-photos`);
@@ -2058,436 +2047,46 @@ async function startAIProcess() {
             return;
         }
 
-        // 开始处理时隐藏底部按钮
-        const modalFooter = document.querySelector('#aiModal .modal-footer');
-        if (modalFooter) modalFooter.style.display = 'none';
+        // 开始AI分析
+        const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                photo_ids: photoIds,
+                analysis_types: ['content']  // AI分析只包含内容分析
+            })
+        });
 
-        // 总是使用分批处理模式
-        let batchCount = parseInt(document.getElementById('aiBatchCount').value) || 5;
+        const data = await response.json();
 
-        // 验证批次数不能超过照片数量
-        if (batchCount > photoIds.length) {
-            batchCount = Math.min(photoIds.length, 5); // 限制为照片数量或5的较小值
-            console.log(`批次数超过照片数量，已调整为 ${batchCount}`);
+        if (!response.ok) {
+            showError('开始AI分析失败: ' + (data.detail || '未知错误'));
+            document.getElementById('startAIBtn').disabled = false;
+            return;
         }
 
-        // 确保批次数至少为1
-        batchCount = Math.max(1, batchCount);
+        // 获取任务开始时的待处理照片总数（imported + error）
+        let pendingTotal = photoIds.length; // 默认使用本次任务的照片数
+        try {
+            const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/queue/status`);
+            const statusData = await statusResponse.json();
+            if (statusResponse.ok) {
+                pendingTotal = statusData.batch_pending_photos || photoIds.length;
+            }
+        } catch (error) {
+            console.warn('获取待处理总数失败，使用默认值:', error);
+        }
 
-        await processAIAnalysisInBatches(photoIds, batchCount);
+        // 监控分析进度
+        await monitorAIAnalysisProgress(data.task_id, photoIds.length, pendingTotal);
 
     } catch (error) {
         console.error('AI分析处理失败:', error);
         showError('AI分析失败: ' + error.message);
-
-        // 发生错误时重新显示底部按钮
-        const modalFooter = document.querySelector('#aiModal .modal-footer');
-        if (modalFooter) modalFooter.style.display = 'flex';
-
         document.getElementById('startAIBtn').disabled = false;
     }
-}
-
-/**
- * 计算批次分配（均匀分布策略）
- */
-function calculateBatchDistribution(photoIds, batchCount) {
-    const totalPhotos = photoIds.length;
-    const baseSize = Math.floor(totalPhotos / batchCount);
-    const remainder = totalPhotos % batchCount;
-
-    const batches = [];
-    let startIndex = 0;
-
-    for(let i = 0; i < batchCount; i++) {
-        // 前 remainder 批次多分配1张
-        const batchSize = baseSize + (i < remainder ? 1 : 0);
-        const endIndex = startIndex + batchSize;
-
-        batches.push({
-            index: i + 1,
-            photoIds: photoIds.slice(startIndex, endIndex),
-            size: batchSize
-        });
-
-        startIndex = endIndex;
-    }
-
-    return batches;
-}
-
-/**
- * AI分析分批处理
- */
-async function processAIAnalysisInBatches(photoIds, batchCount) {
-    console.log(`开始AI分析分批处理: ${photoIds.length}张照片分${batchCount}批`);
-
-    // 计算批次分配
-    const batches = calculateBatchDistribution(photoIds, batchCount);
-
-    // 显示进度
-    document.getElementById('aiProgress').classList.remove('d-none');
-    document.getElementById('startAIBtn').disabled = true;
-
-    // 开始批次处理时隐藏底部按钮
-    const modalFooter = document.querySelector('#aiModal .modal-footer');
-    if (modalFooter) modalFooter.style.display = 'none';
-
-    // 标记是否用户主动停止
-    let userStopped = false;
-
-    // 计算所有批次的照片总数
-    const totalPhotosInAllBatches = batches.reduce((sum, b) => sum + b.photoIds.length, 0);
-
-    for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
-        console.log(`处理第${i + 1}批: ${batch.photoIds.length}张照片`);
-
-        // 更新批次进度显示
-        updateAIBatchProgress(i + 1, batches.length, batch, totalPhotosInAllBatches);
-
-        try {
-            // 提交当前批次
-            await submitAIBatch(batch.photoIds);
-
-            // 等待批次完成
-            await waitForAIBatchComplete(batch.photoIds.length);
-
-            // 显示批次结果并等待用户确认
-            const shouldContinue = await showBatchConfirmation(i + 1, batches.length, batch, totalPhotosInAllBatches);
-
-            // 检查是否继续
-            if (!shouldContinue && i < batches.length - 1) {
-                console.log('用户选择停止处理');
-                userStopped = true;
-                break;
-            }
-
-        } catch (error) {
-            console.error(`第${i + 1}批处理失败:`, error);
-            showError(`第${i + 1}批AI分析失败: ${error.message}`);
-
-            // 显示错误确认对话框
-            const shouldContinue = await showErrorConfirmation(i + 1, batches.length, error);
-            if (!shouldContinue) {
-                userStopped = true;
-                break;
-            }
-        }
-    }
-
-    // 处理完成或停止 - 显示最终结果
-    try {
-        // 计算总照片数
-        const totalPhotosInBatches = batches.reduce((sum, batch) => sum + batch.photoIds.length, 0);
-        const completedPhotos = userStopped ? (i * batch.photoIds.length) : totalPhotosInBatches;
-
-        // 隐藏进度条
-        const aiProgress = document.getElementById('aiProgress');
-        if (aiProgress) aiProgress.classList.add('d-none');
-
-        // 隐藏批次设置区域
-        const batchSetup = document.getElementById('aiBatchSetup');
-        if (batchSetup) batchSetup.style.display = 'none';
-
-        // 隐藏底部按钮区域
-        const modalFooter = document.querySelector('#aiModal .modal-footer');
-        if (modalFooter) modalFooter.style.display = 'none';
-
-        // 显示最终结果
-        const statusDiv = document.getElementById('aiBatchStatus');
-        if (statusDiv) {
-            statusDiv.innerHTML = `
-                <div class="alert ${userStopped ? 'alert-warning' : 'alert-success'}">
-                    <h5>${userStopped ? 'AI分析已停止' : '所有AI分析批次已完成！'}</h5>
-                    <p>共处理了 ${completedPhotos} / ${totalPhotosInBatches} 张照片</p>
-                    <div class="mt-3">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    </div>
-                </div>
-            `;
-        }
-
-    } catch (error) {
-        console.error('显示最终结果失败:', error);
-        const statusDiv = document.getElementById('aiBatchStatus');
-        if (statusDiv) {
-            statusDiv.innerHTML = `
-                <div class="alert alert-info">
-                    <h5>处理${userStopped ? '已停止' : '已完成'}</h5>
-                    <p>处理已${userStopped ? '停止' : '完成'}</p>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                </div>
-            `;
-        }
-    }
-}
-
-/**
- * 处理单批次AI分析（少量照片时的直接处理）
- */
-async function processAISingleBatch(photoIds) {
-    console.log(`直接处理AI分析: ${photoIds.length}张照片`);
-
-    // 显示进度
-    document.getElementById('aiProgress').classList.remove('d-none');
-    document.getElementById('startAIBtn').disabled = true;
-    document.getElementById('aiProgressBar').style.width = '0%';
-    document.getElementById('aiStatus').textContent = '正在准备AI分析...';
-
-    // 开始AI分析
-    const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            photo_ids: photoIds,
-            analysis_types: ['content']  // AI分析只包含内容分析
-        })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        showError('开始AI分析失败: ' + (data.detail || '未知错误'));
-        document.getElementById('startAIBtn').disabled = false;
-        return;
-    }
-
-    // 获取任务开始时的待处理照片总数
-    let pendingTotal = photoIds.length;
-    try {
-        const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/queue/status`);
-        const statusData = await statusResponse.json();
-        if (statusResponse.ok) {
-            pendingTotal = statusData.batch_pending_photos || photoIds.length;
-        }
-    } catch (error) {
-        console.warn('获取待处理总数失败，使用默认值:', error);
-    }
-
-    // 监控分析进度
-    await monitorAIAnalysisProgress(data.task_id, photoIds.length, pendingTotal);
-}
-
-/**
- * 更新AI分析批次预览
- */
-function updateAIBatchPreview(totalCount) {
-    let batchCount = parseInt(document.getElementById('aiBatchCount').value) || 5;
-
-    // 确保批次数不超过照片数量，且至少为1
-    batchCount = Math.min(Math.max(batchCount, 1), totalCount);
-
-    // 更新输入框的值
-    document.getElementById('aiBatchCount').value = batchCount;
-
-    const previewDiv = document.getElementById('aiBatchPreview');
-
-    // 计算批次分配
-    const baseSize = Math.floor(totalCount / batchCount);
-    const remainder = totalCount % batchCount;
-
-    let previewText = '';
-    for(let i = 0; i < batchCount; i++) {
-        const batchSize = baseSize + (i < remainder ? 1 : 0);
-        previewText += `批次${i + 1}: ${batchSize}张<br>`;
-    }
-
-    previewDiv.innerHTML = previewText;
-}
-
-/**
- * 更新AI分析批次进度显示
- */
-function updateAIBatchProgress(currentBatch, totalBatches, batch, totalPhotosInAllBatches) {
-    const progressContainer = document.getElementById('aiProgress');
-    const completedPhotos = (currentBatch - 1) * batch.photoIds.length;
-    const overallProgress = totalPhotosInAllBatches > 0 ? ((completedPhotos / totalPhotosInAllBatches) * 100).toFixed(1) : 0;
-
-    progressContainer.innerHTML = `
-        <div class="batch-progress mb-3">
-            <h6>第 ${currentBatch} / ${totalBatches} 批次AI分析中</h6>
-            <div class="progress mb-2">
-                <div class="progress-bar" id="aiBatchProgressBar" style="width: ${overallProgress}%"></div>
-            </div>
-            <small class="text-muted">
-                本批次：0/${batch.photoIds.length} 张 |
-                总体：${completedPhotos}/${totalPhotosInAllBatches} 张
-            </small>
-        </div>
-        <div id="aiBatchStatus">正在准备批次分析...</div>
-    `;
-}
-
-/**
- * 显示错误确认对话框
- */
-function showErrorConfirmation(batchIndex, totalBatches, error) {
-    return new Promise((resolve) => {
-        const statusDiv = document.getElementById('aiBatchStatus');
-        if (statusDiv) {
-            const errorHtml = `
-                <div class="alert alert-danger">
-                    <h6>第 ${batchIndex} / ${totalBatches} 批次处理失败</h6>
-                    <p>错误信息: ${error.message}</p>
-                    <p>是否继续处理剩余批次？</p>
-                </div>
-            `;
-
-            statusDiv.innerHTML = errorHtml;
-
-            // 显示继续和停止按钮
-            const continueBtn = document.createElement('button');
-            continueBtn.className = 'btn btn-warning me-2';
-            continueBtn.textContent = '继续处理';
-            continueBtn.onclick = () => resolve(true);
-
-            const stopBtn = document.createElement('button');
-            stopBtn.className = 'btn btn-secondary';
-            stopBtn.textContent = '停止处理';
-            stopBtn.onclick = () => resolve(false);
-
-            statusDiv.appendChild(continueBtn);
-            statusDiv.appendChild(stopBtn);
-        } else {
-            // 如果状态元素不存在，默认停止
-            resolve(false);
-        }
-    });
-}
-
-/**
- * 显示批次确认对话框
- */
-function showBatchConfirmation(batchIndex, totalBatches, batch, totalPhotosInAllBatches) {
-    return new Promise((resolve) => {
-        // 更新进度条到当前批次完成
-        const completedPhotos = batchIndex * batch.photoIds.length;
-        const overallProgress = totalPhotosInAllBatches > 0 ? ((completedPhotos / totalPhotosInAllBatches) * 100).toFixed(1) : 0;
-
-        const progressBar = document.getElementById('aiBatchProgressBar');
-        if (progressBar) {
-            progressBar.style.width = `${overallProgress}%`;
-        }
-
-        // 更新进度文本
-        const progressText = document.querySelector('#aiProgress .text-muted');
-        if (progressText) {
-            progressText.innerHTML = `
-                本批次：${batch.photoIds.length}/${batch.photoIds.length} 张 |
-                总体：${completedPhotos}/${totalPhotosInAllBatches} 张
-            `;
-        }
-
-        // 显示确认界面
-        const statusDiv = document.getElementById('aiBatchStatus');
-        if (statusDiv) {
-            const confirmationHtml = `
-                <div class="alert alert-success">
-                    <h6>第 ${batchIndex} / ${totalBatches} 批次完成</h6>
-                    <p>已成功处理 ${batch.photoIds.length} 张照片</p>
-                    ${batchIndex < totalBatches ?
-                        '<p>是否继续处理下一批次？</p>' :
-                        '<p>所有批次处理完成！</p>'}
-                </div>
-            `;
-
-            statusDiv.innerHTML = confirmationHtml;
-
-            // 如果是最后一批，直接返回true
-            if (batchIndex >= totalBatches) {
-                setTimeout(() => resolve(true), 2000);
-            } else {
-                // 显示继续和停止按钮
-                const continueBtn = document.createElement('button');
-                continueBtn.className = 'btn btn-primary me-2';
-                continueBtn.textContent = '继续下一批';
-                continueBtn.onclick = () => resolve(true);
-
-                const stopBtn = document.createElement('button');
-                stopBtn.className = 'btn btn-secondary';
-                stopBtn.textContent = '停止处理';
-                stopBtn.onclick = () => resolve(false);
-
-                statusDiv.appendChild(continueBtn);
-                statusDiv.appendChild(stopBtn);
-            }
-        } else {
-            // 如果状态元素不存在，默认继续
-            resolve(true);
-        }
-    });
-}
-
-/**
- * 提交单个AI分析批次
- */
-async function submitAIBatch(photoIds) {
-    console.log(`提交AI分析批次: ${photoIds.length}张照片`);
-
-    const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            photo_ids: photoIds,
-            analysis_types: ['content']
-        })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error('开始AI分析失败: ' + (data.detail || '未知错误'));
-    }
-
-    // 等待批次完成
-    await waitForAIBatchComplete(photoIds.length);
-
-    return data;
-}
-
-/**
- * 等待AI分析批次完成
- */
-async function waitForAIBatchComplete(batchSize) {
-    return new Promise((resolve, reject) => {
-        let waitTime = 0;
-
-        const checkInterval = setInterval(async () => {
-            try {
-                const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/queue/status?initial_total=${batchSize}`);
-                const data = await response.json();
-
-                if (response.ok) {
-                    // 检查是否有正在进行的任务
-                    // 使用 analyzing_photos 字段来判断是否有正在分析的任务
-                    if (data.analyzing_photos === 0) {
-                        clearInterval(checkInterval);
-                        resolve();
-                    } else {
-                        // 更新等待状态
-                        waitTime += 2;
-                        const statusDiv = document.getElementById('aiBatchStatus');
-                        if (statusDiv) {
-                            statusDiv.innerHTML = `正在分析批次... 已等待 ${waitTime} 秒`;
-                        }
-                    }
-                }
-            } catch (error) {
-                console.warn('检查批次状态失败:', error);
-            }
-        }, 2000); // 每2秒检查一次
-
-        // 超时保护：最多等待30分钟
-        setTimeout(() => {
-            clearInterval(checkInterval);
-            reject(new Error('批次处理超时'));
-        }, 30 * 60 * 1000);
-    });
 }
 
 /**
@@ -2714,7 +2313,7 @@ window.processSelectedPhotosAI = async (photoIds) => {
                         <div class="alert alert-warning">
                             <i class="bi bi-exclamation-triangle me-2"></i>
                             AI分析将对选中的 ${photoIds.length} 张照片进行深度内容分析，生成场景、物体、情感等AI标签<br>
-                            此功能需要大模型的API密钥，处理速度较慢
+                            此功能需要大模型的API密钥，处理速度较慢。
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -2904,53 +2503,23 @@ function resetBasicModal() {
  */
 function resetAIModal() {
     // 隐藏进度条
-    const aiProgress = document.getElementById('aiProgress');
-    if (aiProgress) aiProgress.classList.add('d-none');
+    document.getElementById('aiProgress').classList.add('d-none');
 
     // 重置进度条
-    const aiProgressBar = document.getElementById('aiProgressBar');
-    if (aiProgressBar) aiProgressBar.style.width = '0%';
+    document.getElementById('aiProgressBar').style.width = '0%';
 
     // 重置状态文本
-    const aiStatus = document.getElementById('aiStatus');
-    if (aiStatus) aiStatus.textContent = '正在处理...';
+    document.getElementById('aiStatus').textContent = '正在处理...';
 
     // 启用开始按钮
-    const startAIBtn = document.getElementById('startAIBtn');
-    if (startAIBtn) startAIBtn.disabled = false;
-
-    // 显示底部按钮区域
-    const modalFooter = document.querySelector('#aiModal .modal-footer');
-    if (modalFooter) modalFooter.style.display = 'flex';
-
-    // 清理批次状态区域
-    const aiBatchStatus = document.getElementById('aiBatchStatus');
-    if (aiBatchStatus) aiBatchStatus.innerHTML = '';
-
-    // 隐藏批次设置区域（会根据条件重新显示）
-    const aiBatchSetup = document.getElementById('aiBatchSetup');
-    if (aiBatchSetup) aiBatchSetup.style.display = 'none';
+    document.getElementById('startAIBtn').disabled = false;
 
     // 隐藏照片数量统计（会根据API响应重新显示）
-    const aiPhotoCountInfo = document.getElementById('aiPhotoCountInfo');
-    if (aiPhotoCountInfo) aiPhotoCountInfo.style.display = 'none';
+    document.getElementById('aiPhotoCountInfo').style.display = 'none';
 }
 
 // 导出函数到全局作用域
 window.monitorImportProgress = monitorImportProgress;
 window.resetBasicModal = resetBasicModal;
 window.resetAIModal = resetAIModal;
-
-// 绑定AI分析批次设置事件
-document.addEventListener('DOMContentLoaded', function() {
-    const aiBatchCountInput = document.getElementById('aiBatchCount');
-    if (aiBatchCountInput) {
-        aiBatchCountInput.addEventListener('input', function() {
-            const totalCount = parseInt(document.getElementById('aiPhotoCountText')?.textContent?.match(/\d+/)?.[0]) || 0;
-            if (totalCount > 0) {
-                updateAIBatchPreview(totalCount);
-            }
-        });
-    }
-});
 

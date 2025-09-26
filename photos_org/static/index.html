@@ -621,7 +621,7 @@
                         智能处理将对所有照片进行AI分析、质量评估和智能分类，提升搜索和管理体验<br>
                         请确保你已申请并配置了Qwen-vl 大模型的API密钥，<a href="/help-api-key" target="_blank">如有疑问，请点击链接</a>
                     </div>
-
+                    
                     <!-- 照片数量统计 -->
                     <div class="alert alert-warning" id="photoCountInfo" style="display: none;">
                         <i class="bi bi-info-circle me-2"></i>
@@ -699,6 +699,29 @@
                     <div class="alert alert-warning" id="aiPhotoCountInfo" style="display: none;">
                         <i class="bi bi-info-circle me-2"></i>
                         <span id="aiPhotoCountText">正在获取照片数量...</span>
+                    </div>
+
+                    <!-- AI分析批次设置 -->
+                    <div id="aiBatchSetup" class="mb-3" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="bi bi-collection me-2"></i>批次处理设置</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="aiBatchCount" class="form-label">分几批处理：</label>
+                                        <input type="number" class="form-control" id="aiBatchCount" value="5" min="1" max="20">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">批次预览：</label>
+                                        <div id="aiBatchPreview" class="small text-muted">
+                                            <!-- 动态显示批次分配 -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="aiProgress" class="d-none mt-3">
