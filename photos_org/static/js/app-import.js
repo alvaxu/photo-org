@@ -648,6 +648,16 @@ async function startFileImport() {
             elements.importProgressBar.setAttribute('aria-valuenow', '100');
             elements.importStatus.textContent = `上传完成，正在准备后台处理...`;
             elements.importDetails.textContent = `已上传 ${files.length} 个文件，正在初始化处理任务...`;
+            console.log('文件上传完成，立即显示后台处理进度条...');
+
+            // 文件上传完成后立即重置进度条为后台处理状态
+            setTimeout(() => {
+                elements.importProgressBar.style.width = '0%';
+                elements.importProgressBar.setAttribute('aria-valuenow', '0');
+                elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
+                elements.importDetails.textContent = '正在等待服务器响应...';
+                console.log('进度条已重置为后台处理状态，等待task_id...');
+            }, 300); // 短暂延迟，让用户看到上传完成状态
         });
 
         // 请求完成
@@ -663,19 +673,9 @@ async function startFileImport() {
                         console.log('获取到任务ID:', taskId);
                         console.log('开始监控进度，总文件数:', files.length);
 
-                        // 立即重置进度条为后台处理状态
-                        elements.importProgressBar.style.width = '0%';
-                        elements.importProgressBar.setAttribute('aria-valuenow', '0');
-                        elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
+                        // 更新状态文本，进度条已经在上传完成后重置了
                         elements.importDetails.textContent = '正在初始化处理任务...';
-
-                        // 确保进度条区域可见
-                        elements.importProgress.classList.remove('d-none');
-
-                        console.log('上传完成后进度条重置状态:');
-                        console.log('进度条区域可见:', !elements.importProgress.classList.contains('d-none'));
-                        console.log('进度条宽度:', elements.importProgressBar.style.width);
-                        console.log('状态文本:', elements.importStatus.textContent);
+                        console.log('开始监控后台处理进度...');
 
                         monitorImportProgress(taskId, files.length);
                     } else {
@@ -809,7 +809,19 @@ async function startFolderImport() {
         // 上传完成
         xhr.upload.addEventListener('load', () => {
             elements.importProgressBar.style.width = '100%';
-            elements.importStatus.textContent = `上传完成，后台正在处理 ${imageFiles.length} 个文件...`;
+            elements.importProgressBar.setAttribute('aria-valuenow', '100');
+            elements.importStatus.textContent = `上传完成，正在准备后台处理...`;
+            elements.importDetails.textContent = `已上传 ${imageFiles.length} 个文件，正在初始化处理任务...`;
+            console.log('文件夹上传完成，立即显示后台处理进度条...');
+
+            // 文件上传完成后立即重置进度条为后台处理状态
+            setTimeout(() => {
+                elements.importProgressBar.style.width = '0%';
+                elements.importProgressBar.setAttribute('aria-valuenow', '0');
+                elements.importStatus.textContent = `后台正在处理 ${imageFiles.length} 个文件...`;
+                elements.importDetails.textContent = '正在等待服务器响应...';
+                console.log('进度条已重置为后台处理状态，等待task_id...');
+            }, 300); // 短暂延迟，让用户看到上传完成状态
         });
 
         // 请求完成
@@ -827,19 +839,9 @@ async function startFolderImport() {
                         console.log('获取到任务ID:', taskId);
                         console.log('开始监控进度，总文件数:', imageFiles.length);
 
-                        // 立即重置进度条为后台处理状态
-                        elements.importProgressBar.style.width = '0%';
-                        elements.importProgressBar.setAttribute('aria-valuenow', '0');
-                        elements.importStatus.textContent = `后台正在处理 ${imageFiles.length} 个文件...`;
+                        // 更新状态文本，进度条已经在上传完成后重置了
                         elements.importDetails.textContent = '正在初始化处理任务...';
-
-                        // 确保进度条区域可见
-                        elements.importProgress.classList.remove('d-none');
-
-                        console.log('上传完成后进度条重置状态:');
-                        console.log('进度条区域可见:', !elements.importProgress.classList.contains('d-none'));
-                        console.log('进度条宽度:', elements.importProgressBar.style.width);
-                        console.log('状态文本:', elements.importStatus.textContent);
+                        console.log('开始监控后台处理进度...');
 
                         monitorImportProgress(taskId, imageFiles.length);
                     } else {
