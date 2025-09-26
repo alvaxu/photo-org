@@ -570,16 +570,25 @@ async function startImport() {
 async function uploadFilesInBatches(allFiles, batchSize = 100) {
     const results = [];
     const totalBatches = Math.ceil(allFiles.length / batchSize);
+    const totalFiles = allFiles.length;
 
     // 显示分批上传状态
-    elements.importStatus.textContent = `正在分批上传，共${totalBatches}批...`;
-    elements.importDetails.textContent = `第一批开始处理...`;
+    elements.importStatus.textContent = `正在分批上传 ${totalFiles} 个文件，共${totalBatches}批...`;
+    elements.importDetails.textContent = `准备开始分批处理...`;
+
+    // 初始化进度条为0
+    elements.importProgressBar.style.width = '0%';
+    elements.importProgressBar.setAttribute('aria-valuenow', '0');
 
     for (let i = 0; i < totalBatches; i++) {
         const start = i * batchSize;
         const end = Math.min(start + batchSize, allFiles.length);
         const batchFiles = Array.from(allFiles).slice(start, end);
 
+        // 更新当前批次状态
+        const currentProgress = Math.round((i / totalBatches) * 100);
+        elements.importProgressBar.style.width = `${currentProgress}%`;
+        elements.importProgressBar.setAttribute('aria-valuenow', currentProgress);
         elements.importDetails.textContent = `正在上传第${i + 1}/${totalBatches}批: ${batchFiles.length}个文件...`;
 
         try {
@@ -602,6 +611,9 @@ async function uploadFilesInBatches(allFiles, batchSize = 100) {
                     files: batchFiles.length,
                     success: true
                 });
+
+                // 批次上传成功，显示成功状态
+                elements.importDetails.textContent = `第${i + 1}批上传成功 (${batchFiles.length}个文件) - 任务ID: ${data.data.task_id}`;
             } else {
                 results.push({
                     batchIndex: i + 1,
@@ -609,6 +621,9 @@ async function uploadFilesInBatches(allFiles, batchSize = 100) {
                     success: false,
                     error: data.message || '上传失败'
                 });
+
+                // 批次上传失败
+                elements.importDetails.textContent = `第${i + 1}批上传失败: ${data.message || '未知错误'}`;
             }
         } catch (error) {
             results.push({
@@ -617,8 +632,17 @@ async function uploadFilesInBatches(allFiles, batchSize = 100) {
                 success: false,
                 error: error.message
             });
+
+            // 批次上传出错
+            elements.importDetails.textContent = `第${i + 1}批上传出错: ${error.message}`;
         }
     }
+
+    // 所有批次上传完成
+    elements.importProgressBar.style.width = '100%';
+    elements.importProgressBar.setAttribute('aria-valuenow', '100');
+    elements.importStatus.textContent = `所有批次上传完成，正在后台处理...`;
+    elements.importDetails.textContent = `共上传${results.filter(r => r.success).length}/${totalBatches}批成功`;
 
     return results;
 }
@@ -662,15 +686,25 @@ async function startFileImport() {
                 return;
             }
 
-            // 所有批次都成功，开始监控第一个任务的进度
-            const firstTaskId = successfulBatches[0].taskId;
-            console.log(`所有批次上传成功，开始监控第一个任务: ${firstTaskId}`);
+            // 所有批次上传成功，显示总体处理状态
+            console.log(`所有批次上传成功，共${successfulBatches.length}批`);
 
-            elements.importStatus.textContent = `上传完成，正在后台处理...`;
-            elements.importDetails.textContent = `已成功上传${successfulBatches.length}批文件，正在处理第一个批次...`;
+            // 显示所有批次的任务ID
+            const taskIds = successfulBatches.map(b => b.taskId);
+            console.log('所有任务ID:', taskIds);
 
-            // 监控第一个批次的进度
-            monitorImportProgress(firstTaskId, successfulBatches[0].files);
+            // 显示总体处理状态
+            const totalUploadedFiles = successfulBatches.reduce((sum, b) => sum + b.files, 0);
+            elements.importStatus.textContent = `所有批次上传完成，正在后台处理 ${totalUploadedFiles} 个文件...`;
+            elements.importDetails.textContent = `已提交${successfulBatches.length}个后台处理任务，请等待服务器完成处理`;
+
+            // 由于所有批次都在同时处理，我们显示一个总体状态
+            // 不再监控单个任务进度，而是等待用户刷新页面查看结果
+            setTimeout(() => {
+                elements.importStatus.textContent = `后台处理中，请稍后刷新页面查看结果`;
+                elements.importDetails.textContent = `所有文件已上传，服务器正在处理中...`;
+                elements.importProgressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
+            }, 3000);
 
         } catch (error) {
             console.error('分批上传失败:', error);
@@ -899,15 +933,24 @@ async function startFolderImport() {
                 return;
             }
 
-            // 所有批次都成功，开始监控第一个任务的进度
-            const firstTaskId = successfulBatches[0].taskId;
-            console.log(`目录所有批次上传成功，开始监控第一个任务: ${firstTaskId}`);
+            // 所有批次上传成功，显示总体处理状态
+            console.log(`目录所有批次上传成功，共${successfulBatches.length}批`);
 
-            elements.importStatus.textContent = `目录上传完成，正在后台处理...`;
-            elements.importDetails.textContent = `已成功上传${successfulBatches.length}批目录文件，正在处理第一个批次...`;
+            // 显示所有批次的任务ID
+            const taskIds = successfulBatches.map(b => b.taskId);
+            console.log('目录所有任务ID:', taskIds);
 
-            // 监控第一个批次的进度
-            monitorImportProgress(firstTaskId, successfulBatches[0].files);
+            // 显示总体处理状态
+            const totalUploadedFiles = successfulBatches.reduce((sum, b) => sum + b.files, 0);
+            elements.importStatus.textContent = `目录所有批次上传完成，正在后台处理 ${totalUploadedFiles} 个文件...`;
+            elements.importDetails.textContent = `已提交${successfulBatches.length}个后台处理任务，请等待服务器完成处理`;
+
+            // 由于所有批次都在同时处理，我们显示一个总体状态
+            setTimeout(() => {
+                elements.importStatus.textContent = `后台处理中，请稍后刷新页面查看结果`;
+                elements.importDetails.textContent = `所有目录文件已上传，服务器正在处理中...`;
+                elements.importProgressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
+            }, 3000);
 
         } catch (error) {
             console.error('目录分批上传失败:', error);
