@@ -549,8 +549,8 @@ class ImportService:
             return
             
         try:
-            from app.models.photo import Photo, PhotoAnalysis, PhotoQuality, PhotoClassification
-            
+            from app.models.photo import Photo, PhotoAnalysis, PhotoQuality, PhotoCategory
+
             # 清理AI分析结果
             analysis_results = db_session.query(PhotoAnalysis).filter(
                 PhotoAnalysis.photo_id.in_(
@@ -559,7 +559,7 @@ class ImportService:
             ).all()
             for result in analysis_results:
                 db_session.delete(result)
-            
+
             # 清理质量评估结果
             quality_results = db_session.query(PhotoQuality).filter(
                 PhotoQuality.photo_id.in_(
@@ -568,19 +568,19 @@ class ImportService:
             ).all()
             for result in quality_results:
                 db_session.delete(result)
-            
-            # 清理分类结果
-            classification_results = db_session.query(PhotoClassification).filter(
-                PhotoClassification.photo_id.in_(
+
+            # 清理照片分类结果（PhotoCategory表）
+            category_results = db_session.query(PhotoCategory).filter(
+                PhotoCategory.photo_id.in_(
                     db_session.query(Photo.id).filter(Photo.file_hash == file_hash)
                 )
             ).all()
-            for result in classification_results:
+            for result in category_results:
                 db_session.delete(result)
-            
+
             db_session.commit()
             print(f"清理孤儿分析结果完成: {file_hash}")
-            
+
         except Exception as e:
             print(f"清理孤儿分析结果失败: {e}")
             db_session.rollback()
