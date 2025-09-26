@@ -622,20 +622,21 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
         try:
             for i, file in enumerate(files):
                 try:
-                    # 验证文件类型
-                    file_ext = Path(file.filename).suffix.lower()
+                    # 清理文件名：移除可能包含的路径前缀（如分批上传时的批次信息）
+                    clean_filename = Path(file.filename).name
+                    file_ext = Path(clean_filename).suffix.lower()
                     
                     # 特殊处理HEIC格式
                     if file_ext in ['.heic', '.heif']:
                         # HEIC格式的content_type可能为空，需要特殊处理
                         pass
                     elif not file.content_type or not file.content_type.startswith('image/'):
-                        failed_files.append(f"{file.filename}: 不支持的文件类型")
+                        failed_files.append(f"{clean_filename}: 不支持的文件类型")
                         failed_count += 1
                         continue
 
                     # 保存临时文件
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
                         shutil.copyfileobj(file.file, temp_file)
                         temp_path = temp_file.name
 
@@ -650,9 +651,9 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                             photo = photo_service.create_photo(db, photo_data)
                             if photo:
                                 imported_count += 1
-                                print(f"成功导入: {file.filename}")
+                                print(f"成功导入: {clean_filename}")
                             else:
-                                failed_files.append(f"{file.filename}: 数据库保存失败")
+                                failed_files.append(f"{clean_filename}: 数据库保存失败")
                                 failed_count += 1
                         elif duplicate_info:
                             # 处理重复文件 - 使用完整的重复检测逻辑
@@ -674,7 +675,7 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                                 imported_count += 1  # 清理后继续处理，计入成功
                             else:
                                 status_text = message
-                                failed_files.append(f"{file.filename}: {status_text}")
+                                failed_files.append(f"{clean_filename}: {status_text}")
                                 failed_count += 1
                                 continue
                         else:
@@ -700,17 +701,16 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
 
                 print(f"进度更新: {i + 1}/{len(files)} ({int((i + 1) / len(files) * 100)}%) - 导入:{imported_count}, 跳过:{skipped_count}, 失败:{failed_count}")
 
-                # 动态延迟：根据文件数量调整，让前端能看到进度变化
-                # 小批量文件(<10)：500ms，大批量文件：减少延迟以提高性能
+                # 动态延迟：仅对小批量文件添加延迟，让前端能看到进度变化
+                # 大批量文件移除延迟以提高性能，前端每秒检查一次进度足够
                 total_files = len(files)
-                if total_files <= 10:
-                    delay = 0.5  # 500ms for small batches
-                elif total_files <= 50:
-                    delay = 0.2  # 200ms for medium batches
+                if total_files <= 20:
+                    delay = 0.2  # 200ms for small batches, allow frontend to show progress
                 else:
-                    delay = 0.05  # 50ms for large batches, minimal impact on performance
+                    delay = 0.0  # No delay for large batches, rely on frontend polling
 
-                await asyncio.sleep(delay)
+                if delay > 0:
+                    await asyncio.sleep(delay)
 
         except Exception as e:
             task_status[task_id]["status"] = "failed"
