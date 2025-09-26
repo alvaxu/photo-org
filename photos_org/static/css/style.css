@@ -607,6 +607,32 @@
     background-color: #212529;
 }
 
+/* 质量评级badge样式 */
+.badge.excellent {
+    background-color: #198754;
+    color: white;
+}
+
+.badge.good {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.badge.average {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.badge.poor {
+    background-color: #fd7e14;
+    color: white;
+}
+
+.badge.bad {
+    background-color: #dc3545;
+    color: white;
+}
+
 /* Edge浏览器特定修复 */
 .edge-browser .photo-card .photo-image-container {
     /* 使用固定高度而不是aspect-ratio */
@@ -1485,54 +1511,21 @@ body {
     flex-shrink: 0;
 }
 
-/* ===== 新的质量⭐️显示样式 ===== */
-.quality-stars {
-    font-size: 0.85rem;
-    font-weight: bold;
-    display: inline-flex;
-    align-items: center;
-    gap: 1px;
-    padding: 2px 6px;
-    border-radius: 12px;
-    border: 1px solid transparent;
-    white-space: nowrap;
+/* ===== 质量图标显示样式 ===== */
+.quality-icon {
+    font-size: 1rem;
+    margin-right: 0.25rem;
+    vertical-align: middle;
 }
 
-/* 已评估的质量等级样式 - 基础样式 */
-.quality-stars.quality-assessed {
-    background: linear-gradient(135deg, #28a745, #20c997);
-    color: white;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    border-color: #28a745;
+/* 已评估的质量等级样式 */
+.quality-icon.quality-assessed {
+    opacity: 1;
 }
 
 /* 未评估状态样式 */
-.quality-stars.quality-unassessed {
-    background-color: #f8f9fa !important;
-    color: #6c757d !important;
-    border: 1px solid #dee2e6 !important;
-    font-size: 0.9rem;
-}
-
-/* 不同质量等级的颜色区分 - 使用更具体的选择器 */
-.quality-stars.quality-assessed[data-level="excellent"] {
-    background: linear-gradient(135deg, #28a745, #20c997) !important; /* 绿色 */
-}
-
-.quality-stars.quality-assessed[data-level="good"] {
-    background: linear-gradient(135deg, #17a2b8, #20c997) !important; /* 青色 */
-}
-
-.quality-stars.quality-assessed[data-level="average"] {
-    background: linear-gradient(135deg, #ffc107, #fd7e14) !important; /* 橙色 */
-}
-
-.quality-stars.quality-assessed[data-level="poor"] {
-    background: linear-gradient(135deg, #fd7e14, #dc3545) !important; /* 红色 */
-}
-
-.quality-stars.quality-assessed[data-level="bad"] {
-    background: linear-gradient(135deg, #dc3545, #6c757d) !important; /* 深红 */
+.quality-icon.quality-unassessed {
+    opacity: 0.6;
 }
 
 /* AI状态图标样式 */
@@ -1569,9 +1562,8 @@ body {
 
 /* 响应式调整 */
 @media (max-width: 768px) {
-    .quality-stars {
-        font-size: 0.75rem;
-        padding: 1px 4px;
+    .quality-icon {
+        font-size: 0.875rem;
     }
 
     .ai-status-icon {
@@ -2194,6 +2186,31 @@ body {
     background: #d4edda;
     color: #155724;
     border: 1px solid #c3e6cb;
+}
+
+.photo-status-badge.status-quality-completed {
+    background: #e7f3ff;
+    color: #0066cc;
+    border: 1px solid #b3d9ff;
+}
+
+.photo-status-badge.status-content-completed {
+    background: #f0f8ff;
+    color: #0066cc;
+    border: 1px solid #b3d9ff;
+}
+
+.photo-status-badge.status-analyzing {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+    animation: pulse 2s infinite;
+}
+
+.photo-status-badge.status-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
 }
 
 

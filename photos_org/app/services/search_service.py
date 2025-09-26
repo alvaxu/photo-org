@@ -71,8 +71,10 @@ class SearchService:
             (照片列表, 总数)
         """
         try:
-            # 构建基础查询 - 只搜索已完成的照片
-            query = db.query(Photo).filter(Photo.status.in_(['imported', 'completed']))
+            # 构建基础查询 - 搜索所有有效状态的照片
+            query = db.query(Photo).filter(Photo.status.in_([
+                'imported', 'analyzing', 'quality_completed', 'content_completed', 'completed'
+            ]))
 
             # 关键词搜索
             if keyword:
@@ -508,7 +510,9 @@ class SearchService:
 
         try:
             # 基本统计
-            stats["total_photos"] = db.query(Photo).filter(Photo.status.in_(['imported', 'completed'])).count()
+            stats["total_photos"] = db.query(Photo).filter(Photo.status.in_([
+                'imported', 'analyzing', 'quality_completed', 'content_completed', 'completed'
+            ])).count()
             stats["total_tags"] = db.query(Tag).count()
             stats["total_categories"] = db.query(Category).count()
 
@@ -527,7 +531,9 @@ class SearchService:
                 func.strftime('%Y', Photo.taken_at),
                 func.count(Photo.id)
             ).filter(
-                Photo.status.in_(['imported', 'completed']),
+                Photo.status.in_([
+                    'imported', 'quality_completed', 'content_completed', 'completed'
+                ]),
                 Photo.taken_at.isnot(None)
             ).group_by(func.strftime('%Y', Photo.taken_at)).all()
 
@@ -540,7 +546,9 @@ class SearchService:
                 Photo.camera_make,
                 func.count(Photo.id)
             ).filter(
-                Photo.status.in_(['imported', 'completed']),
+                Photo.status.in_([
+                    'imported', 'quality_completed', 'content_completed', 'completed'
+                ]),
                 Photo.camera_make.isnot(None)
             ).group_by(Photo.camera_make).all()
 

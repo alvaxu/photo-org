@@ -18,30 +18,60 @@
  */
 function getProcessingStatus(photo) {
     // 处理中状态 - 优先级最高
-    if (photo.status === 'processing') {
+    if (photo.status === 'analyzing') {
         return {
-            status: 'processing',
+            status: 'analyzing',
             iconClass: 'bi-hourglass-split',
             text: '分析中',
-            className: 'status-processing',
+            className: 'status-analyzing',
             canProcess: false
         };
     }
 
-    // 已处理状态 - 有分析记录
-    if (photo.analysis || photo.quality) {
+    // 根据精确状态判断
+    if (photo.status === 'completed') {
         return {
             status: 'completed',
-            iconClass: 'bi-check-circle',
-            text: '已分析',
+            iconClass: 'bi-check-circle-fill',
+            text: '完整分析完成',
             className: 'status-completed',
+            canProcess: true  // 支持重新处理
+        };
+    }
+
+    if (photo.status === 'quality_completed') {
+        return {
+            status: 'quality_completed',
+            iconClass: 'bi-check-circle',
+            text: '基础分析完成',
+            className: 'status-quality-completed',
+            canProcess: true  // 支持继续AI分析或重新处理
+        };
+    }
+
+    if (photo.status === 'content_completed') {
+        return {
+            status: 'content_completed',
+            iconClass: 'bi-check-circle',
+            text: 'AI分析完成',
+            className: 'status-content-completed',
+            canProcess: true  // 支持继续基础分析或重新处理
+        };
+    }
+
+    if (photo.status === 'error') {
+        return {
+            status: 'error',
+            iconClass: 'bi-exclamation-triangle',
+            text: '分析失败',
+            className: 'status-error',
             canProcess: true  // 支持重新处理
         };
     }
 
     // 未处理状态 - 默认状态
     return {
-        status: 'unprocessed',
+        status: 'imported',
         iconClass: 'bi-robot',
         text: '未分析',
         className: 'status-unprocessed',
@@ -113,9 +143,10 @@ function createPhotoCard(photo) {
                 <div class="photo-header">
                     <div class="photo-title">${photo.filename}</div>
                     <div class="photo-quality-container">
-                        <span class="quality-stars ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
-                              data-level="${qualityStatus.level}"
-                              title="${qualityStatus.title}">${qualityStatus.stars}</span>
+                        <i class="bi ${qualityStatus.icon} quality-icon ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
+                           data-level="${qualityStatus.level}"
+                           title="${qualityStatus.title}"
+                           style="color: ${qualityStatus.color}"></i>
                         <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
                            title="${aiStatus.title}"></i>
                     </div>
@@ -220,9 +251,10 @@ function createPhotoListItem(photo) {
                     <div class="photo-title-container">
                         <div class="photo-title">${photo.filename}</div>
                         <div class="photo-quality-container">
-                            <span class="quality-stars ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
-                                  data-level="${qualityStatus.level}"
-                                  title="${qualityStatus.title}">${qualityStatus.stars}</span>
+                            <i class="bi ${qualityStatus.icon} quality-icon ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
+                               data-level="${qualityStatus.level}"
+                               title="${qualityStatus.title}"
+                               style="color: ${qualityStatus.color}"></i>
                             <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
                                title="${aiStatus.title}"></i>
                         </div>
@@ -1035,9 +1067,12 @@ class PhotoSelector {
     // 更新状态统计
     updateStatusSummary() {
         const statusCounts = {
-            unprocessed: 0,
-            processing: 0,
-            completed: 0
+            imported: 0,
+            analyzing: 0,
+            quality_completed: 0,
+            content_completed: 0,
+            completed: 0,
+            error: 0
         };
 
         this.selectedPhotos.forEach(photoId => {
@@ -1056,14 +1091,23 @@ class PhotoSelector {
         });
 
         const summaryParts = [];
-        if (statusCounts.unprocessed > 0) {
-            summaryParts.push(`${statusCounts.unprocessed}张未分析`);
+        if (statusCounts.imported > 0) {
+            summaryParts.push(`${statusCounts.imported}张未分析`);
         }
-        if (statusCounts.processing > 0) {
-            summaryParts.push(`${statusCounts.processing}张分析中`);
+        if (statusCounts.analyzing > 0) {
+            summaryParts.push(`${statusCounts.analyzing}张分析中`);
+        }
+        if (statusCounts.quality_completed > 0) {
+            summaryParts.push(`${statusCounts.quality_completed}张基础分析完成`);
+        }
+        if (statusCounts.content_completed > 0) {
+            summaryParts.push(`${statusCounts.content_completed}张AI分析完成`);
         }
         if (statusCounts.completed > 0) {
-            summaryParts.push(`${statusCounts.completed}张已分析`);
+            summaryParts.push(`${statusCounts.completed}张完整分析完成`);
+        }
+        if (statusCounts.error > 0) {
+            summaryParts.push(`${statusCounts.error}张分析失败`);
         }
 
         document.getElementById('statusSummary').textContent =
@@ -1081,42 +1125,49 @@ class PhotoSelector {
         }
     }
 
-    // 启用智能处理按钮
+    // 启用分析按钮
     enableProcessButtons() {
-        console.log('=== 启用智能处理按钮 ===');
-        const processBtn = document.getElementById('processSelectedBtn');
-        console.log('找到按钮元素:', !!processBtn);
+        console.log('=== 启用分析按钮 ===');
+        const basicBtn = document.getElementById('basicProcessSelectedBtn');
+        const aiBtn = document.getElementById('aiProcessSelectedBtn');
 
-        if (processBtn) {
-            console.log('按钮当前状态 - disabled:', processBtn.disabled, 'innerHTML:', processBtn.innerHTML);
-            processBtn.disabled = false;
-            processBtn.innerHTML = '<i class="bi bi-robot"></i> 智能处理';
-            console.log('按钮已启用，新的状态 - disabled:', processBtn.disabled);
-
-            // 验证按钮是否真的启用了
-            setTimeout(() => {
-                console.log('延迟检查按钮状态 - disabled:', processBtn.disabled);
-            }, 100);
+        if (basicBtn) {
+            basicBtn.disabled = false;
+            basicBtn.innerHTML = '<i class="bi bi-graph-up"></i> 基础分析';
+            console.log('基础分析按钮已启用');
         } else {
-            console.error('未找到智能处理按钮');
-            console.log('页面中的所有按钮:');
-            const allButtons = document.querySelectorAll('button');
-            allButtons.forEach((btn, index) => {
-                console.log(`按钮 ${index}: id=${btn.id}, disabled=${btn.disabled}`);
-            });
+            console.error('未找到基础分析按钮');
+        }
+
+        if (aiBtn) {
+            aiBtn.disabled = false;
+            aiBtn.innerHTML = '<i class="bi bi-robot"></i> AI分析';
+            console.log('AI分析按钮已启用');
+        } else {
+            console.error('未找到AI分析按钮');
         }
     }
 
-    // 禁用智能处理按钮
+    // 禁用分析按钮
     disableProcessButtons() {
-        console.log('禁用智能处理按钮');
-        const processBtn = document.getElementById('processSelectedBtn');
-        if (processBtn) {
-            processBtn.disabled = true;
-            processBtn.innerHTML = '<i class="bi bi-robot"></i> 智能处理';
-            console.log('按钮已禁用');
+        console.log('禁用分析按钮');
+        const basicBtn = document.getElementById('basicProcessSelectedBtn');
+        const aiBtn = document.getElementById('aiProcessSelectedBtn');
+
+        if (basicBtn) {
+            basicBtn.disabled = true;
+            basicBtn.innerHTML = '<i class="bi bi-graph-up"></i> 基础分析';
+            console.log('基础分析按钮已禁用');
         } else {
-            console.error('未找到智能处理按钮');
+            console.error('未找到基础分析按钮');
+        }
+
+        if (aiBtn) {
+            aiBtn.disabled = true;
+            aiBtn.innerHTML = '<i class="bi bi-robot"></i> AI分析';
+            console.log('AI分析按钮已禁用');
+        } else {
+            console.error('未找到AI分析按钮');
         }
     }
 

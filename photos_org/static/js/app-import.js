@@ -995,11 +995,16 @@ async function startBatchProcess() {
                          // 立即停止状态检查
                          clearInterval(statusCheckInterval);
                          
-                         window.elements.batchProgressBar.style.width = '100%';
-                         window.elements.batchStatus.textContent = '智能处理完成！';
-                         
-                         // 重置按钮状态
-                         window.elements.startBatchBtn.disabled = false;
+                        window.elements.batchProgressBar.style.width = '100%';
+                        window.elements.batchStatus.textContent = '智能处理完成！';
+
+                        // 重置按钮状态
+                        window.elements.startBatchBtn.disabled = false;
+
+                        // 清除照片选择状态
+                        if (window.clearSelection) {
+                            window.clearSelection();
+                        }
                          
                          // 立即关闭智能处理模态框
                          const modal = bootstrap.Modal.getInstance(window.elements.batchModal);
@@ -1179,6 +1184,30 @@ document.addEventListener('DOMContentLoaded', function() {
     if (batchModal) {
         batchModal.addEventListener('shown.bs.modal', onBatchModalShow);
     }
+
+    // 基础分析按钮事件监听
+    const basicAnalysisBtn = document.getElementById('basicAnalysisBtn');
+    if (basicAnalysisBtn) {
+        basicAnalysisBtn.addEventListener('click', startBasicAnalysis);
+    }
+
+    // AI分析按钮事件监听
+    const aiAnalysisBtn = document.getElementById('aiAnalysisBtn');
+    if (aiAnalysisBtn) {
+        aiAnalysisBtn.addEventListener('click', startAIAnalysis);
+    }
+
+    // 基础分析模态框中的开始按钮事件监听
+    const startBasicBtn = document.getElementById('startBasicBtn');
+    if (startBasicBtn) {
+        startBasicBtn.addEventListener('click', startBasicProcess);
+    }
+
+    // AI分析模态框中的开始按钮事件监听
+    const startAIBtn = document.getElementById('startAIBtn');
+    if (startAIBtn) {
+        startAIBtn.addEventListener('click', startAIProcess);
+    }
 });
 
 window.startImport = startImport;
@@ -1203,6 +1232,10 @@ window.showImportConfirmation = showImportConfirmation;
 window.confirmFolderImport = confirmFolderImport;
 window.cancelFolderImport = cancelFolderImport;
 window.hideFolderPreview = hideFolderPreview;
+window.startBasicAnalysis = startBasicAnalysis;
+window.startAIAnalysis = startAIAnalysis;
+window.startBasicProcess = startBasicProcess;
+window.startAIProcess = startAIProcess;
 
 /**
  * 监控导入任务进度
@@ -1813,8 +1846,680 @@ console.log('BatchProcessor实例创建完成:', !!window.batchProcessor);
 // 所有选中的照片都要处理，包括已分析的
 window.processSelectedPhotos = () => window.batchProcessor.processSelectedPhotos(true);
 window.reprocessSelectedPhotos = () => window.batchProcessor.processSelectedPhotos(true);
+
+/**
+ * 开始基础分析
+ */
+async function startBasicAnalysis() {
+    console.log('开始基础分析');
+
+    // 重置模态框状态到初始状态
+    resetBasicModal();
+
+    // 显示基础分析模态框
+    const modal = new bootstrap.Modal(document.getElementById('basicModal'));
+    modal.show();
+
+    // 获取基础分析统计信息
+    try {
+        const countResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/basic-pending-count`);
+        const countData = await countResponse.json();
+
+        const countInfo = document.getElementById('basicPhotoCountInfo');
+        const countText = document.getElementById('basicPhotoCountText');
+        const startBtn = document.getElementById('startBasicBtn');
+
+        if (countResponse.ok && countData.count > 0) {
+            // 有照片需要分析
+            countInfo.style.display = 'block';
+            countText.textContent = `发现 ${countData.count} 张照片需要基础分析`;
+            startBtn.disabled = false;
+            startBtn.textContent = '开始基础分析';
+        } else if (countResponse.ok && countData.count === 0) {
+            // 所有照片都已完成基础分析
+            countInfo.style.display = 'block';
+            countText.textContent = '所有照片都已完成基础分析';
+            startBtn.disabled = true;
+            startBtn.textContent = '无需分析';
+        } else {
+            // API调用失败
+            countInfo.style.display = 'none';
+            startBtn.disabled = true;
+            startBtn.textContent = '开始基础分析';
+        }
+    } catch (error) {
+        console.error('获取基础分析统计失败:', error);
+        // 出错时隐藏统计信息并禁用按钮
+        document.getElementById('basicPhotoCountInfo').style.display = 'none';
+        document.getElementById('startBasicBtn').disabled = true;
+        document.getElementById('startBasicBtn').textContent = '开始基础分析';
+    }
+}
+
+/**
+ * 开始AI分析
+ */
+async function startAIAnalysis() {
+    console.log('开始AI分析');
+
+    // 重置模态框状态到初始状态
+    resetAIModal();
+
+    // 显示AI分析模态框
+    const modal = new bootstrap.Modal(document.getElementById('aiModal'));
+    modal.show();
+
+    // 获取AI分析统计信息
+    try {
+        const countResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/ai-pending-count`);
+        const countData = await countResponse.json();
+
+        const countInfo = document.getElementById('aiPhotoCountInfo');
+        const countText = document.getElementById('aiPhotoCountText');
+        const startBtn = document.getElementById('startAIBtn');
+
+        if (countResponse.ok && countData.count > 0) {
+            // 有照片需要分析
+            countInfo.style.display = 'block';
+            countText.textContent = `发现 ${countData.count} 张照片需要AI分析`;
+            startBtn.disabled = false;
+            startBtn.textContent = '开始AI分析';
+        } else if (countResponse.ok && countData.count === 0) {
+            // 所有照片都已完成AI分析
+            countInfo.style.display = 'block';
+            countText.textContent = '所有照片都已完成AI分析';
+            startBtn.disabled = true;
+            startBtn.textContent = '无需分析';
+        } else {
+            // API调用失败
+            countInfo.style.display = 'none';
+            startBtn.disabled = true;
+            startBtn.textContent = '开始AI分析';
+        }
+    } catch (error) {
+        console.error('获取AI分析统计失败:', error);
+        // 出错时隐藏统计信息并禁用按钮
+        document.getElementById('aiPhotoCountInfo').style.display = 'none';
+        document.getElementById('startAIBtn').disabled = true;
+        document.getElementById('startAIBtn').textContent = '开始AI分析';
+    }
+}
+
+/**
+ * 执行基础分析处理
+ */
+async function startBasicProcess() {
+    console.log('执行基础分析处理');
+
+    // 显示进度
+    document.getElementById('basicProgress').classList.remove('d-none');
+    document.getElementById('startBasicBtn').disabled = true;
+    document.getElementById('basicProgressBar').style.width = '0%';
+    document.getElementById('basicStatus').textContent = '正在准备基础分析...';
+
+    try {
+        // 获取需要基础分析的照片ID
+        const pendingResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/basic-pending-photos`);
+        const pendingData = await pendingResponse.json();
+
+        if (!pendingResponse.ok) {
+            showError('获取待分析照片列表失败');
+            return;
+        }
+
+        const photoIds = pendingData.photo_ids || [];
+
+        if (photoIds.length === 0) {
+            showWarning('没有找到需要基础分析的照片');
+            document.getElementById('startBasicBtn').disabled = false;
+            return;
+        }
+
+        // 开始基础分析
+        const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                photo_ids: photoIds,
+                analysis_types: ['quality']  // 基础分析只包含质量评估
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            showError('开始基础分析失败: ' + (data.detail || '未知错误'));
+            document.getElementById('startBasicBtn').disabled = false;
+            return;
+        }
+
+        // 获取任务开始时的待处理照片总数（imported + error）
+        let pendingTotal = photoIds.length; // 默认使用本次任务的照片数
+        try {
+            const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/queue/status`);
+            const statusData = await statusResponse.json();
+            if (statusResponse.ok) {
+                pendingTotal = statusData.batch_pending_photos || photoIds.length;
+            }
+        } catch (error) {
+            console.warn('获取待处理总数失败，使用默认值:', error);
+        }
+
+        // 监控分析进度
+        await monitorBasicAnalysisProgress(data.task_id, photoIds.length, pendingTotal);
+
+    } catch (error) {
+        console.error('基础分析处理失败:', error);
+        showError('基础分析失败: ' + error.message);
+        document.getElementById('startBasicBtn').disabled = false;
+    }
+}
+
+/**
+ * 执行AI分析处理
+ */
+async function startAIProcess() {
+    console.log('执行AI分析处理');
+
+    // 显示进度
+    document.getElementById('aiProgress').classList.remove('d-none');
+    document.getElementById('startAIBtn').disabled = true;
+    document.getElementById('aiProgressBar').style.width = '0%';
+    document.getElementById('aiStatus').textContent = '正在准备AI分析...';
+
+    try {
+        // 获取需要AI分析的照片ID
+        const pendingResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/ai-pending-photos`);
+        const pendingData = await pendingResponse.json();
+
+        if (!pendingResponse.ok) {
+            showError('获取待分析照片列表失败');
+            return;
+        }
+
+        const photoIds = pendingData.photo_ids || [];
+
+        if (photoIds.length === 0) {
+            showWarning('没有找到需要AI分析的照片');
+            document.getElementById('startAIBtn').disabled = false;
+            return;
+        }
+
+        // 开始AI分析
+        const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                photo_ids: photoIds,
+                analysis_types: ['content']  // AI分析只包含内容分析
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            showError('开始AI分析失败: ' + (data.detail || '未知错误'));
+            document.getElementById('startAIBtn').disabled = false;
+            return;
+        }
+
+        // 获取任务开始时的待处理照片总数（imported + error）
+        let pendingTotal = photoIds.length; // 默认使用本次任务的照片数
+        try {
+            const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/queue/status`);
+            const statusData = await statusResponse.json();
+            if (statusResponse.ok) {
+                pendingTotal = statusData.batch_pending_photos || photoIds.length;
+            }
+        } catch (error) {
+            console.warn('获取待处理总数失败，使用默认值:', error);
+        }
+
+        // 监控分析进度
+        await monitorAIAnalysisProgress(data.task_id, photoIds.length, pendingTotal);
+
+    } catch (error) {
+        console.error('AI分析处理失败:', error);
+        showError('AI分析失败: ' + error.message);
+        document.getElementById('startAIBtn').disabled = false;
+    }
+}
+
+/**
+ * 监控基础分析进度
+ */
+async function monitorBasicAnalysisProgress(taskId, totalPhotos, initialTotal) {
+    let checkCount = 0;
+    const maxChecks = 120; // 最多检查120次，每次1秒，总共2分钟
+
+    const statusCheckInterval = setInterval(async () => {
+        checkCount++;
+
+        try {
+            const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/task-status/${taskId}?initial_total=${initialTotal}`);
+            const statusData = await statusResponse.json();
+
+            console.log('基础分析状态:', statusData);
+
+            // 更新进度条
+            const progress = Math.min(statusData.progress_percentage || 0, 95);
+            document.getElementById('basicProgressBar').style.width = `${progress}%`;
+            document.getElementById('basicStatus').textContent = `正在分析... ${Math.round(progress)}% (${statusData.completed_photos}/${statusData.total_photos})`;
+
+            // 检查是否完成
+            if (statusData.status === 'completed' || statusData.processing_photos === 0) {
+                clearInterval(statusCheckInterval);
+
+                document.getElementById('basicProgressBar').style.width = '100%';
+                document.getElementById('basicStatus').textContent = '基础分析完成！';
+
+                // 重置按钮状态
+                document.getElementById('startBasicBtn').disabled = false;
+
+                // 清除照片选择状态
+                if (window.clearSelection) {
+                    window.clearSelection();
+                }
+
+                // 关闭基础分析模态框
+                const modal = bootstrap.Modal.getInstance(document.getElementById('basicModal'));
+                if (modal) {
+                    modal.hide();
+
+                    // 监听模态框关闭事件
+                    document.getElementById('basicModal').addEventListener('hidden.bs.modal', function onModalHidden() {
+                        document.getElementById('basicModal').removeEventListener('hidden.bs.modal', onModalHidden);
+
+                        try {
+                            showBasicProcessDetails(statusData);
+                        } catch (error) {
+                            console.error('显示基础分析结果详情失败:', error);
+                            showError('显示处理结果失败: ' + error.message);
+                        }
+                    }, { once: true });
+                } else {
+                    // 如果无法获取模态框实例，直接显示结果详情
+                    try {
+                        showBasicProcessDetails(statusData);
+                    } catch (error) {
+                        console.error('显示基础分析结果详情失败:', error);
+                        showError('显示处理结果失败: ' + error.message);
+                    }
+                }
+
+                // 刷新数据
+                try {
+                    if (window.loadPhotos) await window.loadPhotos();
+                    if (window.loadStats) await window.loadStats();
+                } catch (error) {
+                    console.error('刷新数据失败:', error);
+                }
+            }
+
+        } catch (error) {
+            console.error('检查基础分析状态失败:', error);
+        }
+
+        // 超时检查
+        if (checkCount >= maxChecks) {
+            clearInterval(statusCheckInterval);
+            showError('基础分析超时，请稍后重试');
+            document.getElementById('startBasicBtn').disabled = false;
+        }
+    }, 1000);
+}
+
+/**
+ * 监控AI分析进度
+ */
+async function monitorAIAnalysisProgress(taskId, totalPhotos, initialTotal) {
+    let checkCount = 0;
+    const maxChecks = 120; // 最多检查120次，每次1秒，总共2分钟
+
+    const statusCheckInterval = setInterval(async () => {
+        checkCount++;
+
+        try {
+            const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/task-status/${taskId}?initial_total=${initialTotal}`);
+            const statusData = await statusResponse.json();
+
+            console.log('AI分析状态:', statusData);
+
+            // 更新进度条
+            const progress = Math.min(statusData.progress_percentage || 0, 95);
+            document.getElementById('aiProgressBar').style.width = `${progress}%`;
+            document.getElementById('aiStatus').textContent = `正在分析... ${Math.round(progress)}% (${statusData.completed_photos}/${statusData.total_photos})`;
+
+            // 检查是否完成
+            if (statusData.status === 'completed' || statusData.processing_photos === 0) {
+                clearInterval(statusCheckInterval);
+
+                document.getElementById('aiProgressBar').style.width = '100%';
+                document.getElementById('aiStatus').textContent = 'AI分析完成！';
+
+                // 重置按钮状态
+                document.getElementById('startAIBtn').disabled = false;
+
+                // 清除照片选择状态
+                if (window.clearSelection) {
+                    window.clearSelection();
+                }
+
+                // 关闭AI分析模态框
+                const modal = bootstrap.Modal.getInstance(document.getElementById('aiModal'));
+                if (modal) {
+                    modal.hide();
+
+                    // 监听模态框关闭事件
+                    document.getElementById('aiModal').addEventListener('hidden.bs.modal', function onModalHidden() {
+                        document.getElementById('aiModal').removeEventListener('hidden.bs.modal', onModalHidden);
+
+                        try {
+                            showAIProcessDetails(statusData);
+                        } catch (error) {
+                            console.error('显示AI分析结果详情失败:', error);
+                            showError('显示处理结果失败: ' + error.message);
+                        }
+                    }, { once: true });
+                } else {
+                    // 如果无法获取模态框实例，直接显示结果详情
+                    try {
+                        showAIProcessDetails(statusData);
+                    } catch (error) {
+                        console.error('显示AI分析结果详情失败:', error);
+                        showError('显示处理结果失败: ' + error.message);
+                    }
+                }
+
+                // 刷新数据
+                try {
+                    if (window.loadPhotos) await window.loadPhotos();
+                    if (window.loadStats) await window.loadStats();
+                } catch (error) {
+                    console.error('刷新数据失败:', error);
+                }
+            }
+
+        } catch (error) {
+            console.error('检查AI分析状态失败:', error);
+        }
+
+        // 超时检查
+        if (checkCount >= maxChecks) {
+            clearInterval(statusCheckInterval);
+            showError('AI分析超时，请稍后重试');
+            document.getElementById('startAIBtn').disabled = false;
+        }
+    }, 1000);
+}
+// 处理选中的照片 - 基础分析
+window.processSelectedPhotosBasic = async (photoIds) => {
+    console.log('开始处理选中照片的基础分析:', photoIds);
+
+    const modalHtml = `
+        <div class="modal fade" id="selectedBasicProcessModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">基础分析确认</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            基础分析将对选中的 ${photoIds.length} 张照片进行质量评估，生成时间、EXIF等基础标签<br>
+                            此功能无需AI，处理速度快，完全免费
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            取消
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="startSelectedBasicProcessing(${JSON.stringify(photoIds).replace(/"/g, '&quot;')})">
+                            <i class="bi bi-play-fill me-1"></i> 开始基础分析
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('selectedBasicProcessModal'));
+    modal.show();
+
+    document.getElementById('selectedBasicProcessModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+};
+
+// 处理选中的照片 - AI分析
+window.processSelectedPhotosAI = async (photoIds) => {
+    console.log('开始处理选中照片的AI分析:', photoIds);
+
+    const modalHtml = `
+        <div class="modal fade" id="selectedAIProcessModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">AI分析确认</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            AI分析将对选中的 ${photoIds.length} 张照片进行深度内容分析，生成场景、物体、情感等AI标签<br>
+                            此功能需要AI，处理速度较慢，会产生费用
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            取消
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="startSelectedAIProcessing(${JSON.stringify(photoIds).replace(/"/g, '&quot;')})">
+                            <i class="bi bi-play-fill me-1"></i> 开始AI分析
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('selectedAIProcessModal'));
+    modal.show();
+
+    document.getElementById('selectedAIProcessModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+};
+
+// 开始处理选中的照片 - 基础分析
+window.startSelectedBasicProcessing = async (photoIds) => {
+    console.log('开始处理选中照片的基础分析:', photoIds);
+
+    // 关闭确认模态框
+    const confirmModal = bootstrap.Modal.getInstance(document.getElementById('selectedBasicProcessModal'));
+    if (confirmModal) {
+        confirmModal.hide();
+    }
+
+    // 显示基础分析模态框
+    resetBasicModal();
+    const modal = new bootstrap.Modal(document.getElementById('basicModal'));
+    modal.show();
+
+    // 直接开始处理选中的照片
+    await startSelectedBasicAnalysis(photoIds);
+};
+
+// 开始处理选中的照片 - AI分析
+window.startSelectedAIProcessing = async (photoIds) => {
+    console.log('开始处理选中照片的AI分析:', photoIds);
+
+    // 关闭确认模态框
+    const confirmModal = bootstrap.Modal.getInstance(document.getElementById('selectedAIProcessModal'));
+    if (confirmModal) {
+        confirmModal.hide();
+    }
+
+    // 显示AI分析模态框
+    resetAIModal();
+    const modal = new bootstrap.Modal(document.getElementById('aiModal'));
+    modal.show();
+
+    // 直接开始处理选中的照片
+    await startSelectedAIAnalysis(photoIds);
+};
+
+// 处理选中的照片 - 基础分析（直接使用选中的照片ID）
+async function startSelectedBasicAnalysis(selectedPhotoIds) {
+    console.log('执行选中照片的基础分析处理:', selectedPhotoIds);
+
+    // 显示进度
+    document.getElementById('basicProgress').classList.remove('d-none');
+    document.getElementById('startBasicBtn').disabled = true;
+    document.getElementById('basicProgressBar').style.width = '0%';
+    document.getElementById('basicStatus').textContent = '正在准备基础分析...';
+
+    try {
+        // 直接使用选中的照片ID
+        const photoIds = selectedPhotoIds;
+
+        if (photoIds.length === 0) {
+            showWarning('没有选中需要基础分析的照片');
+            document.getElementById('startBasicBtn').disabled = false;
+            return;
+        }
+
+        // 开始基础分析
+        const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                photo_ids: photoIds,
+                analysis_types: ['quality'],
+                force_reprocess: true
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('基础分析请求失败');
+        }
+
+        const result = await response.json();
+        console.log('基础分析任务已启动:', result);
+
+        // 监控处理进度
+        await monitorBasicAnalysisProgress(result.task_id, photoIds.length, photoIds.length);
+
+    } catch (error) {
+        console.error('基础分析启动失败:', error);
+        showError('基础分析启动失败: ' + error.message);
+        document.getElementById('startBasicBtn').disabled = false;
+    }
+}
+
+// 处理选中的照片 - AI分析（直接使用选中的照片ID）
+async function startSelectedAIAnalysis(selectedPhotoIds) {
+    console.log('执行选中照片的AI分析处理:', selectedPhotoIds);
+
+    // 显示进度
+    document.getElementById('aiProgress').classList.remove('d-none');
+    document.getElementById('startAIBtn').disabled = true;
+    document.getElementById('aiProgressBar').style.width = '0%';
+    document.getElementById('aiStatus').textContent = '正在准备AI分析...';
+
+    try {
+        // 直接使用选中的照片ID
+        const photoIds = selectedPhotoIds;
+
+        if (photoIds.length === 0) {
+            showWarning('没有选中需要AI分析的照片');
+            document.getElementById('startAIBtn').disabled = false;
+            return;
+        }
+
+        // 开始AI分析
+        const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                photo_ids: photoIds,
+                analysis_types: ['content'],
+                force_reprocess: true
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('AI分析请求失败');
+        }
+
+        const result = await response.json();
+        console.log('AI分析任务已启动:', result);
+
+        // 监控处理进度
+        await monitorAIAnalysisProgress(result.task_id, photoIds.length, photoIds.length);
+
+    } catch (error) {
+        console.error('AI分析启动失败:', error);
+        showError('AI分析启动失败: ' + error.message);
+        document.getElementById('startAIBtn').disabled = false;
+    }
+}
+
 window.startBatchProcessing = (photoIds, forceReprocess) => window.batchProcessor.startBatchProcessing(photoIds, forceReprocess);
+
+/**
+ * 重置基础分析模态框到初始状态
+ */
+function resetBasicModal() {
+    // 隐藏进度条
+    document.getElementById('basicProgress').classList.add('d-none');
+
+    // 重置进度条
+    document.getElementById('basicProgressBar').style.width = '0%';
+
+    // 重置状态文本
+    document.getElementById('basicStatus').textContent = '正在处理...';
+
+    // 启用开始按钮
+    document.getElementById('startBasicBtn').disabled = false;
+
+    // 隐藏照片数量统计（会根据API响应重新显示）
+    document.getElementById('basicPhotoCountInfo').style.display = 'none';
+}
+
+/**
+ * 重置AI分析模态框到初始状态
+ */
+function resetAIModal() {
+    // 隐藏进度条
+    document.getElementById('aiProgress').classList.add('d-none');
+
+    // 重置进度条
+    document.getElementById('aiProgressBar').style.width = '0%';
+
+    // 重置状态文本
+    document.getElementById('aiStatus').textContent = '正在处理...';
+
+    // 启用开始按钮
+    document.getElementById('startAIBtn').disabled = false;
+
+    // 隐藏照片数量统计（会根据API响应重新显示）
+    document.getElementById('aiPhotoCountInfo').style.display = 'none';
+}
 
 // 导出函数到全局作用域
 window.monitorImportProgress = monitorImportProgress;
+window.resetBasicModal = resetBasicModal;
+window.resetAIModal = resetAIModal;
 

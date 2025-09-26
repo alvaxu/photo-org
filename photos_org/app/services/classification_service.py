@@ -188,9 +188,34 @@ class ClassificationService:
             # 保存分类结果
             saved_categories = self._save_classifications(photo_id, classifications, db)
 
-            # 生成自动标签
-            auto_tags = self._generate_auto_tags(photo, analysis_results)
-            saved_tags = self._save_auto_tags(photo_id, auto_tags, db)
+            # 根据分析结果类型生成相应的标签
+            auto_tags = []
+
+            # 检查是否有质量分析结果
+            quality_analysis = None
+            for analysis in analysis_results:
+                if analysis.analysis_type == 'quality':
+                    quality_analysis = analysis.analysis_result
+                    break
+
+            # 检查是否有内容分析结果
+            content_analysis = None
+            for analysis in analysis_results:
+                if analysis.analysis_type == 'content':
+                    content_analysis = analysis.analysis_result
+                    break
+
+            # 生成基础标签（如果有质量分析结果）
+            if quality_analysis:
+                basic_tags = self.generate_basic_tags(photo, quality_analysis, db)
+                auto_tags.extend(basic_tags)
+
+            # 生成AI标签（如果有内容分析结果）
+            if content_analysis:
+                ai_tags = self.generate_ai_tags(content_analysis)
+                auto_tags.extend(ai_tags)
+
+            saved_tags = self._save_auto_tags(photo_id, auto_tags, db) if auto_tags else []
 
             return {
                 'success': True,
@@ -430,6 +455,181 @@ class ClassificationService:
 
         return normalized_tags
 
+    def generate_basic_tags(self, photo: Photo, quality_analysis: Optional[Dict] = None, db: Session = None) -> List[Dict[str, Any]]:
+        """
+        生成基础标签（非AI标签）
+        包括：时间标签、质量标签、EXIF标签
+
+        Args:
+            photo: 照片对象
+            quality_analysis: 质量分析结果（可选）
+            db: 数据库会话
+
+        Returns:
+            基础标签列表
+        """
+        tags = []
+
+        # 添加时间标签（包括节假日）
+        if photo.taken_at:
+            time_tags = self._extract_time_tags(photo.taken_at)
+            tags.extend(time_tags)
+
+        # 注意：质量信息不作为标签存储，而是在PhotoQuality表中作为专门字段
+
+        # 从EXIF信息生成标签
+        exif_tags = self._extract_tags_from_exif(photo)
+        tags.extend(exif_tags)
+
+        # 去重和标准化
+        normalized_tags = self._normalize_tags(tags)
+
+        return normalized_tags
+
+    def generate_ai_tags(self, analysis_result: Optional[Dict] = None) -> List[Dict[str, Any]]:
+        """
+        生成AI标签（基于AI内容分析）
+        包括：场景标签、物体标签、活动标签、情感标签
+
+        Args:
+            analysis_result: AI内容分析结果
+
+        Returns:
+            AI标签列表
+        """
+        if not analysis_result:
+            return []
+
+        tags = []
+
+        # 从AI分析结果中提取标签
+        content_tags = self._extract_tags_from_content(analysis_result)
+        tags.extend(content_tags)
+
+        # 去重和标准化
+        normalized_tags = self._normalize_tags(tags)
+
+        return normalized_tags
+
+    def generate_basic_classifications(self, photo: Photo) -> List[Dict[str, Any]]:
+        """
+        生成基础分类（非AI分类）
+
+        注意：相机品牌和型号已存储在photo表中，无需生成设备分类
+
+        Args:
+            photo: 照片对象
+
+        Returns:
+            基础分类列表
+        """
+        classifications = []
+
+        # 注意：不再生成设备分类，因为相机信息已存储在photo.camera_make和photo.camera_model字段中
+
+        return classifications
+
+    def generate_ai_classifications(self, photo: Photo, analysis_result: Optional[Dict] = None) -> List[Dict[str, Any]]:
+        """
+        生成AI分类（基于AI内容分析）
+        包括：内容分类、质量分类
+
+        Args:
+            photo: 照片对象
+            analysis_result: AI内容分析结果
+
+        Returns:
+            AI分类列表
+        """
+        classifications = []
+
+        # 内容分类（相册概念，主要分类）
+        assigned_category = self._assign_to_category_from_analysis(analysis_result)
+        if assigned_category:
+            classifications.append({
+                'name': assigned_category,
+                'type': 'content',
+                'confidence': 0.9
+            })
+        else:
+            # 默认分配到"日常生活"分类
+            classifications.append({
+                'name': '日常生活',
+                'type': 'content',
+                'confidence': 0.5
+            })
+
+        # 质量分类（如果有质量分析结果）
+        # 注意：质量分类需要质量分析结果，这里暂时不处理，因为质量分析在基础分析阶段完成
+
+        return classifications
+
+    def _assign_to_category_from_analysis(self, analysis_result: Optional[Dict]) -> Optional[str]:
+        """
+        基于AI分析结果分配到相册分类
+        """
+        if not analysis_result:
+            return None
+
+        # 提取关键词用于匹配
+        keywords = []
+        scene_type = analysis_result.get('scene_type', '')
+        if scene_type:
+            keywords.append(scene_type)
+
+        objects = analysis_result.get('objects', [])
+        keywords.extend(objects)
+
+        activity = analysis_result.get('activity', '')
+        if activity:
+            keywords.append(activity)
+
+        location_type = analysis_result.get('location_type', '')
+        if location_type:
+            keywords.append(location_type)
+
+        emotions = analysis_result.get('emotions', [])
+        keywords.extend(emotions)
+
+        # 转换为小写以便匹配
+        keywords_lower = [kw.lower() for kw in keywords]
+
+        # 计算每个分类的匹配度
+        category_scores = {}
+        for category_name, category_rules in self.album_categories.items():
+            score = 0
+
+            # 检查关键词匹配
+            for keyword in category_rules.get('keywords', []):
+                if any(keyword.lower() in kw for kw in keywords_lower):
+                    score += 2
+
+            # 检查物体匹配
+            for obj in category_rules.get('objects', []):
+                if any(obj.lower() in kw for kw in keywords_lower):
+                    score += 1.5
+
+            # 检查位置匹配
+            for location in category_rules.get('location', []):
+                if any(location.lower() in kw for kw in keywords_lower):
+                    score += 1
+
+            # 检查活动匹配
+            for activity_kw in category_rules.get('activity', []):
+                if any(activity_kw.lower() in kw for kw in keywords_lower):
+                    score += 1.5
+
+            if score > 0:
+                category_scores[category_name] = score
+
+        # 返回匹配度最高的分类
+        if category_scores:
+            best_category = max(category_scores.items(), key=lambda x: x[1])
+            if best_category[1] >= 1:  # 设置最小匹配阈值
+                return best_category[0]
+
+        return None
+
     def _extract_tags_from_content(self, analysis_result: Dict[str, Any]) -> List[Dict[str, Any]]:
         """从内容分析结果中提取标签（多维度标签）"""
         tags = []
@@ -437,23 +637,23 @@ class ClassificationService:
         if not analysis_result:
             return tags
 
-            # 场景标签
-            scene_type = analysis_result.get('scene_type', '')
-            if scene_type:
-                tags.append({
+        # 场景标签
+        scene_type = analysis_result.get('scene_type', '')
+        if scene_type:
+            tags.append({
                 'name': scene_type,
-                    'type': 'scene',
-                    'confidence': 0.9
-                })
+                'type': 'scene',
+                'confidence': 0.9
+            })
 
-            # 活动标签
-            activity = analysis_result.get('activity', '')
-            if activity:
-                tags.append({
+        # 活动标签
+        activity = analysis_result.get('activity', '')
+        if activity:
+            tags.append({
                 'name': activity,
-                    'type': 'activity',
-                    'confidence': 0.8
-                })
+                'type': 'activity',
+                'confidence': 0.8
+            })
 
         # 情感标签
         emotion = analysis_result.get('emotion', '')
@@ -479,22 +679,8 @@ class ClassificationService:
         """从EXIF信息生成标签"""
         tags = []
 
-        # 设备标签
-        if photo.camera_make:
-            tags.append({
-                'name': photo.camera_make,
-                'type': 'device',
-                'confidence': 1.0
-            })
-
-        if photo.camera_model:
-            tags.append({
-                'name': photo.camera_model,
-                'type': 'device',
-                'confidence': 1.0
-            })
-
-        # 镜头标签
+        # 注意：相机品牌(camera_make)和型号(camera_model)已存储在photo表中，无需生成标签
+        # 设备标签 - 只生成镜头信息
         if photo.lens_model:
             tags.append({
                 'name': photo.lens_model,

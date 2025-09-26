@@ -34,12 +34,13 @@ class AnalysisService:
         # 线程池用于并发处理
         self.executor = ThreadPoolExecutor(max_workers=2)
 
-    async def analyze_photo(self, photo_id: int, db: Session = None) -> Dict[str, Any]:
+    async def analyze_photo(self, photo_id: int, analysis_types: List[str] = None, db: Session = None) -> Dict[str, Any]:
         """
         分析单张照片
 
         Args:
             photo_id: 照片ID
+            analysis_types: 分析类型列表 ['content', 'quality', 'duplicate']，如果为None则执行所有分析
             db: 数据库会话，如果为None则创建新的
 
         Returns:
@@ -69,20 +70,41 @@ class AnalysisService:
             if not full_path.exists():
                 raise Exception(f"照片文件不存在: {full_path}")
 
-            self.logger.info(f"开始分析照片 {photo_id}: {photo.filename}")
+            self.logger.info(f"开始分析照片 {photo_id}: {photo.filename}, 分析类型: {analysis_types}")
 
-            # 并发执行各项分析（移除重复的哈希计算，因为导入时已计算）
-            tasks = [
-                self._analyze_content_async(str(full_path)),
-                self._analyze_quality_async(str(full_path))
-            ]
+            # 根据分析类型有条件地执行分析
+            tasks = []
+            task_indices = {}  # 记录任务在results数组中的索引
+
+            if analysis_types is None or 'content' in analysis_types:
+                tasks.append(self._analyze_content_async(str(full_path)))
+                task_indices['content'] = len(tasks) - 1
+
+            if analysis_types is None or 'quality' in analysis_types:
+                tasks.append(self._analyze_quality_async(str(full_path)))
+                task_indices['quality'] = len(tasks) - 1
+
+            # 注意：duplicate分析已被移除，因为感知哈希在导入时已计算
+
+            if not tasks:
+                self.logger.warning(f"没有有效的分析类型: {analysis_types}")
+                return {"photo_id": photo_id, "message": "没有有效的分析类型"}
 
             # 等待所有分析完成
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            # 处理结果
-            content_result = results[0] if not isinstance(results[0], Exception) else None
-            quality_result = results[1] if not isinstance(results[1], Exception) else None
+            # 根据任务索引处理结果
+            content_result = None
+            quality_result = None
+
+            if 'content' in task_indices:
+                content_idx = task_indices['content']
+                content_result = results[content_idx] if not isinstance(results[content_idx], Exception) else None
+
+            if 'quality' in task_indices:
+                quality_idx = task_indices['quality']
+                quality_result = results[quality_idx] if not isinstance(results[quality_idx], Exception) else None
+
             hash_result = None  # 感知哈希已在导入时计算，不再重复计算
 
             # 保存分析结果到数据库
@@ -181,25 +203,81 @@ class AnalysisService:
             # 更新照片状态（感知哈希已在导入时保存）
             photo = db.query(Photo).filter(Photo.id == photo_id).first()
             if photo:
-                # 更新照片状态为已完成
-                photo.status = 'completed'
+                # 根据分析结果设置精确的状态
+                if quality_result and content_result:
+                    photo.status = 'completed'  # 完整分析完成（质量+内容）
+                elif quality_result:
+                    photo.status = 'quality_completed'  # 仅质量分析完成
+                elif content_result:
+                    photo.status = 'content_completed'  # 仅内容分析完成
+                # 如果都没有结果，保持原有状态（理论上不会发生）
+
                 photo.updated_at = datetime.now()
 
-            # 先提交AI分析结果到数据库，确保分类服务能查询到
+            # 先提交分析结果到数据库
             db.commit()
 
-            # 调用分类服务生成完整的标签和分类
+            # 根据分析类型调用相应的标签和分类生成服务
             try:
                 from app.services.classification_service import ClassificationService
                 classification_service = ClassificationService()
-                classification_result = classification_service.classify_photo(photo_id, db)
+
+                # 如果有质量分析结果，生成基础标签和设备分类
+                if quality_result:
+                    # 清理现有的基础标签（避免标签累积）- 使用子查询避免join+delete问题
+                    # 注意：不再清理'device'标签，因为相机品牌和型号已存储在photo表中
+                    from app.models.photo import PhotoTag, Tag
+                    tag_ids_to_delete = db.query(PhotoTag.id).join(Tag).filter(
+                        PhotoTag.photo_id == photo_id,
+                        PhotoTag.source == 'auto',
+                        Tag.category.in_(['time', 'lens', 'aperture', 'focal_length'])
+                    ).subquery()
+                    db.query(PhotoTag).filter(PhotoTag.id.in_(tag_ids_to_delete)).delete(synchronize_session=False)
+
+                    basic_tags = classification_service.generate_basic_tags(photo, quality_result, db)
+                    basic_classifications = classification_service.generate_basic_classifications(photo)
+
+                    # 保存基础标签
+                    if basic_tags:
+                        saved_basic_tags = classification_service._save_auto_tags(photo_id, basic_tags, db)
+
+                    # 保存基础分类
+                    if basic_classifications:
+                        saved_basic_categories = classification_service._save_classifications(photo_id, basic_classifications, db)
+
+                # 如果有内容分析结果，生成AI标签和内容分类
+                if content_result:
+                    # 清理现有的AI标签（避免标签累积）- 使用子查询避免join+delete问题
+                    from app.models.photo import PhotoTag, Tag
+                    tag_ids_to_delete = db.query(PhotoTag.id).join(Tag).filter(
+                        PhotoTag.photo_id == photo_id,
+                        PhotoTag.source == 'auto',
+                        Tag.category.in_(['scene', 'activity', 'emotion', 'object'])
+                    ).subquery()
+                    db.query(PhotoTag).filter(PhotoTag.id.in_(tag_ids_to_delete)).delete(synchronize_session=False)
+
+                    # 清理现有的AI分类（避免分类累积）
+                    from app.models.photo import PhotoCategory
+                    db.query(PhotoCategory).filter(PhotoCategory.photo_id == photo_id).delete()
+
+                    ai_tags = classification_service.generate_ai_tags(content_result)
+                    ai_classifications = classification_service.generate_ai_classifications(photo, content_result)
+
+                    # 保存AI标签
+                    if ai_tags:
+                        saved_ai_tags = classification_service._save_auto_tags(photo_id, ai_tags, db)
+
+                    # 保存AI分类
+                    if ai_classifications:
+                        saved_ai_categories = classification_service._save_classifications(photo_id, ai_classifications, db)
+
             except Exception as e:
-                self.logger.error(f"照片 {photo_id}: 分类服务失败: {str(e)}")
+                self.logger.error(f"照片 {photo_id}: 标签和分类生成失败: {str(e)}")
                 import traceback
-                self.logger.error(f"照片 {photo_id}: 分类服务详细错误: {traceback.format_exc()}")
+                self.logger.error(f"照片 {photo_id}: 详细错误: {traceback.format_exc()}")
                 raise
 
-            # 提交分类服务的数据库操作
+            # 提交所有标签和分类的数据库操作
             db.commit()
 
             # 返回综合结果（移除感知哈希，因为已在导入时计算）

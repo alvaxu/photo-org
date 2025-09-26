@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.session import get_db
 from app.services.analysis_service import AnalysisService
-from app.models.photo import Photo
+from app.models.photo import Photo, PhotoQuality, PhotoAnalysis
 
 logger = get_logger(__name__)
 
@@ -427,6 +427,285 @@ async def perform_batch_analysis(photo_ids: List[int]):
         logger.error(f"后台批量分析失败: {str(e)}")
         import traceback
         logger.error(f"详细错误信息: {traceback.format_exc()}")
+
+
+@router.get("/basic-pending-count")
+async def get_basic_pending_count(db: Session = Depends(get_db)):
+    """
+    获取需要基础分析的照片数量统计
+    基础分析：只包含质量评估，不包含AI内容分析
+    """
+    try:
+        # 统计需要基础分析的照片：没有质量评估结果的照片
+        pending_count = db.query(Photo).filter(
+            ~db.query(PhotoQuality).filter(PhotoQuality.photo_id == Photo.id).exists()
+        ).count()
+
+        return {
+            "count": pending_count,
+            "message": f"发现 {pending_count} 张照片需要基础分析"
+        }
+    except Exception as e:
+        logger.error(f"获取基础分析统计失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取基础分析统计失败: {str(e)}")
+
+
+@router.get("/ai-pending-count")
+async def get_ai_pending_count(db: Session = Depends(get_db)):
+    """
+    获取需要AI分析的照片数量统计
+    AI分析：只包含内容分析，不包含质量评估
+    """
+    try:
+        # 统计需要AI分析的照片：没有AI内容分析结果的照片
+        pending_count = db.query(Photo).filter(
+            ~db.query(PhotoAnalysis).filter(
+                PhotoAnalysis.photo_id == Photo.id,
+                PhotoAnalysis.analysis_type == 'content'
+            ).exists()
+        ).count()
+
+        return {
+            "count": pending_count,
+            "message": f"发现 {pending_count} 张照片需要AI分析"
+        }
+    except Exception as e:
+        logger.error(f"获取AI分析统计失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取AI分析统计失败: {str(e)}")
+
+
+@router.get("/basic-pending-photos")
+async def get_basic_pending_photos(db: Session = Depends(get_db)):
+    """
+    获取需要基础分析的照片ID列表
+    返回没有质量评估结果的照片ID
+    """
+    try:
+        pending_photos = db.query(Photo.id).filter(
+            ~db.query(PhotoQuality).filter(PhotoQuality.photo_id == Photo.id).exists()
+        ).all()
+
+        photo_ids = [photo.id for photo in pending_photos]
+        return {
+            "photo_ids": photo_ids,
+            "total_count": len(photo_ids),
+            "message": f"找到 {len(photo_ids)} 张需要基础分析的照片"
+        }
+    except Exception as e:
+        logger.error(f"获取基础分析照片列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取基础分析照片列表失败: {str(e)}")
+
+
+@router.get("/ai-pending-photos")
+async def get_ai_pending_photos(db: Session = Depends(get_db)):
+    """
+    获取需要AI分析的照片ID列表
+    返回没有AI内容分析结果的照片ID
+    """
+    try:
+        pending_photos = db.query(Photo.id).filter(
+            ~db.query(PhotoAnalysis).filter(
+                PhotoAnalysis.photo_id == Photo.id,
+                PhotoAnalysis.analysis_type == 'content'
+            ).exists()
+        ).all()
+
+        photo_ids = [photo.id for photo in pending_photos]
+        return {
+            "photo_ids": photo_ids,
+            "total_count": len(photo_ids),
+            "message": f"找到 {len(photo_ids)} 张需要AI分析的照片"
+        }
+    except Exception as e:
+        logger.error(f"获取AI分析照片列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取AI分析照片列表失败: {str(e)}")
+
+
+@router.post("/start-analysis")
+async def start_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """
+    开始条件分析（支持基础分析和AI分析）
+    根据analysis_types参数只执行指定的分析类型
+    """
+    try:
+        logger.info(f"=== 开始条件分析 ===")
+        logger.info(f"分析类型: {request.analysis_types}")
+        logger.info(f"照片数量: {len(request.photo_ids)}")
+        logger.info(f"强制重新处理: {request.force_reprocess}")
+
+        # 验证分析类型
+        valid_types = ['content', 'quality']
+        invalid_types = [t for t in request.analysis_types if t not in valid_types]
+        if invalid_types:
+            raise HTTPException(status_code=400, detail=f"无效的分析类型: {invalid_types}，支持的类型: {valid_types}")
+
+        # 获取分析服务
+        analysis_service = AnalysisService()
+
+        # 过滤需要分析的照片
+        if request.force_reprocess:
+            # 强制重新处理所有指定的照片
+            photos_to_analyze = request.photo_ids
+        else:
+            # 只处理还没有对应分析结果的照片
+            photos_to_analyze = []
+            for photo_id in request.photo_ids:
+                needs_analysis = False
+
+                if 'quality' in request.analysis_types:
+                    # 检查是否有质量分析结果
+                    has_quality = db.query(PhotoQuality).filter(PhotoQuality.photo_id == photo_id).first() is not None
+                    if not has_quality:
+                        needs_analysis = True
+
+                if 'content' in request.analysis_types:
+                    # 检查是否有内容分析结果
+                    has_content = db.query(PhotoAnalysis).filter(
+                        PhotoAnalysis.photo_id == photo_id,
+                        PhotoAnalysis.analysis_type == 'content'
+                    ).first() is not None
+                    if not has_content:
+                        needs_analysis = True
+
+                if needs_analysis:
+                    photos_to_analyze.append(photo_id)
+
+        if not photos_to_analyze:
+            return {
+                "task_id": None,
+                "total_photos": 0,
+                "message": "所有照片都已完成指定类型的分析"
+            }
+
+        logger.info(f"实际需要分析的照片: {len(photos_to_analyze)} 张")
+
+        # 更新照片状态为analyzing
+        db.query(Photo).filter(Photo.id.in_(photos_to_analyze)).update({"status": "analyzing"})
+        db.commit()
+
+        # 生成任务ID
+        import uuid
+        task_id = str(uuid.uuid4())
+
+        # 添加后台任务
+        background_tasks.add_task(
+            process_analysis_task,
+            task_id=task_id,
+            photo_ids=photos_to_analyze,
+            analysis_types=request.analysis_types
+        )
+
+        return {
+            "task_id": task_id,
+            "total_photos": len(photos_to_analyze),
+            "analysis_types": request.analysis_types,
+            "message": f"已开始分析 {len(photos_to_analyze)} 张照片"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"开始条件分析失败: {str(e)}")
+        import traceback
+        logger.error(f"详细错误信息: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"开始条件分析失败: {str(e)}")
+
+
+@router.get("/task-status/{task_id}")
+async def get_analysis_task_status(task_id: str, initial_total: int = None, db: Session = Depends(get_db)):
+    """
+    获取分析任务状态
+    支持条件分析的状态查询
+
+    - **task_id**: 任务ID
+    - **initial_total**: 任务开始时的待处理照片总数（imported + error）
+    """
+    try:
+        # 获取当前数据库中的统计信息
+        imported_count = db.query(Photo).filter(Photo.status == 'imported').count()
+        error_count = db.query(Photo).filter(Photo.status == 'error').count()
+        analyzing_count = db.query(Photo).filter(Photo.status == 'analyzing').count()
+        completed_count = db.query(Photo).filter(Photo.status == 'completed').count()
+
+        # 当前待处理的照片总数（imported + error）
+        current_pending_total = imported_count + error_count
+
+        # 使用提供的 initial_total 作为分母（如果提供的话）
+        # 这代表了任务开始时需要处理的照片总数
+        display_total = initial_total if initial_total is not None else current_pending_total
+
+        # 计算已完成的照片数
+        # 对于已完成的任务，completed_photos 应该等于任务处理的照片数
+        if analyzing_count == 0:
+            # 任务已完成
+            status = "completed"
+            # 已完成的照片数应该是任务处理的照片数
+            completed_photos = initial_total if initial_total is not None else completed_count
+            failed_photos = 0  # 简化处理，暂时设为0
+        else:
+            # 任务仍在进行中
+            status = "processing"
+            # 正在处理的照片数就是 analyzing 状态的数量
+            completed_photos = initial_total - analyzing_count if initial_total is not None else completed_count
+            failed_photos = 0
+
+        progress_percentage = (completed_photos / display_total * 100) if display_total > 0 else 100
+
+        return {
+            "task_id": task_id,
+            "status": status,
+            "total_photos": display_total,           # 显示任务开始时的待处理总数
+            "completed_photos": completed_photos,    # 显示已完成的照片数
+            "failed_photos": failed_photos,          # 失败的照片数
+            "progress_percentage": round(progress_percentage, 2),
+            "processing_photos": analyzing_count
+        }
+
+    except Exception as e:
+        logger.error(f"获取分析状态失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取分析状态失败: {str(e)}")
+
+
+async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_types: List[str]):
+    """
+    处理分析任务（后台任务）
+    """
+    logger.info(f"=== 开始处理分析任务 {task_id} ===")
+    logger.info(f"照片数量: {len(photo_ids)}, 分析类型: {analysis_types}")
+
+    try:
+        analysis_service = AnalysisService()
+        db = next(get_db())
+
+        successful_analyses = 0
+        failed_analyses = 0
+
+        for photo_id in photo_ids:
+            try:
+                logger.info(f"分析照片 {photo_id}，分析类型: {analysis_types}")
+                result = await analysis_service.analyze_photo(photo_id, analysis_types, db)
+                logger.info(f"照片 {photo_id} 分析完成")
+                successful_analyses += 1
+
+            except Exception as e:
+                logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
+                # 分析失败时不改变照片状态，让用户可以重试
+                # db.query(Photo).filter(Photo.id == photo_id).update({"status": "error"})
+                # db.commit()
+                failed_analyses += 1
+
+        logger.info(f"=== 分析任务 {task_id} 完成 ===")
+        logger.info(f"成功: {successful_analyses}, 失败: {failed_analyses}")
+
+    except Exception as e:
+        logger.error(f"处理分析任务失败: {str(e)}")
+        import traceback
+        logger.error(f"详细错误信息: {traceback.format_exc()}")
+    finally:
+        try:
+            db.close()
+        except:
+            pass
 
 
 # 导入必要的模块

@@ -148,10 +148,12 @@ if getattr(sys, 'frozen', False):
     # 解压目录运行时，storage目录与exe在同一级目录
     exe_dir = Path(sys.executable).parent
     photos_storage_dir = exe_dir / "storage"
-    photos_storage_dir.mkdir(exist_ok=True)
+    photos_storage_dir.mkdir(parents=True, exist_ok=True)
 else:
     # 开发环境
     photos_storage_dir = Path(settings.storage.base_path)
+    # 确保存储目录存在
+    photos_storage_dir.mkdir(parents=True, exist_ok=True)
 
 # 挂载存储目录
 app.mount("/photos_storage", StaticFiles(directory=str(photos_storage_dir)), name="photos_storage")

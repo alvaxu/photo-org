@@ -46,7 +46,7 @@ class EnhancedSimilarityService:
         self.logger = get_logger(__name__)
         self.hash_size = 16
         self.similarity_threshold = 0.55
-
+        
         # 从配置文件读取相似度权重配置
         self.SIMILARITY_WEIGHTS = settings.similarity.first_layer_weights
 

@@ -368,16 +368,28 @@ class PhotoManager {
                 `<i class="bi bi-trash"></i> 删除选中`;
         }
 
-        // 更新智能处理按钮状态
-        const processBtn = document.getElementById('processSelectedBtn');
-        if (processBtn) {
-            processBtn.disabled = selectedCount === 0;
-            processBtn.innerHTML = selectedCount > 0 ?
-                `<i class="bi bi-robot"></i> 智能处理 (${selectedCount})` :
-                `<i class="bi bi-robot"></i> 智能处理`;
-            console.log('智能处理按钮状态更新 - disabled:', processBtn.disabled, 'text:', processBtn.innerHTML);
+        // 更新基础分析按钮状态
+        const basicBtn = document.getElementById('basicProcessSelectedBtn');
+        if (basicBtn) {
+            basicBtn.disabled = selectedCount === 0;
+            basicBtn.innerHTML = selectedCount > 0 ?
+                `<i class="bi bi-graph-up"></i> 基础分析 (${selectedCount})` :
+                `<i class="bi bi-graph-up"></i> 基础分析`;
+            console.log('基础分析按钮状态更新 - disabled:', basicBtn.disabled, 'text:', basicBtn.innerHTML);
         } else {
-            console.log('未找到智能处理按钮');
+            console.log('未找到基础分析按钮');
+        }
+
+        // 更新AI分析按钮状态
+        const aiBtn = document.getElementById('aiProcessSelectedBtn');
+        if (aiBtn) {
+            aiBtn.disabled = selectedCount === 0;
+            aiBtn.innerHTML = selectedCount > 0 ?
+                `<i class="bi bi-robot"></i> AI分析 (${selectedCount})` :
+                `<i class="bi bi-robot"></i> AI分析`;
+            console.log('AI分析按钮状态更新 - disabled:', aiBtn.disabled, 'text:', aiBtn.innerHTML);
+        } else {
+            console.log('未找到AI分析按钮');
         }
 
         // 更新全选按钮文本
