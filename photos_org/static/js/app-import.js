@@ -656,20 +656,20 @@ async function startFileImport() {
             if (xhr.status === 200 || xhr.status === 202) {
                 try {
                     const data = JSON.parse(xhr.responseText);
-        
-        // 获取任务ID并开始进度监控
-        if (data.success && data.data.task_id) {
-            const taskId = data.data.task_id;
-            console.log('获取到任务ID:', taskId);
-            console.log('开始监控进度，总文件数:', files.length);
-            elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
-            elements.importDetails.textContent = '正在初始化处理任务...';
-            monitorImportProgress(taskId, files.length);
-        } else {
-            console.error('获取任务ID失败:', data);
-            showImportError(data.message || '导入失败');
-            elements.importProgress.classList.add('d-none');
-        }
+
+                    // 获取任务ID并开始进度监控
+                    if (data.success && data.data.task_id) {
+                        const taskId = data.data.task_id;
+                        console.log('获取到任务ID:', taskId);
+                        console.log('开始监控进度，总文件数:', files.length);
+                        elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
+                        elements.importDetails.textContent = '正在初始化处理任务...';
+                        monitorImportProgress(taskId, files.length);
+                    } else {
+                        console.error('获取任务ID失败:', data);
+                        showImportError(data.message || '导入失败');
+                        elements.importProgress.classList.add('d-none');
+                    }
                 } catch (parseError) {
                     console.error('解析响应失败:', parseError);
                     showImportError('服务器响应格式错误');
@@ -807,16 +807,20 @@ async function startFolderImport() {
             if (xhr.status === 200 || xhr.status === 202) {
                 try {
                     const data = JSON.parse(xhr.responseText);
-        
-        // 获取任务ID并开始进度监控
-        if (data.success && data.data.task_id) {
-            const taskId = data.data.task_id;
-            monitorImportProgress(taskId, imageFiles.length);
-        } else {
+
+                    // 获取任务ID并开始进度监控
+                    if (data.success && data.data.task_id) {
+                        const taskId = data.data.task_id;
+                        console.log('获取到任务ID:', taskId);
+                        console.log('开始监控进度，总文件数:', imageFiles.length);
+                        elements.importStatus.textContent = `后台正在处理 ${imageFiles.length} 个文件...`;
+                        elements.importDetails.textContent = '正在初始化处理任务...';
+                        monitorImportProgress(taskId, imageFiles.length);
+                    } else {
                         console.error('获取任务ID失败:', data);
-            showImportError(data.message || '导入失败');
-            elements.importProgress.classList.add('d-none');
-        }
+                        showImportError(data.message || '导入失败');
+                        elements.importProgress.classList.add('d-none');
+                    }
                 } catch (parseError) {
                     console.error('解析响应失败:', parseError);
                     showImportError('服务器响应格式错误');
