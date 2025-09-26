@@ -133,6 +133,12 @@ function cacheElements() {
         importProgress: document.getElementById('importProgress'),
         importProgressBar: document.getElementById('importProgressBar'),
         importStatus: document.getElementById('importStatus'),
+        importDetails: document.getElementById('importDetails'),
+        importStats: document.getElementById('importStats'),
+        processedCount: document.getElementById('processedCount'),
+        importedCount: document.getElementById('importedCount'),
+        skippedCount: document.getElementById('skippedCount'),
+        failedCount: document.getElementById('failedCount'),
         
         // 导入方式切换
         fileImport: document.getElementById('fileImport'),

@@ -581,7 +581,12 @@ async function startFileImport() {
     // 显示进度条
     elements.importProgress.classList.remove('d-none');
     elements.importProgressBar.style.width = '0%';
+    elements.importProgressBar.setAttribute('aria-valuenow', '0');
     elements.importStatus.textContent = `正在准备处理 ${files.length} 个文件...`;
+    elements.importDetails.textContent = '请稍候...';
+
+    // 隐藏统计信息
+    elements.importStats.style.display = 'none';
     
     try {
         // 创建FormData对象
@@ -595,14 +600,38 @@ async function startFileImport() {
 
         // 上传进度事件监听器
         let lastReportedProgress = 0;
+        let uploadStartTime = Date.now();
+        let lastLoaded = 0;
+        let lastTime = uploadStartTime;
+
         xhr.upload.addEventListener('progress', (event) => {
             if (event.lengthComputable) {
                 const percentComplete = Math.round((event.loaded / event.total) * 100);
+                const currentTime = Date.now();
+
+                // 计算上传速度
+                const timeDiff = (currentTime - lastTime) / 1000; // 秒
+                const loadedDiff = event.loaded - lastLoaded; // 字节
+                const speedBps = loadedDiff / timeDiff; // 字节/秒
+                const speedMBps = speedBps / (1024 * 1024); // MB/s
+
+                // 估算剩余时间
+                const remainingBytes = event.total - event.loaded;
+                const etaSeconds = speedBps > 0 ? remainingBytes / speedBps : 0;
+                const etaText = etaSeconds > 0 ?
+                    (etaSeconds < 60 ? `${Math.round(etaSeconds)}秒` : `${Math.round(etaSeconds/60)}分钟`) : '';
+
+                // 更新变量
+                lastLoaded = event.loaded;
+                lastTime = currentTime;
 
                 // 避免过于频繁的更新（至少1%的变化才更新）
                 if (percentComplete - lastReportedProgress >= 1 || percentComplete === 100) {
                     elements.importProgressBar.style.width = `${percentComplete}%`;
+                    elements.importProgressBar.setAttribute('aria-valuenow', percentComplete);
                     elements.importStatus.textContent = `正在上传 ${files.length} 个文件... ${percentComplete}%`;
+                    elements.importDetails.textContent = speedMBps > 0 ?
+                        `速度: ${speedMBps.toFixed(2)} MB/s${etaText ? ` | 剩余: ${etaText}` : ''}` : '正在计算速度...';
                     lastReportedProgress = percentComplete;
                 }
             }
@@ -616,7 +645,9 @@ async function startFileImport() {
         // 上传完成
         xhr.upload.addEventListener('load', () => {
             elements.importProgressBar.style.width = '100%';
-            elements.importStatus.textContent = `上传完成，后台正在处理 ${files.length} 个文件...`;
+            elements.importProgressBar.setAttribute('aria-valuenow', '100');
+            elements.importStatus.textContent = `上传完成，正在准备后台处理...`;
+            elements.importDetails.textContent = `已上传 ${files.length} 个文件，正在初始化处理任务...`;
         });
 
         // 请求完成
@@ -631,6 +662,8 @@ async function startFileImport() {
             const taskId = data.data.task_id;
             console.log('获取到任务ID:', taskId);
             console.log('开始监控进度，总文件数:', files.length);
+            elements.importStatus.textContent = `后台正在处理 ${files.length} 个文件...`;
+            elements.importDetails.textContent = '正在初始化处理任务...';
             monitorImportProgress(taskId, files.length);
         } else {
             console.error('获取任务ID失败:', data);
@@ -656,8 +689,12 @@ async function startFileImport() {
 
         // 错误处理
         xhr.addEventListener('error', () => {
+            console.error('网络请求失败');
+            elements.importStatus.textContent = '网络连接失败';
+            elements.importDetails.textContent = '请检查网络连接和服务器状态';
+            elements.importProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            elements.importProgressBar.classList.add('bg-danger');
             showImportError('网络连接失败，请检查服务器是否正常运行');
-            elements.importProgress.classList.add('d-none');
         });
 
         // 发送请求
@@ -799,8 +836,12 @@ async function startFolderImport() {
 
         // 错误处理
         xhr.addEventListener('error', () => {
+            console.error('网络请求失败');
+            elements.importStatus.textContent = '网络连接失败';
+            elements.importDetails.textContent = '请检查网络连接和服务器状态';
+            elements.importProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            elements.importProgressBar.classList.add('bg-danger');
             showImportError('网络连接失败，请检查服务器是否正常运行');
-            elements.importProgress.classList.add('d-none');
         });
 
         // 发送请求
@@ -1258,8 +1299,11 @@ function monitorImportProgress(taskId, totalFiles) {
         if (checkCount > maxChecks) {
             clearInterval(progressInterval);
             console.error('进度监控超时');
+            elements.importStatus.textContent = '处理超时';
+            elements.importDetails.textContent = '服务器处理时间过长，请检查服务器状态';
+            elements.importProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            elements.importProgressBar.classList.add('bg-warning');
             showError('导入超时，请检查服务器状态');
-            elements.importProgress.classList.add('d-none');
             return;
         }
         try {
@@ -1280,11 +1324,53 @@ function monitorImportProgress(taskId, totalFiles) {
             // 更新进度条
             const progress = statusData.progress_percentage || 0;
             elements.importProgressBar.style.width = `${progress}%`;
-            elements.importStatus.textContent = `正在处理: ${statusData.processed_files || 0}/${totalFiles} (${progress}%) - 已导入: ${statusData.imported_count || 0}, 跳过: ${statusData.skipped_count || 0}, 失败: ${statusData.failed_count || 0}`;
+            elements.importProgressBar.setAttribute('aria-valuenow', progress);
+
+            // 更新状态文本
+            elements.importStatus.textContent = `正在处理: ${statusData.processed_files || 0}/${totalFiles} (${progress}%)`;
+
+            // 显示统计信息
+            if (statusData.processed_files > 0) {
+                elements.importStats.style.display = 'flex';
+                elements.processedCount.textContent = statusData.processed_files || 0;
+                elements.importedCount.textContent = statusData.imported_count || 0;
+                elements.skippedCount.textContent = statusData.skipped_count || 0;
+                elements.failedCount.textContent = statusData.failed_count || 0;
+
+                // 更新详情文本
+                const imported = statusData.imported_count || 0;
+                const skipped = statusData.skipped_count || 0;
+                const failed = statusData.failed_count || 0;
+                const totalProcessed = imported + skipped + failed;
+
+                if (totalProcessed > 0) {
+                    const successRate = ((imported / totalProcessed) * 100).toFixed(1);
+                    elements.importDetails.textContent = `成功率: ${successRate}% | 导入: ${imported}, 跳过: ${skipped}, 失败: ${failed}`;
+                }
+            }
             
             // 检查是否完成
             if (statusData.status === 'completed') {
                 clearInterval(progressInterval);
+
+                // 更新最终状态显示
+                elements.importProgressBar.style.width = '100%';
+                elements.importProgressBar.setAttribute('aria-valuenow', '100');
+                elements.importStatus.textContent = `处理完成！共处理 ${statusData.total_files} 个文件`;
+
+                const imported = statusData.imported_count || 0;
+                const skipped = statusData.skipped_count || 0;
+                const failed = statusData.failed_count || 0;
+                const totalProcessed = imported + skipped + failed;
+                const successRate = totalProcessed > 0 ? ((imported / totalProcessed) * 100).toFixed(1) : '0.0';
+
+                elements.importDetails.textContent = `最终结果: 成功率 ${successRate}% | 导入: ${imported}, 跳过: ${skipped}, 失败: ${failed}`;
+
+                // 更新统计信息
+                elements.processedCount.textContent = statusData.processed_files || 0;
+                elements.importedCount.textContent = imported;
+                elements.skippedCount.textContent = skipped;
+                elements.failedCount.textContent = failed;
 
                 // 转换数据格式以匹配showImportDetails的期望
                 const detailsData = {
