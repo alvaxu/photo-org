@@ -566,12 +566,117 @@ async function startImport() {
 /**
  * 开始文件导入
  */
+// 分批上传文件的函数
+async function uploadFilesInBatches(allFiles, batchSize = 100) {
+    const results = [];
+    const totalBatches = Math.ceil(allFiles.length / batchSize);
+
+    // 显示分批上传状态
+    elements.importStatus.textContent = `正在分批上传，共${totalBatches}批...`;
+    elements.importDetails.textContent = `第一批开始处理...`;
+
+    for (let i = 0; i < totalBatches; i++) {
+        const start = i * batchSize;
+        const end = Math.min(start + batchSize, allFiles.length);
+        const batchFiles = Array.from(allFiles).slice(start, end);
+
+        elements.importDetails.textContent = `正在上传第${i + 1}/${totalBatches}批: ${batchFiles.length}个文件...`;
+
+        try {
+            const formData = new FormData();
+            batchFiles.forEach(file => {
+                formData.append('files', file);
+            });
+
+            const response = await fetch('/api/v1/import/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                results.push({
+                    batchIndex: i + 1,
+                    taskId: data.data.task_id,
+                    files: batchFiles.length,
+                    success: true
+                });
+            } else {
+                results.push({
+                    batchIndex: i + 1,
+                    files: batchFiles.length,
+                    success: false,
+                    error: data.message || '上传失败'
+                });
+            }
+        } catch (error) {
+            results.push({
+                batchIndex: i + 1,
+                files: batchFiles.length,
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    return results;
+}
+
 async function startFileImport() {
     console.log('开始文件导入');
     const files = elements.photoFiles.files;
-    
+
     if (files.length === 0) {
         showImportError('请先选择要导入的照片文件');
+        return;
+    }
+
+    // 如果文件数量超过900个，使用分批上传（留出缓冲空间）
+    const BATCH_THRESHOLD = 900;
+    if (files.length > BATCH_THRESHOLD) {
+        console.log(`文件数量(${files.length})超过阈值(${BATCH_THRESHOLD})，使用分批上传`);
+
+        // 隐藏之前的错误信息
+        hideImportError();
+
+        // 显示进度条
+        elements.importProgress.classList.remove('d-none');
+        elements.importProgressBar.style.width = '0%';
+        elements.importProgressBar.setAttribute('aria-valuenow', '0');
+        elements.importStatus.textContent = `准备分批上传 ${files.length} 个文件...`;
+        elements.importDetails.textContent = '正在初始化分批处理...';
+
+        // 隐藏统计信息
+        elements.importStats.style.display = 'none';
+
+        try {
+            const batchResults = await uploadFilesInBatches(files, 100);
+
+            // 统计结果
+            const successfulBatches = batchResults.filter(r => r.success);
+            const failedBatches = batchResults.filter(r => !r.success);
+
+            if (failedBatches.length > 0) {
+                showImportError(`分批上传完成，但${failedBatches.length}批失败: ${failedBatches.map(f => `第${f.batchIndex}批(${f.error})`).join(', ')}`);
+                return;
+            }
+
+            // 所有批次都成功，开始监控第一个任务的进度
+            const firstTaskId = successfulBatches[0].taskId;
+            console.log(`所有批次上传成功，开始监控第一个任务: ${firstTaskId}`);
+
+            elements.importStatus.textContent = `上传完成，正在后台处理...`;
+            elements.importDetails.textContent = `已成功上传${successfulBatches.length}批文件，正在处理第一个批次...`;
+
+            // 监控第一个批次的进度
+            monitorImportProgress(firstTaskId, successfulBatches[0].files);
+
+        } catch (error) {
+            console.error('分批上传失败:', error);
+            showImportError(`分批上传失败: ${error.message}`);
+        }
+
         return;
     }
     
@@ -755,18 +860,69 @@ async function startFolderImport() {
         return isImageByType || isImageByExt;
     });
     console.log('图片文件数量:', imageFiles.length);
-    
+
     if (imageFiles.length === 0) {
         showImportError('选择的目录中没有找到图片文件');
         return;
     }
-    
+
+    // 如果文件数量超过900个，使用分批上传（留出缓冲空间）
+    const BATCH_THRESHOLD = 900;
+    if (imageFiles.length > BATCH_THRESHOLD) {
+        console.log(`目录文件数量(${imageFiles.length})超过阈值(${BATCH_THRESHOLD})，使用分批上传`);
+
+        // 隐藏之前的错误信息
+        hideImportError();
+
+        // 隐藏预览信息
+        hideFolderPreview();
+
+        // 显示进度条
+        elements.importProgress.classList.remove('d-none');
+        elements.importProgressBar.style.width = '0%';
+        elements.importProgressBar.setAttribute('aria-valuenow', '0');
+        elements.importStatus.textContent = `准备分批上传目录中的 ${imageFiles.length} 个文件...`;
+        elements.importDetails.textContent = '正在初始化分批处理...';
+
+        // 隐藏统计信息
+        elements.importStats.style.display = 'none';
+
+        try {
+            const batchResults = await uploadFilesInBatches(imageFiles, 100);
+
+            // 统计结果
+            const successfulBatches = batchResults.filter(r => r.success);
+            const failedBatches = batchResults.filter(r => !r.success);
+
+            if (failedBatches.length > 0) {
+                showImportError(`目录分批上传完成，但${failedBatches.length}批失败: ${failedBatches.map(f => `第${f.batchIndex}批(${f.error})`).join(', ')}`);
+                return;
+            }
+
+            // 所有批次都成功，开始监控第一个任务的进度
+            const firstTaskId = successfulBatches[0].taskId;
+            console.log(`目录所有批次上传成功，开始监控第一个任务: ${firstTaskId}`);
+
+            elements.importStatus.textContent = `目录上传完成，正在后台处理...`;
+            elements.importDetails.textContent = `已成功上传${successfulBatches.length}批目录文件，正在处理第一个批次...`;
+
+            // 监控第一个批次的进度
+            monitorImportProgress(firstTaskId, successfulBatches[0].files);
+
+        } catch (error) {
+            console.error('目录分批上传失败:', error);
+            showImportError(`目录分批上传失败: ${error.message}`);
+        }
+
+        return;
+    }
+
     // 隐藏之前的错误信息
     hideImportError();
-    
+
     // 隐藏预览信息
     hideFolderPreview();
-    
+
     // 显示进度条
     elements.importProgress.classList.remove('d-none');
     elements.importProgressBar.style.width = '0%';
