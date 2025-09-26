@@ -72,7 +72,7 @@ def get_local_ip():
 
 
 
-# 创建FastAPI应用，设置multipart/form-data限制
+# 创建FastAPI应用
 app = FastAPI(
     title="家庭版智能照片系统",
     description="基于AI技术的智能照片管理平台",
@@ -80,15 +80,6 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
-
-# 配置multipart/form-data限制
-from multipart.multipart import parse_options
-from fastapi import Request
-
-# 设置更大的文件数量限制（超过FastAPI默认的1000）
-parse_options.max_file_count = 5000  # 允许最多5000个文件
-parse_options.max_fields = 5000      # 允许最多5000个字段
-parse_options.max_files_size = 50 * 1024 * 1024 * 1024  # 50GB总文件大小限制
 
 # 配置JSON响应，确保中文字符正确显示
 from fastapi.responses import JSONResponse
