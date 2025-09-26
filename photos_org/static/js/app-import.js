@@ -613,7 +613,7 @@ async function uploadFilesInBatches(allFiles, batchSize = 100) {
                 });
 
                 // 批次上传成功，显示成功状态
-                elements.importDetails.textContent = `第${i + 1}批上传成功 (${batchFiles.length}个文件) - 任务ID: ${data.data.task_id}`;
+                elements.importDetails.textContent = `第${i + 1}批上传成功 (${batchFiles.length}个文件)`;
             } else {
                 results.push({
                     batchIndex: i + 1,
@@ -687,11 +687,7 @@ async function startFileImport() {
             }
 
             // 所有批次上传成功，显示总体处理状态
-            console.log(`所有批次上传成功，共${successfulBatches.length}批`);
-
-            // 显示所有批次的任务ID
-            const taskIds = successfulBatches.map(b => b.taskId);
-            console.log('所有任务ID:', taskIds);
+            console.log(`所有批次上传成功，共${successfulBatches.length}批，${successfulBatches.reduce((sum, b) => sum + b.files, 0)}个文件`);
 
             // 显示总体处理状态
             const totalUploadedFiles = successfulBatches.reduce((sum, b) => sum + b.files, 0);
@@ -809,16 +805,14 @@ async function startFileImport() {
                     // 获取任务ID并开始进度监控
                     if (data.success && data.data.task_id) {
                         const taskId = data.data.task_id;
-                        console.log('获取到任务ID:', taskId);
-                        console.log('开始监控进度，总文件数:', files.length);
+                        console.log('开始监控文件处理进度，总文件数:', files.length);
 
                         // 获取到task_id，立即开始监控实际进度
                         elements.importDetails.textContent = '正在初始化处理任务...';
-                        console.log('获取到task_id，开始监控实际处理进度...');
 
                         monitorImportProgress(taskId, files.length);
                     } else {
-                        console.error('获取任务ID失败:', data);
+                        console.error('服务器响应中未找到任务ID:', data);
                         showImportError(data.message || '导入失败');
                         elements.importProgress.classList.add('d-none');
                     }
@@ -934,11 +928,7 @@ async function startFolderImport() {
             }
 
             // 所有批次上传成功，显示总体处理状态
-            console.log(`目录所有批次上传成功，共${successfulBatches.length}批`);
-
-            // 显示所有批次的任务ID
-            const taskIds = successfulBatches.map(b => b.taskId);
-            console.log('目录所有任务ID:', taskIds);
+            console.log(`目录所有批次上传成功，共${successfulBatches.length}批，${successfulBatches.reduce((sum, b) => sum + b.files, 0)}个文件`);
 
             // 显示总体处理状态
             const totalUploadedFiles = successfulBatches.reduce((sum, b) => sum + b.files, 0);
@@ -1035,16 +1025,14 @@ async function startFolderImport() {
                     // 获取任务ID并开始进度监控
                     if (data.success && data.data.task_id) {
                         const taskId = data.data.task_id;
-                        console.log('获取到任务ID:', taskId);
-                        console.log('开始监控进度，总文件数:', imageFiles.length);
+                        console.log('开始监控目录文件处理进度，总文件数:', imageFiles.length);
 
                         // 更新状态文本，进度条已经在上传完成后重置了
                         elements.importDetails.textContent = '正在初始化处理任务...';
-                        console.log('开始监控后台处理进度...');
 
                         monitorImportProgress(taskId, imageFiles.length);
                     } else {
-                        console.error('获取任务ID失败:', data);
+                        console.error('服务器响应中未找到任务ID:', data);
                         showImportError(data.message || '导入失败');
                         elements.importProgress.classList.add('d-none');
                     }
@@ -1519,18 +1507,10 @@ function monitorImportProgress(taskId, totalFiles) {
     let checkCount = 0;
     const maxChecks = 120; // 最多检查120次，每次1秒，总共2分钟
 
-    console.log('开始监控进度，任务ID:', taskId, '总文件数:', totalFiles);
-
-    // 进度条状态已经在调用前设置，这里只需要记录状态
-    console.log('monitorImportProgress开始时进度条状态:');
-    console.log('进度条区域可见:', !elements.importProgress.classList.contains('d-none'));
-    console.log('进度条宽度:', elements.importProgressBar.style.width);
-    console.log('状态文本:', elements.importStatus.textContent);
+    console.log('开始监控文件处理进度，总文件数:', totalFiles);
 
     const progressInterval = setInterval(async () => {
         checkCount++;
-        
-        console.log(`进度检查第${checkCount}次，任务ID: ${taskId}`);
         
         // 超时保护
         if (checkCount > maxChecks) {
@@ -1544,23 +1524,17 @@ function monitorImportProgress(taskId, totalFiles) {
             return;
         }
         try {
-            const apiUrl = `${CONFIG.API_BASE_URL}/import/scan-status/${taskId}`;
-            console.log('调用API:', apiUrl);
-            
-            const response = await fetch(apiUrl);
-            
+            const response = await fetch(`${CONFIG.API_BASE_URL}/import/scan-status/${taskId}`);
+
             if (!response.ok) {
                 console.error('进度查询失败:', response.status, response.statusText);
                 return;
             }
-            
+
             const statusData = await response.json();
-            
-            console.log('进度监控数据:', statusData);
-            
+
             // 更新进度条
             const progress = statusData.progress_percentage || 0;
-            console.log(`更新进度条: ${progress}% (处理: ${statusData.processed_files || 0}/${totalFiles})`);
             elements.importProgressBar.style.width = `${progress}%`;
             elements.importProgressBar.setAttribute('aria-valuenow', progress);
 
