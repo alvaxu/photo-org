@@ -1318,7 +1318,7 @@ window.startAIProcess = startAIProcess;
  */
 function monitorImportProgress(taskId, totalFiles) {
     let checkCount = 0;
-    const maxChecks = 300; // 最多检查300次，每次0.2秒，总共1分钟
+    const maxChecks = 120; // 最多检查120次，每次1秒，总共2分钟
 
     console.log('开始监控进度，任务ID:', taskId, '总文件数:', totalFiles);
 
@@ -1476,7 +1476,7 @@ function monitorImportProgress(taskId, totalFiles) {
         } catch (error) {
             console.error('进度监控失败:', error);
         }
-    }, 200); // 每0.2秒检查一次
+    }, 1000); // 每1秒检查一次
 }
 
 /**
