@@ -700,8 +700,17 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
 
                 print(f"进度更新: {i + 1}/{len(files)} ({int((i + 1) / len(files) * 100)}%) - 导入:{imported_count}, 跳过:{skipped_count}, 失败:{failed_count}")
 
-                # 添加延迟，让前端能看到进度变化（仅用于演示，生产环境可移除）
-                await asyncio.sleep(0.5)
+                # 动态延迟：根据文件数量调整，让前端能看到进度变化
+                # 小批量文件(<10)：500ms，大批量文件：减少延迟以提高性能
+                total_files = len(files)
+                if total_files <= 10:
+                    delay = 0.5  # 500ms for small batches
+                elif total_files <= 50:
+                    delay = 0.2  # 200ms for medium batches
+                else:
+                    delay = 0.05  # 50ms for large batches, minimal impact on performance
+
+                await asyncio.sleep(delay)
 
         except Exception as e:
             task_status[task_id]["status"] = "failed"
