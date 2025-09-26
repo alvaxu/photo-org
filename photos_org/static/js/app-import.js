@@ -694,13 +694,11 @@ async function startFileImport() {
             elements.importStatus.textContent = `所有批次上传完成，正在后台处理 ${totalUploadedFiles} 个文件...`;
             elements.importDetails.textContent = `已提交${successfulBatches.length}个后台处理任务，请等待服务器完成处理`;
 
-            // 由于所有批次都在同时处理，我们显示一个总体状态
-            // 不再监控单个任务进度，而是等待用户刷新页面查看结果
-            setTimeout(() => {
-                elements.importStatus.textContent = `后台处理中，请稍后刷新页面查看结果`;
-                elements.importDetails.textContent = `所有文件已上传，服务器正在处理中...`;
-                elements.importProgressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
-            }, 3000);
+            // 显示分批上传结果详情
+            showBatchUploadResults(successfulBatches, totalUploadedFiles);
+
+            // 启动自动刷新检查
+            startAutoRefreshCheck(totalUploadedFiles);
 
         } catch (error) {
             console.error('分批上传失败:', error);
@@ -935,12 +933,11 @@ async function startFolderImport() {
             elements.importStatus.textContent = `目录所有批次上传完成，正在后台处理 ${totalUploadedFiles} 个文件...`;
             elements.importDetails.textContent = `已提交${successfulBatches.length}个后台处理任务，请等待服务器完成处理`;
 
-            // 由于所有批次都在同时处理，我们显示一个总体状态
-            setTimeout(() => {
-                elements.importStatus.textContent = `后台处理中，请稍后刷新页面查看结果`;
-                elements.importDetails.textContent = `所有目录文件已上传，服务器正在处理中...`;
-                elements.importProgressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
-            }, 3000);
+            // 显示分批上传结果详情
+            showBatchUploadResults(successfulBatches, totalUploadedFiles);
+
+            // 启动自动刷新检查
+            startAutoRefreshCheck(totalUploadedFiles);
 
         } catch (error) {
             console.error('目录分批上传失败:', error);
@@ -3252,3 +3249,158 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+/**
+ * 显示分批上传结果详情
+ */
+function showBatchUploadResults(successfulBatches, totalFiles) {
+    // 创建结果详情模态框
+    const modalHtml = `
+        <div class="modal fade" id="batchUploadResultsModal" tabindex="-1" aria-labelledby="batchUploadResultsLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="batchUploadResultsLabel">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            分批上传结果详情
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-success">
+                            <h6><i class="bi bi-info-circle me-2"></i>上传概况</h6>
+                            <p class="mb-1">总文件数：${totalFiles} 个</p>
+                            <p class="mb-1">分批数量：${successfulBatches.length} 批</p>
+                            <p class="mb-0">平均每批：${Math.round(totalFiles / successfulBatches.length)} 个文件</p>
+                        </div>
+
+                        <h6 class="mt-3 mb-2"><i class="bi bi-list-check me-2"></i>批次详情</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>批次</th>
+                                        <th>文件数量</th>
+                                        <th>状态</th>
+                                        <th>任务ID</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${successfulBatches.map(batch => `
+                                        <tr>
+                                            <td>第${batch.batchIndex}批</td>
+                                            <td>${batch.files} 个</td>
+                                            <td><span class="badge bg-success">上传成功</span></td>
+                                            <td><code class="small">${batch.taskId.substring(0, 8)}...</code></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-hourglass-split me-2"></i>
+                            <strong>后台处理中...</strong><br>
+                            所有文件已上传，正在进行图像处理、元数据提取等操作。请稍候，页面将在处理完成后自动刷新。
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                        <button type="button" class="btn btn-primary" onclick="startAutoRefreshCheck(${totalFiles})">
+                            <i class="bi bi-arrow-clockwise me-1"></i>等待自动刷新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 添加到页面
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('batchUploadResultsModal'));
+    modal.show();
+
+    // 模态框关闭时清理
+    document.getElementById('batchUploadResultsModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+/**
+ * 启动自动刷新检查
+ */
+function startAutoRefreshCheck(totalUploadedFiles) {
+    console.log(`启动自动刷新检查，上传文件数: ${totalUploadedFiles}`);
+
+    // 记录开始时间
+    const startTime = Date.now();
+    const maxWaitTime = 10 * 60 * 1000; // 最多等待10分钟
+
+    // 获取上传前的照片数量作为基准
+    let initialPhotoCount = null;
+
+    // 首先获取初始照片数量
+    fetch(`${window.CONFIG.API_BASE_URL}/photos?limit=1`)
+        .then(response => response.json())
+        .then(data => {
+            initialPhotoCount = data.total || 0;
+            console.log(`初始照片数量: ${initialPhotoCount}`);
+
+            // 开始定期检查
+            const checkInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+
+                // 超时检查
+                if (elapsed > maxWaitTime) {
+                    console.log('等待超时，自动刷新页面');
+                    clearInterval(checkInterval);
+                    location.reload();
+                    return;
+                }
+
+                // 检查照片数量是否增加
+                fetch(`${window.CONFIG.API_BASE_URL}/photos?limit=1`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const currentCount = data.total || 0;
+
+                        if (currentCount > initialPhotoCount) {
+                            console.log(`照片数量从 ${initialPhotoCount} 增加到 ${currentCount}，处理完成，自动刷新页面`);
+                            clearInterval(checkInterval);
+
+                            // 显示成功消息
+                            if (typeof showToast === 'function') {
+                                showToast('处理完成', '所有文件处理完成，页面即将刷新', 'success');
+                            } else {
+                                // 简单的提示消息
+                                alert('处理完成！所有文件处理完成，页面即将刷新。');
+                            }
+
+                            // 短暂延迟后刷新
+                            setTimeout(() => {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            console.log(`照片数量未变 (当前: ${currentCount})，继续等待...`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('检查照片数量失败:', error);
+                    });
+
+            }, 10000); // 每10秒检查一次
+
+            // 更新UI显示正在等待
+            elements.importStatus.textContent = '后台处理中，请稍候...';
+            elements.importDetails.textContent = `已上传 ${totalUploadedFiles} 个文件，正在等待处理完成`;
+
+        })
+        .catch(error => {
+            console.error('获取初始照片数量失败:', error);
+            // 如果获取失败，10分钟后强制刷新
+            setTimeout(() => {
+                location.reload();
+            }, maxWaitTime);
+        });
+}
