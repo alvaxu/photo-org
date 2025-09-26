@@ -1291,9 +1291,18 @@ window.startAIProcess = startAIProcess;
 function monitorImportProgress(taskId, totalFiles) {
     let checkCount = 0;
     const maxChecks = 120; // 最多检查120次，每次0.5秒，总共1分钟
-    
+
     console.log('开始监控进度，任务ID:', taskId, '总文件数:', totalFiles);
-    
+
+    // 立即设置初始状态，确保进度条显示
+    elements.importProgressBar.style.width = '0%';
+    elements.importProgressBar.setAttribute('aria-valuenow', '0');
+    elements.importStatus.textContent = `正在处理: 0/${totalFiles} (0%)`;
+    elements.importDetails.textContent = '正在初始化处理任务...';
+
+    // 确保进度条区域可见
+    elements.importProgress.classList.remove('d-none');
+
     const progressInterval = setInterval(async () => {
         checkCount++;
         
