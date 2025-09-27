@@ -801,6 +801,13 @@ async function uploadFilesInBatches(allFiles, batchSize = 100) {
 
 async function startFileImport() {
     console.log('开始文件导入');
+
+    // 确保用户配置已加载
+    if (!window.userConfig) {
+        console.log('加载用户配置...');
+        await loadUserConfig();
+    }
+
     const files = elements.photoFiles.files;
 
     if (files.length === 0) {
@@ -830,7 +837,9 @@ async function startFileImport() {
         elements.importStats.style.display = 'none';
 
         try {
-            const batchResults = await uploadFilesInBatches(files, 100);
+            const batchSize = CONFIG.importConfig?.scan_batch_size || 100;
+            console.log(`使用配置的导入批次大小: ${batchSize}`);
+            const batchResults = await uploadFilesInBatches(files, batchSize);
 
             // 统计结果
             const successfulBatches = batchResults.filter(r => r.success);
@@ -1019,6 +1028,12 @@ async function startFileImport() {
 async function startFolderImport() {
     console.log('开始目录扫描导入');
     console.log('CONFIG.API_BASE_URL:', window.CONFIG?.API_BASE_URL);
+
+    // 确保用户配置已加载
+    if (!window.userConfig) {
+        console.log('加载用户配置...');
+        await loadUserConfig();
+    }
     
     // 获取选择的文件
     const folderFilesInput = document.getElementById('folderFiles');
@@ -1074,7 +1089,9 @@ async function startFolderImport() {
         elements.importStats.style.display = 'none';
 
         try {
-            const batchResults = await uploadFilesInBatches(imageFiles, 100);
+            const batchSize = CONFIG.importConfig?.scan_batch_size || 100;
+            console.log(`使用配置的导入批次大小: ${batchSize}`);
+            const batchResults = await uploadFilesInBatches(imageFiles, batchSize);
 
             // 统计上传结果
             const successfulBatches = batchResults.filter(r => r.success);
