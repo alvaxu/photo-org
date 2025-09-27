@@ -70,6 +70,7 @@ async function loadUserConfig() {
                 // 更新全局配置
                 CONFIG.PAGE_SIZE = userConfig.ui?.photos_per_page || 12;
                 CONFIG.importConfig = userConfig.import || {};
+                CONFIG.analysisConfig = userConfig.analysis || {};
                 console.log('用户配置加载成功:', userConfig);
             }
         }
@@ -78,6 +79,7 @@ async function loadUserConfig() {
         // 使用默认配置
         CONFIG.PAGE_SIZE = 12;
         CONFIG.importConfig = { max_upload_files: 50 };
+        CONFIG.analysisConfig = { batch_size: 100 };
     }
 }
 

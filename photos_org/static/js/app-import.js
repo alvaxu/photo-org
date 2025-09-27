@@ -2921,6 +2921,12 @@ async function startAIAnalysis() {
 async function startBasicProcess() {
     console.log('执行基础分析处理');
 
+    // 确保用户配置已加载
+    if (!window.userConfig) {
+        console.log('加载用户配置...');
+        await loadUserConfig();
+    }
+
     // 显示进度
     document.getElementById('basicProgress').classList.remove('d-none');
     document.getElementById('startBasicBtn').disabled = true;
@@ -2949,7 +2955,8 @@ async function startBasicProcess() {
 
         // 分批处理配置
         const BATCH_THRESHOLD = 200;  // 分批处理阈值
-        const BATCH_SIZE = 100;       // 每批大小
+        const BATCH_SIZE = CONFIG.analysisConfig?.batch_size || 100;  // 从配置读取
+        console.log(`使用配置的分批大小: ${BATCH_SIZE}`);  // 调试日志
 
         if (photoIds.length > BATCH_THRESHOLD) {
             // 分批处理
