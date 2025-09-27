@@ -135,6 +135,7 @@
     ],
     "max_upload_files": 20000,
     "scan_batch_size": 1000
+    
   },
   "quality": {
     "weights": {
