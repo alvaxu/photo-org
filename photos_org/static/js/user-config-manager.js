@@ -84,10 +84,10 @@ class UserConfigManager {
         // 选择框变化事件
         this.bindSelectBoxes();
 
-        // 路径选择按钮
-        document.getElementById('selectPhotosPath').addEventListener('click', () => {
-            this.selectDirectory('photosPath');
-        });
+        // 路径选择按钮 - 照片存储目录已从用户界面移除
+        // document.getElementById('selectPhotosPath').addEventListener('click', () => {
+        //     this.selectDirectory('photosPath');
+        // });
 
         // API密钥显示/隐藏切换
         const toggleBtn = document.getElementById('toggleApiKeyVisibility');
@@ -297,13 +297,13 @@ class UserConfigManager {
         }
         this.updateCurrentValue('apiKeyCurrent', apiKey ? '已设置' : '使用环境变量');
 
-        // 存储配置
-        const photosPath = this.config.storage?.base_path || 'D:/photo_data/storage';
-        const photosPathInput = document.getElementById('photosPath');
-        if (photosPathInput) {
-            photosPathInput.value = photosPath;
-        }
-        this.updateCurrentValue('photosPathCurrent', photosPath);
+        // 存储配置 - 照片存储目录已从用户界面移除
+        // const photosPath = this.config.storage?.base_path || 'D:/photo_data/storage';
+        // const photosPathInput = document.getElementById('photosPath');
+        // if (photosPathInput) {
+        //     photosPathInput.value = photosPath;
+        // }
+        // this.updateCurrentValue('photosPathCurrent', photosPath);
         
         // 数据库路径已从用户界面移除，但保留在配置中
         
@@ -351,9 +351,9 @@ class UserConfigManager {
         const defaultApiKey = this.defaultConfig.dashscope?.api_key ? '已设置' : '使用环境变量';
         this.updateDefaultValue('apiKeyDefault', defaultApiKey);
 
-        // 存储配置
-        const defaultPhotosPath = this.defaultConfig.storage?.base_path || './storage';
-        this.updateDefaultValue('photosPathDefault', defaultPhotosPath);
+        // 存储配置 - 照片存储目录已从用户界面移除
+        // const defaultPhotosPath = this.defaultConfig.storage?.base_path || './storage';
+        // this.updateDefaultValue('photosPathDefault', defaultPhotosPath);
         
         // 数据库路径默认值已从用户界面移除
         
@@ -447,7 +447,7 @@ class UserConfigManager {
                 api_key: document.getElementById('apiKey').value || null
             },
             storage: {
-                base_path: document.getElementById('photosPath').value,
+                // base_path 已从用户界面移除，使用配置中的默认值
                 thumbnail_quality: parseInt(document.getElementById('thumbnailQuality').value),
                 thumbnail_size: parseInt(document.getElementById('thumbnailSize').value)
             },
