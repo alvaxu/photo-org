@@ -1860,17 +1860,26 @@ function monitorImportProgress(taskId, totalFiles) {
  */
 function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
     let checkCount = 0;
-    const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
+    const maxElapsedTime = 60 * 60 * 1000; // 1小时超时（毫秒）
+    const startTime = Date.now();
 
     console.log('开始监控批次聚合进度，总任务数:', taskIds.length, '总文件数:', totalFiles);
 
-    const progressInterval = setInterval(async () => {
+    // 🔄 渐进式查询频率：开始快，后来慢
+    let currentInterval = 2000; // 起始2秒（导入比基础分析频率稍低）
+    let progressInterval;
+
+    const checkProgress = async () => {
         checkCount++;
 
-        // 超时保护
-        if (checkCount > maxChecks) {
-            clearInterval(progressInterval);
-            console.error('批次进度监控超时');
+        // 超时保护 - 基于实际时间
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime >= maxElapsedTime) {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                clearTimeout(progressInterval);
+            }
+            console.error('批次进度监控超时，经过时间:', Math.round(elapsedTime/1000), '秒');
             elements.importStatus.textContent = '处理超时';
             elements.importDetails.textContent = '服务器处理时间过长，请检查服务器状态';
             elements.importProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
@@ -1987,7 +1996,35 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
         } catch (error) {
             console.error('批次进度监控失败:', error);
         }
-    }, 1000); // 每1秒检查一次
+
+        // 🔄 动态调整查询频率
+        // 0-30秒：2秒间隔，30-120秒：5秒间隔，120秒以后：10秒间隔
+        const elapsedSeconds = (Date.now() - startTime) / 1000;
+        let nextInterval;
+
+        if (elapsedSeconds < 30) {
+            nextInterval = 2000; // 2秒
+        } else if (elapsedSeconds < 120) {
+            nextInterval = 5000; // 5秒
+        } else {
+            nextInterval = 10000; // 10秒
+        }
+
+        // 如果频率改变，重新设置定时器
+        if (nextInterval !== currentInterval) {
+            currentInterval = nextInterval;
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                clearTimeout(progressInterval);
+            }
+            progressInterval = setTimeout(checkProgress, currentInterval);
+        } else {
+            progressInterval = setTimeout(checkProgress, currentInterval);
+        }
+    };
+
+    // 启动首次检查
+    progressInterval = setTimeout(checkProgress, currentInterval);
 }
 
 /**
@@ -2650,7 +2687,8 @@ async function processBasicAnalysisInBatches(photoIds, batchSize) {
  */
 async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
     let checkCount = 0;
-    const maxChecks = 1200; // 20分钟（比单批更宽松）
+    const maxElapsedTime = 3 * 60 * 60 * 1000; // 3小时超时（毫秒）- 处理大量照片需要较长时间
+    const startTime = Date.now();
     const batchProgress = {}; // 各批次进度
 
     // 初始化批次进度
@@ -2665,7 +2703,11 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
         };
     });
 
-    const progressInterval = setInterval(async () => {
+    // 🔄 渐进式查询频率：开始快，后来慢
+    let currentInterval = 1000; // 起始1秒
+    let progressInterval;
+
+    const checkProgress = async () => {
         checkCount++;
 
         try {
@@ -2756,7 +2798,10 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
             const allFinished = batchStatusData.overall_status === 'completed';
 
             if (allFinished) {
-                clearInterval(progressInterval);
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    clearTimeout(progressInterval);
+                }
 
                 // ✅ 完成时解除保护
                 window.basicModalProtector.unprotect();
@@ -2793,15 +2838,47 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
             console.error('基础分析批次监控失败:', error);
         }
 
-        // 超时处理
-        if (checkCount >= maxChecks) {
-            clearInterval(progressInterval);
-            console.error('基础分析批次监控超时');
+        // 超时处理 - 基于实际经过时间
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime >= maxElapsedTime) {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                clearTimeout(progressInterval);
+            }
+            console.error('基础分析批次监控超时，经过时间:', Math.round(elapsedTime/1000), '秒');
             document.getElementById('basicStatus').textContent = '基础分析批次处理超时，请稍后重试';
             document.getElementById('startBasicBtn').disabled = false;
             showError('基础分析批次处理超时，请稍后重试');
         }
-    }, 1000);
+
+        // 🔄 动态调整查询频率
+        // 0-30秒：1秒间隔，30-120秒：2秒间隔，120秒以后：5秒间隔
+        const elapsedSeconds = (Date.now() - startTime) / 1000;
+        let nextInterval;
+
+        if (elapsedSeconds < 30) {
+            nextInterval = 1000; // 1秒
+        } else if (elapsedSeconds < 120) {
+            nextInterval = 2000; // 2秒
+        } else {
+            nextInterval = 5000; // 5秒
+        }
+
+        // 如果频率改变，重新设置定时器
+        if (nextInterval !== currentInterval) {
+            currentInterval = nextInterval;
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                clearTimeout(progressInterval);
+            }
+            progressInterval = setTimeout(checkProgress, currentInterval);
+        } else {
+            progressInterval = setTimeout(checkProgress, currentInterval);
+        }
+    };
+
+    // 启动首次检查
+    progressInterval = setTimeout(checkProgress, currentInterval);
 }
 
 /**
