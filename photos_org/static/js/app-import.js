@@ -2652,21 +2652,33 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
         checkCount++;
 
         try {
-            // 并行查询所有批次状态，传递每批的照片数量作为initial_total
-            const statusPromises = batchInfo.map(batch =>
-                fetch(`${window.CONFIG.API_BASE_URL}/analysis/task-status/${batch.taskId}?initial_total=${batch.photoCount}`)
-                    .then(res => res.json())
-                    .catch(err => ({
-                        error: err.message,
-                        task_id: batch.taskId,
-                        status: 'error',
-                        completed_photos: 0, // 安全的默认值
-                        total_photos: batch.photoCount, // 使用保存的照片数量
-                        progress_percentage: 0 // 安全的默认值
-                    }))
-            );
+            // 🔄 改为聚合查询：一次请求查询所有批次状态（类似导入的batch-status）
+            const taskIds = batchInfo.map(batch => batch.taskId);
+            const initialTotals = batchInfo.reduce((acc, batch) => {
+                acc[batch.taskId] = batch.photoCount;
+                return acc;
+            }, {});
 
-            const statusResults = await Promise.all(statusPromises);
+            const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/batch-status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    task_ids: taskIds,
+                    initial_totals: initialTotals
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`批量查询分析状态失败: ${response.status} ${response.statusText}`);
+            }
+
+            const batchStatusData = await response.json();
+            console.log('分析批次聚合状态:', batchStatusData);
+
+            // 将聚合响应转换为与原来Promise.all结果兼容的格式
+            const statusResults = batchStatusData.task_details || [];
 
             // 更新各批次进度
             let totalCompletedPhotos = 0;
@@ -2677,17 +2689,18 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
                 const batch = batchInfo[index];
                 const taskId = batch.taskId;
 
-                if (statusData.error) {
-                    console.warn(`批次 ${batch.batchIndex} 状态查询失败:`, statusData.error);
+                if (statusData.error || statusData.status === 'error') {
+                    console.warn(`批次 ${batch.batchIndex} 状态查询失败:`, statusData.error || '未知错误');
                     batchProgress[taskId] = {
                         completed: false,
                         completed_photos: 0,
                         total_photos: batch.photoCount, // 使用保存的照片数量
                         progress_percentage: 0,
                         status: 'error',
-                        error: statusData.error,
+                        error: statusData.error || '查询失败',
                         batchIndex: batch.batchIndex
                     };
+                    totalFailedBatches++;
                     return;
                 }
 
@@ -2711,13 +2724,10 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
                 if (isCompleted) {
                     totalCompletedBatches++;
                 }
-                if (statusData.status === 'error') {
-                    totalFailedBatches++;
-                }
             });
 
-            // 计算总体进度 - 确保不会出现负数百分比
-            const overallProgress = Math.max(0, Math.min((totalCompletedPhotos / totalPhotos) * 100, 100));
+            // 🔄 使用聚合响应中的总体进度（更准确）
+            const overallProgress = Math.max(0, Math.min(batchStatusData.overall_progress_percentage || 0, 100));
             const batchProgressText = `${totalCompletedBatches}/${batchInfo.length}批完成`;
 
             // 更新进度条和状态
@@ -2725,13 +2735,8 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
             document.getElementById('basicStatus').textContent =
                 `基础分析批次处理中: ${batchProgressText} (${Math.round(overallProgress)}%)`;
 
-            // 检查是否全部完成（允许部分失败）
-            // 批次完成条件：状态为'completed'或'error'（处理失败）
-            // 不包括查询失败的情况，因为查询失败的批次可能还在处理中
-            const allFinished = batchInfo.every(batch => {
-                const progress = batchProgress[batch.taskId];
-                return progress.status === 'completed' || progress.status === 'error';
-            });
+            // 🔄 使用聚合响应中的总体状态判断是否完成（更可靠）
+            const allFinished = batchStatusData.overall_status === 'completed';
 
             if (allFinished) {
                 clearInterval(progressInterval);
