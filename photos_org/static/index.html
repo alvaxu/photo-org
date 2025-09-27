@@ -499,7 +499,7 @@
     </div>
 
     <!-- 导入照片模态框 -->
-    <div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal fade" id="importModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -609,12 +609,6 @@
                         <div class="text-center mb-2">
                             <p class="mb-1" id="importStatus">正在准备导入...</p>
                             <small class="text-muted" id="importDetails">请稍候...</small>
-                        </div>
-                        <div class="text-center mb-3" id="importCancelArea" style="display: none;">
-                            <button type="button" class="btn btn-outline-danger btn-sm" id="cancelImportBtn" onclick="cancelImportProcess()">
-                                <i class="bi bi-x-circle me-1"></i>
-                                取消导入
-                            </button>
                         </div>
                         <div class="row text-center" id="importStats" style="display: none;">
                             <div class="col-3">
