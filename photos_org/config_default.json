@@ -47,7 +47,7 @@
     "quality_threshold": 0,
     "concurrent": 5,
     "timeout": 30,
-    "batch_size": 100
+    "batch_size": 1000
   },
   "logging": {
     "level": "INFO",
@@ -134,7 +134,7 @@
       ".heif"
     ],
     "max_upload_files": 20000,
-    "scan_batch_size": 100
+    "scan_batch_size": 1000
   },
   "quality": {
     "weights": {
