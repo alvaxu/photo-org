@@ -141,17 +141,34 @@ else:
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 # 动态挂载照片存储目录（根据用户配置）
-photos_storage_path = Path(settings.storage.base_path)
+config_path = Path(settings.storage.base_path)
 
-# 在PyInstaller打包环境中处理存储路径
 if getattr(sys, 'frozen', False):
-    # 解压目录运行时，storage目录与exe在同一级目录
+    # PyInstaller打包环境
     exe_dir = Path(sys.executable).parent
-    photos_storage_dir = exe_dir / "storage"
+
+    if config_path.is_absolute():
+        # 绝对路径：直接使用用户指定的路径
+        photos_storage_dir = config_path
+        print(f"📦 PyInstaller环境：使用绝对路径 {photos_storage_dir}")
+    else:
+        # 相对路径：相对于exe目录解析
+        photos_storage_dir = exe_dir / config_path
+        print(f"📦 PyInstaller环境：相对路径解析为 {photos_storage_dir}")
+
+    # 确保存储目录存在
     photos_storage_dir.mkdir(parents=True, exist_ok=True)
 else:
     # 开发环境
-    photos_storage_dir = Path(settings.storage.base_path)
+    if config_path.is_absolute():
+        photos_storage_dir = config_path
+        print(f"🔧 开发环境：使用绝对路径 {photos_storage_dir}")
+    else:
+        # 相对路径：相对于项目根目录
+        project_root = Path(__file__).parent
+        photos_storage_dir = project_root / config_path
+        print(f"🔧 开发环境：相对路径解析为 {photos_storage_dir}")
+
     # 确保存储目录存在
     photos_storage_dir.mkdir(parents=True, exist_ok=True)
 
@@ -279,7 +296,8 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("✅ 系统初始化完成")
     print("="*60)
-    print(f"📁 存储路径: {settings.storage.base_path}")
+    print(f"📁 配置存储路径: {settings.storage.base_path}")
+    print(f"📂 实际存储路径: {photos_storage_dir}")
     print(f"🔑 API_KEY状态: {api_key_status}")
     if api_key_warning:
         print(f"   {api_key_warning}")
