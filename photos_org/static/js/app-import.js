@@ -2665,7 +2665,11 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
         };
     });
 
-    const progressInterval = setInterval(async () => {
+    // 🔄 渐进式查询频率：开始快，后来慢
+    let currentInterval = 1000; // 起始1秒
+    let progressInterval;
+
+    const checkProgress = async () => {
         checkCount++;
 
         try {
@@ -2756,7 +2760,10 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
             const allFinished = batchStatusData.overall_status === 'completed';
 
             if (allFinished) {
-                clearInterval(progressInterval);
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    clearTimeout(progressInterval);
+                }
 
                 // ✅ 完成时解除保护
                 window.basicModalProtector.unprotect();
@@ -2795,13 +2802,44 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
 
         // 超时处理
         if (checkCount >= maxChecks) {
-            clearInterval(progressInterval);
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                clearTimeout(progressInterval);
+            }
             console.error('基础分析批次监控超时');
             document.getElementById('basicStatus').textContent = '基础分析批次处理超时，请稍后重试';
             document.getElementById('startBasicBtn').disabled = false;
             showError('基础分析批次处理超时，请稍后重试');
         }
-    }, 1000);
+
+        // 🔄 动态调整查询频率
+        // 0-30秒：1秒间隔，30-120秒：2秒间隔，120秒以后：5秒间隔
+        const elapsedSeconds = checkCount;
+        let nextInterval;
+
+        if (elapsedSeconds < 30) {
+            nextInterval = 1000; // 1秒
+        } else if (elapsedSeconds < 120) {
+            nextInterval = 2000; // 2秒
+        } else {
+            nextInterval = 5000; // 5秒
+        }
+
+        // 如果频率改变，重新设置定时器
+        if (nextInterval !== currentInterval) {
+            currentInterval = nextInterval;
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                clearTimeout(progressInterval);
+            }
+            progressInterval = setTimeout(checkProgress, currentInterval);
+        } else {
+            progressInterval = setTimeout(checkProgress, currentInterval);
+        }
+    };
+
+    // 启动首次检查
+    progressInterval = setTimeout(checkProgress, currentInterval);
 }
 
 /**
