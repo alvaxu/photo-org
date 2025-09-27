@@ -912,24 +912,42 @@ async function startFolderImport() {
         try {
             const batchResults = await uploadFilesInBatches(imageFiles, 100);
 
-            // 统计结果
+            // 统计上传结果
             const successfulBatches = batchResults.filter(r => r.success);
             const failedBatches = batchResults.filter(r => !r.success);
+            const totalSuccessfulFiles = successfulBatches.reduce((sum, b) => sum + b.files, 0);
+            const totalFailedFiles = failedBatches.reduce((sum, b) => sum + b.files, 0);
 
-            if (failedBatches.length > 0) {
-                showImportError(`目录分批上传完成，但${failedBatches.length}批失败: ${failedBatches.map(f => `第${f.batchIndex}批(${f.error})`).join(', ')}`);
+            if (successfulBatches.length > 0) {
+                // 有成功的批次，继续处理
+                console.log(`目录批次上传：${successfulBatches.length}批成功(${totalSuccessfulFiles}文件)，${failedBatches.length}批失败(${totalFailedFiles}文件)`);
+
+                // 收集成功批次的任务ID
+                const successfulTaskIds = successfulBatches.map(batch => batch.taskId);
+                console.log('将监控成功批次任务ID:', successfulTaskIds);
+
+                // 开始监控成功的批次处理进度
+                monitorBatchProgress(successfulTaskIds, totalSuccessfulFiles, failedBatches);
+
+                // 根据失败情况给出不同提示
+                if (failedBatches.length > 0) {
+                    // 部分失败：显示警告信息
+                    elements.importStatus.textContent = `⚠️ ${failedBatches.length}批上传失败，但将继续处理 ${totalSuccessfulFiles} 个成功上传的文件...`;
+                    elements.importDetails.textContent = `上传结果：${successfulBatches.length}/${successfulBatches.length + failedBatches.length} 批成功，共 ${imageFiles.length} 个文件`;
+
+                    // 在控制台显示失败详情
+                    console.warn('上传失败的批次:', failedBatches.map(f => `第${f.batchIndex}批(${f.files}文件): ${f.error}`).join('; '));
+                } else {
+                    // 全部成功：正常显示
+                    elements.importStatus.textContent = `所有批次上传成功，正在后台处理 ${totalSuccessfulFiles} 个文件...`;
+                    elements.importDetails.textContent = `已提交 ${successfulBatches.length} 个后台处理任务`;
+                }
+            } else {
+                // 全部失败：显示错误
+                const errorMsg = failedBatches.map(f => `第${f.batchIndex}批: ${f.error}`).join('; ');
+                showImportError(`目录分批上传失败：所有 ${failedBatches.length} 批均失败。错误详情：${errorMsg}`);
                 return;
             }
-
-            // 所有批次上传成功，开始监控批次完成状态
-            console.log(`目录所有批次上传成功，共${successfulBatches.length}批，${successfulBatches.reduce((sum, b) => sum + b.files, 0)}个文件`);
-
-            // 收集所有批次的任务ID
-            const batchTaskIds = successfulBatches.map(batch => batch.taskId);
-            console.log('收集到目录批次任务ID:', batchTaskIds);
-
-            // 开始监控批次聚合状态
-            monitorBatchProgress(batchTaskIds, imageFiles.length);
 
         } catch (error) {
             console.error('目录分批上传失败:', error);
@@ -1646,8 +1664,9 @@ function monitorImportProgress(taskId, totalFiles) {
  *
  * @param {Array<string>} taskIds - 批次任务ID数组
  * @param {number} totalFiles - 总文件数量
+ * @param {Array} failedBatches - 上传失败的批次信息（可选）
  */
-function monitorBatchProgress(taskIds, totalFiles) {
+function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
     let checkCount = 0;
     const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
 
@@ -1728,7 +1747,14 @@ function monitorBatchProgress(taskIds, totalFiles) {
                     imported_photos: importedCount,
                     skipped_photos: skippedCount,
                     failed_photos: failedCount,
-                    failed_files: batchData.failed_files || []
+                    failed_files: batchData.failed_files || [],
+                    // 上传失败批次信息
+                    upload_failed_batches: failedBatches.length,
+                    upload_failed_details: failedBatches.map(f => ({
+                        batch_index: f.batchIndex,
+                        files_count: f.files,
+                        error: f.error
+                    }))
                 };
 
                 // 【关键】执行和非分批处理完全相同的UI流程

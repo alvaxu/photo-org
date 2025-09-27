@@ -329,7 +329,7 @@ function showImportDetails(detailsData) {
                         
                         ${detailsData.failed_files && detailsData.failed_files.length > 0 ? `
                         <div class="mt-4">
-                            <h6>详细信息：</h6>
+                            <h6>处理失败的文件：</h6>
                             <div class="table-responsive">
                                 <table class="table table-sm">
                                     <thead>
@@ -343,6 +343,35 @@ function showImportDetails(detailsData) {
                                             <tr>
                                                 <td>${file.split(':')[0]}</td>
                                                 <td>${file.split(':')[1] || ''}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        ${detailsData.upload_failed_details && detailsData.upload_failed_details.length > 0 ? `
+                        <div class="mt-4">
+                            <h6>⚠️ 上传失败的批次：</h6>
+                            <div class="alert alert-warning">
+                                <p>有 ${detailsData.upload_failed_batches} 批文件由于网络或其他原因上传失败，未进行处理。您可以重新选择这些文件进行上传。</p>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>批次</th>
+                                            <th>文件数量</th>
+                                            <th>失败原因</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${detailsData.upload_failed_details.map(batch => `
+                                            <tr>
+                                                <td>第${batch.batch_index}批</td>
+                                                <td>${batch.files_count}个文件</td>
+                                                <td>${batch.error}</td>
                                             </tr>
                                         `).join('')}
                                     </tbody>
