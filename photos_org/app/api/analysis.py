@@ -1,6 +1,7 @@
 """
 家庭版智能照片系统 - 智能分析API
 """
+import asyncio
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -15,6 +16,12 @@ from app.models.photo import Photo, PhotoQuality, PhotoAnalysis
 logger = get_logger(__name__)
 
 router = APIRouter()
+
+# 全局分析任务状态跟踪（类似导入模块的task_status）
+analysis_task_status = {}
+
+# 任务状态清理配置
+TASK_STATUS_CLEANUP_HOURS = 1  # 任务完成后1小时清理状态
 
 
 # 请求/响应模型
@@ -666,12 +673,135 @@ async def get_analysis_task_status(task_id: str, initial_total: int = None, db: 
         raise HTTPException(status_code=500, detail=f"获取分析状态失败: {str(e)}")
 
 
+# 批量状态查询请求模型
+class BatchStatusRequest(BaseModel):
+    """批量分析任务状态查询请求"""
+    task_ids: List[str] = Field(..., description="任务ID列表")
+    initial_totals: Optional[Dict[str, int]] = Field(None, description="各任务的初始照片总数 {task_id: count}")
+
+
+@router.post("/batch-status")
+async def get_analysis_batch_status(request: BatchStatusRequest, db: Session = Depends(get_db)):
+    """
+    获取多个分析任务的聚合状态（类似导入的batch-status）
+
+    使用任务状态字典查询，避免前端发起过多并发请求
+    """
+    try:
+        logger.info(f"批量查询分析任务状态，任务数量: {len(request.task_ids)}")
+
+        if not request.task_ids:
+            raise HTTPException(status_code=400, detail="任务ID列表不能为空")
+
+        batch_results = []
+        total_completed_photos = 0
+        total_analyzing_photos = 0
+        total_failed_photos = 0
+        completed_tasks = 0
+
+        # 查询每个任务的状态 - 使用任务状态字典
+        for task_id in request.task_ids:
+            try:
+                # 从任务状态字典获取任务状态
+                task_data = analysis_task_status.get(task_id)
+
+                if task_data:
+                    # 任务存在，使用任务状态
+                    status = task_data["status"]
+                    total_photos = task_data["total_photos"]
+                    completed_photos = task_data["completed_photos"]
+                    failed_photos = task_data["failed_photos"]
+                    progress_percentage = task_data["progress_percentage"]
+                    processing_photos = total_photos - completed_photos - failed_photos
+                else:
+                    # 任务不存在（可能已清理或从未启动），标记为错误
+                    logger.warning(f"任务 {task_id} 状态不存在")
+                    status = "error"
+                    total_photos = 0
+                    completed_photos = 0
+                    failed_photos = 0
+                    progress_percentage = 0
+                    processing_photos = 0
+
+                task_result = {
+                    "task_id": task_id,
+                    "status": status,
+                    "total_photos": total_photos,
+                    "completed_photos": completed_photos,
+                    "failed_photos": failed_photos,
+                    "progress_percentage": round(progress_percentage, 2),
+                    "processing_photos": processing_photos
+                }
+
+                batch_results.append(task_result)
+
+                # 累积统计
+                total_completed_photos += completed_photos
+                total_analyzing_photos += processing_photos
+                total_failed_photos += failed_photos
+
+                if status == "completed":
+                    completed_tasks += 1
+
+            except Exception as e:
+                logger.warning(f"查询任务 {task_id} 状态失败: {str(e)}")
+                # 任务查询失败，记录为错误状态
+                batch_results.append({
+                    "task_id": task_id,
+                    "status": "error",
+                    "error": str(e),
+                    "total_photos": 0,
+                    "completed_photos": 0,
+                    "failed_photos": 0,
+                    "progress_percentage": 0,
+                    "processing_photos": 0
+                })
+
+        # 计算总体状态
+        total_tasks = len(request.task_ids)
+        overall_progress = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+
+        # 总体状态判断：所有任务都完成才算完成
+        overall_status = "completed" if completed_tasks == total_tasks else "processing"
+
+        result = {
+            "overall_status": overall_status,
+            "overall_progress_percentage": round(overall_progress, 2),
+            "completed_tasks": completed_tasks,
+            "total_tasks": total_tasks,
+            "total_completed_photos": total_completed_photos,
+            "total_analyzing_photos": total_analyzing_photos,
+            "total_failed_photos": total_failed_photos,
+            "task_details": batch_results
+        }
+
+        logger.info(f"分析批次聚合状态: {completed_tasks}/{total_tasks} 完成，总体进度: {overall_progress}%")
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"批量查询分析任务状态失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"批量查询分析任务状态失败: {str(e)}")
+
+
 async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_types: List[str]):
     """
     处理分析任务（后台任务）
     """
     logger.info(f"=== 开始处理分析任务 {task_id} ===")
     logger.info(f"照片数量: {len(photo_ids)}, 分析类型: {analysis_types}")
+
+    # 初始化任务状态
+    analysis_task_status[task_id] = {
+        "status": "processing",
+        "total_photos": len(photo_ids),
+        "completed_photos": 0,
+        "failed_photos": 0,
+        "progress_percentage": 0.0,
+        "start_time": datetime.now().isoformat(),
+        "analysis_types": analysis_types
+    }
 
     try:
         analysis_service = AnalysisService()
@@ -680,12 +810,16 @@ async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_typ
         successful_analyses = 0
         failed_analyses = 0
 
-        for photo_id in photo_ids:
+        for i, photo_id in enumerate(photo_ids):
             try:
                 logger.info(f"分析照片 {photo_id}，分析类型: {analysis_types}")
                 result = await analysis_service.analyze_photo(photo_id, analysis_types, db)
                 logger.info(f"照片 {photo_id} 分析完成")
                 successful_analyses += 1
+
+                # 更新任务状态
+                analysis_task_status[task_id]["completed_photos"] = successful_analyses
+                analysis_task_status[task_id]["progress_percentage"] = (successful_analyses / len(photo_ids)) * 100
 
             except Exception as e:
                 logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
@@ -694,13 +828,40 @@ async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_typ
                 # db.commit()
                 failed_analyses += 1
 
+                # 更新失败计数
+                analysis_task_status[task_id]["failed_photos"] = failed_analyses
+
         logger.info(f"=== 分析任务 {task_id} 完成 ===")
         logger.info(f"成功: {successful_analyses}, 失败: {failed_analyses}")
+
+        # 标记任务完成
+        analysis_task_status[task_id].update({
+            "status": "completed",
+            "end_time": datetime.now().isoformat(),
+            "progress_percentage": 100.0
+        })
+
+        # 延迟清理任务状态，避免内存泄漏
+        async def cleanup_task_status():
+            await asyncio.sleep(TASK_STATUS_CLEANUP_HOURS * 3600)  # 延迟清理
+            if task_id in analysis_task_status:
+                del analysis_task_status[task_id]
+                logger.info(f"清理已完成的任务状态: {task_id}")
+
+        # 启动后台清理任务
+        asyncio.create_task(cleanup_task_status())
 
     except Exception as e:
         logger.error(f"处理分析任务失败: {str(e)}")
         import traceback
         logger.error(f"详细错误信息: {traceback.format_exc()}")
+
+        # 标记任务失败
+        analysis_task_status[task_id].update({
+            "status": "failed",
+            "error": str(e),
+            "end_time": datetime.now().isoformat()
+        })
     finally:
         try:
             db.close()
