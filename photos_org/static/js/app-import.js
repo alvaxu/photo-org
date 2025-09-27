@@ -2394,11 +2394,14 @@ async function processBasicAnalysisSingleBatch(photoIds) {
  * @param {number} batchSize - 每批大小
  */
 async function processBasicAnalysisInBatches(photoIds, batchSize) {
+    // 📖 读取并发配置
+    const MAX_CONCURRENT = window.CONFIG.analysis?.concurrent || 5;  // 默认5批并发
+
     const totalPhotos = photoIds.length;
     const totalBatches = Math.ceil(totalPhotos / batchSize);
     const batchTaskIds = [];
 
-    console.log(`基础分析分批处理：${totalPhotos}张照片，分为${totalBatches}批`);
+    console.log(`基础分析分批处理：${totalPhotos}张照片，分为${totalBatches}批，最大并发：${MAX_CONCURRENT}`);
 
     // 禁用开始按钮，防止重复点击
     document.getElementById('startBasicBtn').disabled = true;
@@ -2407,42 +2410,18 @@ async function processBasicAnalysisInBatches(photoIds, batchSize) {
     document.getElementById('basicStatus').textContent = `准备分批分析 ${totalPhotos} 张照片，共${totalBatches}批...`;
 
     try {
-        // 分批启动分析任务
-        for (let i = 0; i < totalBatches; i++) {
-            const start = i * batchSize;
-            const end = Math.min(start + batchSize, totalPhotos);
-            const batchPhotoIds = photoIds.slice(start, end);
-
-            // 更新当前批次状态
-            const currentBatch = i + 1;
-            document.getElementById('basicStatus').textContent =
-                `正在启动第${currentBatch}/${totalBatches}批分析 (${batchPhotoIds.length}张照片)...`;
-
-            // 启动单批分析
-            const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    photo_ids: batchPhotoIds,
-                    analysis_types: ['quality']
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`第${currentBatch}批启动失败: ${errorData.detail || response.statusText}`);
-            }
-
-            const data = await response.json();
-            batchTaskIds.push(data.task_id);
-
-            console.log(`第${currentBatch}批分析任务已启动: ${data.task_id}`);
-        }
+        // 🚀 并发控制启动批次
+        await processBatchesWithConcurrency(
+            photoIds,
+            batchSize,
+            MAX_CONCURRENT,
+            batchTaskIds
+        );
 
         // 所有批次启动完成，开始监控
-        console.log('所有基础分析批次已启动，开始监控聚合进度');
+        console.log(`所有${batchTaskIds.length}个基础分析批次已启动，开始监控聚合进度`);
         document.getElementById('basicStatus').textContent =
-            `所有${totalBatches}批分析任务已启动，正在后台处理...`;
+            `所有${batchTaskIds.length}批分析任务已启动，正在后台处理...`;
 
         // 监控所有批次的聚合进度
         await monitorBasicAnalysisBatches(batchTaskIds, totalPhotos);
@@ -2452,6 +2431,93 @@ async function processBasicAnalysisInBatches(photoIds, batchSize) {
         showError('基础分析分批处理失败: ' + error.message);
         document.getElementById('startBasicBtn').disabled = false;
     }
+}
+
+/**
+ * 并发控制处理批次
+ * @param {Array} photoIds - 所有照片ID
+ * @param {number} batchSize - 每批大小
+ * @param {number} maxConcurrent - 最大并发数
+ * @param {Array} batchTaskIds - 存储任务ID的数组
+ */
+async function processBatchesWithConcurrency(photoIds, batchSize, maxConcurrent, batchTaskIds) {
+    const totalBatches = Math.ceil(photoIds.length / batchSize);
+    let runningBatches = 0;  // 当前运行的批次数
+    const pendingBatches = [];  // 待处理的批次队列
+
+    // 创建所有批次信息
+    for (let i = 0; i < totalBatches; i++) {
+        const start = i * batchSize;
+        const end = Math.min(start + batchSize, photoIds.length);
+        const batchPhotoIds = photoIds.slice(start, end);
+
+        pendingBatches.push({
+            index: i + 1,
+            photoIds: batchPhotoIds
+        });
+    }
+
+    return new Promise((resolve, reject) => {
+        const processNextBatch = async () => {
+            // 如果没有待处理的批次且没有运行的批次，完成
+            if (pendingBatches.length === 0 && runningBatches === 0) {
+                resolve();
+                return;
+            }
+
+            // 如果还有批次待处理且并发数未满，启动新批次
+            while (pendingBatches.length > 0 && runningBatches < maxConcurrent) {
+                const batch = pendingBatches.shift();
+                runningBatches++;
+
+                // 异步启动批次，不阻塞
+                startSingleBatch(batch, batchTaskIds)
+                    .then(() => {
+                        runningBatches--;
+                        // 批次完成后，尝试启动下一个
+                        setTimeout(processNextBatch, 100);
+                    })
+                    .catch((error) => {
+                        runningBatches--;
+                        reject(error);
+                    });
+            }
+        };
+
+        // 开始处理
+        processNextBatch();
+    });
+}
+
+/**
+ * 启动单个批次
+ * @param {Object} batch - 批次信息 {index, photoIds}
+ * @param {Array} batchTaskIds - 存储任务ID的数组
+ */
+async function startSingleBatch(batch, batchTaskIds) {
+    const { index, photoIds } = batch;
+
+    document.getElementById('basicStatus').textContent =
+        `正在启动第${index}批分析 (${photoIds.length}张照片)...`;
+
+    const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            photo_ids: photoIds,
+            analysis_types: ['quality']
+        })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`第${index}批启动失败: ${errorData.detail || response.statusText}`);
+    }
+
+    const data = await response.json();
+    batchTaskIds.push(data.task_id);
+
+    console.log(`第${index}批分析任务已启动: ${data.task_id}`);
 }
 
 /**
@@ -2756,9 +2822,9 @@ async function startBasicProcess() {
             return;
         }
 
-        // 分批处理配置
-        const BATCH_THRESHOLD = 200;  // 分批处理阈值
-        const BATCH_SIZE = 100;       // 每批大小
+        // 📖 读取分批处理配置
+        const BATCH_THRESHOLD = window.CONFIG.analysis?.batch_size || 50;  // 使用配置文件中的batch_size作为阈值
+        const BATCH_SIZE = window.CONFIG.analysis?.batch_size || 50;       // 使用配置文件中的batch_size
 
         if (photoIds.length > BATCH_THRESHOLD) {
             // 分批处理
