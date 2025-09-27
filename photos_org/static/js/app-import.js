@@ -2650,7 +2650,8 @@ async function processBasicAnalysisInBatches(photoIds, batchSize) {
  */
 async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
     let checkCount = 0;
-    const maxChecks = 1200; // 20分钟（比单批更宽松）
+    const maxElapsedTime = 20 * 60 * 1000; // 20分钟超时（毫秒）
+    const startTime = Date.now();
     const batchProgress = {}; // 各批次进度
 
     // 初始化批次进度
@@ -2800,13 +2801,14 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
             console.error('基础分析批次监控失败:', error);
         }
 
-        // 超时处理
-        if (checkCount >= maxChecks) {
+        // 超时处理 - 基于实际经过时间
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime >= maxElapsedTime) {
             if (progressInterval) {
                 clearInterval(progressInterval);
                 clearTimeout(progressInterval);
             }
-            console.error('基础分析批次监控超时');
+            console.error('基础分析批次监控超时，经过时间:', Math.round(elapsedTime/1000), '秒');
             document.getElementById('basicStatus').textContent = '基础分析批次处理超时，请稍后重试';
             document.getElementById('startBasicBtn').disabled = false;
             showError('基础分析批次处理超时，请稍后重试');
@@ -2814,7 +2816,7 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
 
         // 🔄 动态调整查询频率
         // 0-30秒：1秒间隔，30-120秒：2秒间隔，120秒以后：5秒间隔
-        const elapsedSeconds = checkCount;
+        const elapsedSeconds = (Date.now() - startTime) / 1000;
         let nextInterval;
 
         if (elapsedSeconds < 30) {
