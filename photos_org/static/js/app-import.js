@@ -2342,6 +2342,9 @@ async function startBasicAnalysis() {
  * @param {Array} photoIds - 需要分析的照片ID数组
  */
 async function processBasicAnalysisSingleBatch(photoIds) {
+    // 禁用开始按钮，防止重复点击
+    document.getElementById('startBasicBtn').disabled = true;
+
     try {
         // 开始基础分析
         const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
@@ -2396,6 +2399,9 @@ async function processBasicAnalysisInBatches(photoIds, batchSize) {
     const batchTaskIds = [];
 
     console.log(`基础分析分批处理：${totalPhotos}张照片，分为${totalBatches}批`);
+
+    // 禁用开始按钮，防止重复点击
+    document.getElementById('startBasicBtn').disabled = true;
 
     // 显示分批处理状态
     document.getElementById('basicStatus').textContent = `准备分批分析 ${totalPhotos} 张照片，共${totalBatches}批...`;
@@ -2529,8 +2535,8 @@ async function monitorBasicAnalysisBatches(batchTaskIds, totalPhotos) {
                 }
             });
 
-            // 计算总体进度
-            const overallProgress = Math.min((totalCompletedPhotos / totalPhotos) * 100, 95);
+            // 计算总体进度 - 不再使用95%上限，让进度条能到100%
+            const overallProgress = Math.min((totalCompletedPhotos / totalPhotos) * 100, 100);
             const batchProgressText = `${totalCompletedBatches}/${batchTaskIds.length}批完成`;
 
             // 更新进度条和状态
@@ -2539,10 +2545,12 @@ async function monitorBasicAnalysisBatches(batchTaskIds, totalPhotos) {
                 `基础分析批次处理中: ${batchProgressText} (${Math.round(overallProgress)}%)`;
 
             // 检查是否全部完成（允许部分失败）
-            const allFinished = batchTaskIds.every(taskId =>
-                batchProgress[taskId].completed ||
-                batchProgress[taskId].status === 'error'
-            );
+            // 批次完成条件：状态为'completed'或'error'（处理失败）
+            // 不包括查询失败的情况，因为查询失败的批次可能还在处理中
+            const allFinished = batchTaskIds.every(taskId => {
+                const progress = batchProgress[taskId];
+                return progress.status === 'completed' || progress.status === 'error';
+            });
 
             if (allFinished) {
                 clearInterval(progressInterval);
@@ -2554,16 +2562,25 @@ async function monitorBasicAnalysisBatches(batchTaskIds, totalPhotos) {
                 // 重置按钮状态
                 document.getElementById('startBasicBtn').disabled = false;
 
-                // 显示批次处理结果
-                await showBasicAnalysisBatchResults(batchTaskIds, batchProgress, totalPhotos);
-
-                // 刷新数据
-                try {
-                    if (window.loadPhotos) await window.loadPhotos();
-                    if (window.loadStats) await window.loadStats();
-                } catch (error) {
-                    console.error('刷新数据失败:', error);
+                // 关闭基础分析模态框
+                const modal = bootstrap.Modal.getInstance(document.getElementById('basicModal'));
+                if (modal) {
+                    modal.hide();
                 }
+
+                // 等待模态框完全关闭后显示结果
+                setTimeout(async () => {
+                    // 显示批次处理结果
+                    await showBasicAnalysisBatchResults(batchTaskIds, batchProgress, totalPhotos);
+
+                    // 刷新数据
+                    try {
+                        if (window.loadPhotos) await window.loadPhotos();
+                        if (window.loadStats) await window.loadStats();
+                    } catch (error) {
+                        console.error('刷新数据失败:', error);
+                    }
+                }, 300); // 等待模态框关闭动画完成
             }
 
         } catch (error) {
@@ -2610,22 +2627,22 @@ async function showBasicAnalysisBatchResults(batchTaskIds, batchProgress, totalP
             const batchDetail = {
                 batch_index: i + 1,
                 task_id: taskId,
-                completed_photos: progress.completed_photos,
-                total_photos: progress.total_photos,
+                completed_photos: progress.completed_photos || 0,
+                total_photos: progress.total_photos || 0,
                 status: progress.status,
                 error: progress.error || null
             };
 
             aggregatedResults.batch_details.push(batchDetail);
 
-            if (progress.completed) {
+            // 根据批次状态进行统计
+            if (progress.status === 'completed') {
                 aggregatedResults.completed_batches++;
-                aggregatedResults.imported_photos += progress.completed_photos;
+                aggregatedResults.imported_photos += progress.completed_photos || 0;
             } else if (progress.status === 'error') {
                 aggregatedResults.failed_batches++;
-                // 对于失败的批次，我们无法获取具体的失败文件信息
-                // 可以后续优化为单独查询每个批次的状态
             }
+            // 其他状态（processing, pending等）不计入已完成或失败
         }
 
         // 计算跳过和失败的数量（近似值）

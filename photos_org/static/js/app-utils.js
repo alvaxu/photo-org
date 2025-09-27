@@ -616,8 +616,8 @@ function showBasicProcessDetails(detailsData) {
     console.log('showBasicProcessDetails 被调用，数据:', detailsData);
 
     // 解析基础分析的统计数据
-    const totalPhotos = detailsData.total_photos || detailsData.total || detailsData.batch_total_photos || 0;
-    const successfulPhotos = detailsData.completed_photos || detailsData.successful_photos || 0;
+    const totalPhotos = detailsData.total_files || detailsData.total_photos || detailsData.total || detailsData.batch_total_photos || 0;
+    const successfulPhotos = detailsData.imported_photos || detailsData.completed_photos || detailsData.successful_photos || 0;
     const failedPhotos = detailsData.failed_photos || 0;
 
     let icon, alertClass, summaryText;
