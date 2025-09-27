@@ -1860,17 +1860,26 @@ function monitorImportProgress(taskId, totalFiles) {
  */
 function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
     let checkCount = 0;
-    const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
+    const maxElapsedTime = 60 * 60 * 1000; // 1小时超时（毫秒）
+    const startTime = Date.now();
 
     console.log('开始监控批次聚合进度，总任务数:', taskIds.length, '总文件数:', totalFiles);
 
-    const progressInterval = setInterval(async () => {
+    // 🔄 渐进式查询频率：开始快，后来慢
+    let currentInterval = 2000; // 起始2秒（导入比基础分析频率稍低）
+    let progressInterval;
+
+    const checkProgress = async () => {
         checkCount++;
 
-        // 超时保护
-        if (checkCount > maxChecks) {
-            clearInterval(progressInterval);
-            console.error('批次进度监控超时');
+        // 超时保护 - 基于实际时间
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime >= maxElapsedTime) {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                clearTimeout(progressInterval);
+            }
+            console.error('批次进度监控超时，经过时间:', Math.round(elapsedTime/1000), '秒');
             elements.importStatus.textContent = '处理超时';
             elements.importDetails.textContent = '服务器处理时间过长，请检查服务器状态';
             elements.importProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
@@ -1987,7 +1996,35 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
         } catch (error) {
             console.error('批次进度监控失败:', error);
         }
-    }, 1000); // 每1秒检查一次
+
+        // 🔄 动态调整查询频率
+        // 0-30秒：2秒间隔，30-120秒：5秒间隔，120秒以后：10秒间隔
+        const elapsedSeconds = (Date.now() - startTime) / 1000;
+        let nextInterval;
+
+        if (elapsedSeconds < 30) {
+            nextInterval = 2000; // 2秒
+        } else if (elapsedSeconds < 120) {
+            nextInterval = 5000; // 5秒
+        } else {
+            nextInterval = 10000; // 10秒
+        }
+
+        // 如果频率改变，重新设置定时器
+        if (nextInterval !== currentInterval) {
+            currentInterval = nextInterval;
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                clearTimeout(progressInterval);
+            }
+            progressInterval = setTimeout(checkProgress, currentInterval);
+        } else {
+            progressInterval = setTimeout(checkProgress, currentInterval);
+        }
+    };
+
+    // 启动首次检查
+    progressInterval = setTimeout(checkProgress, currentInterval);
 }
 
 /**
