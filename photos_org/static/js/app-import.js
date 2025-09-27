@@ -18,110 +18,6 @@
  *   - 智能处理模态框在显示结果后自动关闭
  */
 
-/**
- * 导入模态框保护器 - 防止意外关闭
- * 防止用户在导入过程中意外关闭模态框
- */
-class ImportModalProtector {
-    constructor() {
-        this.isProtected = false;
-        this.modalElement = elements.importModal;
-    }
-
-    /**
-     * 启用模态框保护
-     * 导入开始时调用，防止用户意外关闭
-     */
-    protect() {
-        if (this.isProtected) return;
-
-        this.isProtected = true;
-        console.log('启用模态框保护');
-
-        // 显示保护提示
-        this.showProtectionMessage();
-
-        // 设置关闭阻止（双重保险）
-        this.setupClosePrevention();
-    }
-
-    /**
-     * 解除模态框保护
-     * 导入完成或取消时调用，恢复正常关闭功能
-     */
-    unprotect() {
-        if (!this.isProtected) return;
-
-        this.isProtected = false;
-        console.log('解除模态框保护');
-
-        // 隐藏保护提示
-        this.hideProtectionMessage();
-
-        // 移除关闭阻止
-        this.removeClosePrevention();
-    }
-
-    /**
-     * 显示保护提示
-     * 在模态框顶部显示导入进行中的提示
-     */
-    showProtectionMessage() {
-        const header = this.modalElement.querySelector('.modal-header');
-        if (header && !header.querySelector('.protection-message')) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'protection-message alert alert-warning py-2 mb-2';
-            messageDiv.innerHTML = `
-                <i class="bi bi-shield-lock-fill me-2"></i>
-                <small class="fw-bold">
-                    导入进行中，此窗口无法关闭<br>
-                    后台任务将继续处理，请等待完成
-                </small>
-            `;
-            header.insertBefore(messageDiv, header.firstChild);
-        }
-    }
-
-    /**
-     * 隐藏保护提示
-     */
-    hideProtectionMessage() {
-        const message = this.modalElement.querySelector('.protection-message');
-        if (message) {
-            message.remove();
-        }
-    }
-
-    /**
-     * 设置关闭阻止
-     * 监听模态框关闭事件，阻止意外关闭
-     */
-    setupClosePrevention() {
-        this.modalElement.addEventListener('hide.bs.modal', this.preventClose.bind(this));
-    }
-
-    /**
-     * 移除关闭阻止
-     */
-    removeClosePrevention() {
-        this.modalElement.removeEventListener('hide.bs.modal', this.preventClose.bind(this));
-    }
-
-    /**
-     * 阻止关闭的处理函数
-     * @param {Event} event - Bootstrap模态框事件
-     */
-    preventClose(event) {
-        if (this.isProtected) {
-            console.log('阻止模态框关闭 - 保护模式');
-            event.preventDefault();
-            return false;
-        }
-    }
-}
-
-// 创建全局实例
-window.importModalProtector = new ImportModalProtector();
 
 /**
  * 在导入模态框内显示错误信息
@@ -761,8 +657,6 @@ async function startFileImport() {
         return;
     }
 
-    // 🔒 启用模态框保护，防止意外关闭
-    window.importModalProtector.protect();
 
     try {
         // 如果文件数量超过200个，使用分批上传（获得并行处理优势）
@@ -791,8 +685,6 @@ async function startFileImport() {
             const failedBatches = batchResults.filter(r => !r.success);
 
             if (failedBatches.length > 0) {
-                // ❌ 上传失败时解除保护
-                window.importModalProtector.unprotect();
                 showImportError(`分批上传完成，但${failedBatches.length}批失败: ${failedBatches.map(f => `第${f.batchIndex}批(${f.error})`).join(', ')}`);
                 return;
             }
@@ -809,8 +701,6 @@ async function startFileImport() {
 
         } catch (error) {
             console.error('分批上传失败:', error);
-            // ❌ 分批上传异常时解除保护
-            window.importModalProtector.unprotect();
             showImportError(`分批上传失败: ${error.message}`);
         }
 
@@ -956,8 +846,6 @@ async function startFileImport() {
         
     } catch (error) {
         console.error('文件导入失败:', error);
-        // ❌ 单文件导入异常时解除保护
-        window.importModalProtector.unprotect();
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
             showImportError('网络连接失败，请检查服务器是否正常运行');
         } else {
@@ -986,8 +874,6 @@ async function startFolderImport() {
         return;
     }
 
-    // 🔒 启用模态框保护，防止意外关闭
-    window.importModalProtector.protect();
     
     // 过滤出图片文件
     const imageFiles = Array.from(files).filter(file => {
@@ -1194,8 +1080,6 @@ async function startFolderImport() {
         
     } catch (error) {
         console.error('文件夹导入失败:', error);
-        // ❌ 文件夹导入异常时解除保护
-        window.importModalProtector.unprotect();
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
             showImportError('网络连接失败，请检查服务器是否正常运行');
         } else {
@@ -1800,8 +1684,6 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
             clearInterval(progressInterval);
             console.error('批次进度监控超时');
 
-            // ❌ 超时也解除保护，让用户可以关闭模态框
-            window.importModalProtector.unprotect();
 
             elements.importStatus.textContent = '处理超时';
             elements.importDetails.textContent = '服务器处理时间过长，请检查服务器状态';
@@ -1849,8 +1731,6 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
                 clearInterval(progressInterval);
                 console.log('所有批次处理完成，开始显示结果');
 
-                // ✅ 完成时解除模态框保护
-                window.importModalProtector.unprotect();
 
                 // 更新最终状态显示
                 elements.importProgressBar.style.width = '100%';
