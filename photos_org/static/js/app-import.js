@@ -3728,6 +3728,11 @@ window.startSelectedAIProcessing = async (photoIds) => {
 
     // 显示AI分析模态框
     resetAIModal();
+
+    // 单次处理：隐藏取消按钮，强制用户等待完成
+    const cancelBtn = document.querySelector('#aiModal .modal-footer .btn-secondary');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+
     const modal = new bootstrap.Modal(document.getElementById('aiModal'));
     modal.show();
 
