@@ -339,7 +339,7 @@ class UserConfigManager {
         
         // 数据库路径默认值已从用户界面移除
         
-        const defaultThumbnailQuality = this.defaultConfig.storage?.thumbnail_quality || 42;
+        const defaultThumbnailQuality = this.defaultConfig.storage?.thumbnail_quality || 50;
         this.updateDefaultValue('thumbnailQualityDefault', defaultThumbnailQuality + '%');
         
         const defaultThumbnailSize = this.defaultConfig.storage?.thumbnail_size || 300;

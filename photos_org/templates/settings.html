@@ -172,12 +172,29 @@
                                 </div>
                             </div>
                             
+                            <!-- 照片大小限制设置 -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label for="maxFileSize" class="form-label small">照片大小限制</label>
+                                    <select class="form-select form-select-sm" id="maxFileSize">
+                                        <option value="26214400">25MB</option>
+                                        <option value="52428800" selected>50MB</option>
+                                        <option value="104857600">100MB</option>
+                                        <option value="209715200">200MB</option>
+                                    </select>
+                                    <div class="form-text small">
+                                        <span class="text-muted">当前值: <span id="maxFileSizeCurrent">50MB</span></span><br>
+                                        <span class="text-muted">默认值: <span id="maxFileSizeDefault">加载中...</span></span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- 文件路径设置 - 已移除，用户不可配置 -->
                             <div class="row mb-3" id="storagePathSection" style="display: none;">
-                                <div class="col-8">
+                                <div class="col-12">
                                     <label for="photosPath" class="form-label small">照片存储目录</label>
                                     <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control" id="photosPath" 
+                                        <input type="text" class="form-control" id="photosPath"
                                                value="./photos_storage">
                                         <button class="btn btn-outline-secondary" type="button" id="selectPhotosPath">
                                             <i class="bi bi-folder"></i>
@@ -191,19 +208,6 @@
                                         </div>
                                         <span class="text-muted">当前值: <span id="photosPathCurrent">./photos_storage</span></span><br>
                                         <span class="text-muted">默认值: <span id="photosPathDefault">加载中...</span></span>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <label for="maxFileSize" class="form-label small">照片大小限制</label>
-                                    <select class="form-select form-select-sm" id="maxFileSize">
-                                        <option value="26214400">25MB</option>
-                                        <option value="52428800" selected>50MB</option>
-                                        <option value="104857600">100MB</option>
-                                        <option value="209715200">200MB</option>
-                                    </select>
-                                    <div class="form-text small">
-                                        <span class="text-muted">当前值: <span id="maxFileSizeCurrent">50MB</span></span><br>
-                                        <span class="text-muted">默认值: <span id="maxFileSizeDefault">加载中...</span></span>
                                     </div>
                                 </div>
                             </div>
