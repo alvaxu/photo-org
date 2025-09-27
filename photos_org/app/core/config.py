@@ -292,7 +292,11 @@ class Settings(BaseSettings):
                 "similarity_threshold": self.search.similarity_threshold
             },
             "analysis": {
-                "duplicate_threshold": self.analysis.duplicate_threshold
+                "duplicate_threshold": self.analysis.duplicate_threshold,
+                "quality_threshold": self.analysis.quality_threshold,
+                "concurrent": self.analysis.concurrent,
+                "timeout": self.analysis.timeout,
+                "batch_size": self.analysis.batch_size
             },
             "import": {
                 "max_upload_files": self.import_config.max_upload_files,
