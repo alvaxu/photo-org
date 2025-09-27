@@ -168,6 +168,7 @@ class ModalProtector {
 // 创建全局实例 - 延迟初始化，不影响页面启动
 window.importModalProtector = new ModalProtector('importModal');
 window.basicModalProtector = new ModalProtector('basicModal');
+window.aiModalProtector = new ModalProtector('aiModal');
 
 /**
  * 在导入模态框内显示错误信息
@@ -2973,6 +2974,9 @@ async function startAIProcess() {
     console.log('执行AI分析处理');
 
     try {
+        // 🔒 启用AI分析模态框保护
+        window.aiModalProtector.protect();
+
         // 获取需要AI分析的照片ID
         const pendingResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/ai-pending-photos`);
         const pendingData = await pendingResponse.json();
@@ -3017,6 +3021,9 @@ async function startAIProcess() {
         if (modalFooter) modalFooter.style.display = 'flex';
 
         document.getElementById('startAIBtn').disabled = false;
+
+        // ❌ 出错时解除AI分析模态框保护
+        window.aiModalProtector.unprotect();
     }
 }
 
@@ -3140,6 +3147,9 @@ async function processAIAnalysisInBatches(photoIds, batchCount) {
             `;
         }
 
+        // ❌ 分批处理完成，解除AI分析模态框保护
+        window.aiModalProtector.unprotect();
+
     } catch (error) {
         console.error('显示最终结果失败:', error);
         const statusDiv = document.getElementById('aiBatchStatus');
@@ -3152,6 +3162,9 @@ async function processAIAnalysisInBatches(photoIds, batchCount) {
                 </div>
             `;
         }
+
+        // ❌ 出错时也要解除保护
+        window.aiModalProtector.unprotect();
     }
 }
 
@@ -3549,6 +3562,9 @@ async function monitorAIAnalysisProgress(taskId, totalPhotos, initialTotal) {
                     window.clearSelection();
                 }
 
+                // ❌ 完成前解除AI分析模态框保护
+                window.aiModalProtector.unprotect();
+
                 // 关闭AI分析模态框
                 const modal = bootstrap.Modal.getInstance(document.getElementById('aiModal'));
                 if (modal) {
@@ -3593,6 +3609,9 @@ async function monitorAIAnalysisProgress(taskId, totalPhotos, initialTotal) {
             clearInterval(statusCheckInterval);
             showError('AI分析超时，请稍后重试');
             document.getElementById('startAIBtn').disabled = false;
+
+            // ❌ 超时也解除AI分析模态框保护
+            window.aiModalProtector.unprotect();
         }
     }, 1000);
 }
@@ -3777,6 +3796,9 @@ async function startSelectedAIAnalysis(selectedPhotoIds) {
     document.getElementById('aiStatus').textContent = '正在准备AI分析...';
 
     try {
+        // 🔒 启用AI分析模态框保护
+        window.aiModalProtector.protect();
+
         // 直接使用选中的照片ID
         const photoIds = selectedPhotoIds;
 
@@ -3813,6 +3835,9 @@ async function startSelectedAIAnalysis(selectedPhotoIds) {
         console.error('AI分析启动失败:', error);
         showError('AI分析启动失败: ' + error.message);
         document.getElementById('startAIBtn').disabled = false;
+
+        // ❌ 出错时解除AI分析模态框保护
+        window.aiModalProtector.unprotect();
     }
 }
 
