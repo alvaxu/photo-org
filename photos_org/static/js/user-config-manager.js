@@ -24,29 +24,11 @@ class UserConfigManager {
     }
 
     /**
-     * 检测是否为远程访问
+     * 检测是否为远程访问 - 存储目录配置已移除，此函数保留但无实际作用
      */
     checkRemoteAccess() {
-        const hostname = window.location.hostname;
-        const isLocalAccess = hostname === 'localhost' || 
-                             hostname === '127.0.0.1' || 
-                             hostname === '0.0.0.0' ||
-                             hostname === '' ||
-                             window.location.protocol === 'file:';
-        
-        if (!isLocalAccess) {
-            // 隐藏存储目录配置区域
-            const storagePathSection = document.getElementById('storagePathSection');
-            if (storagePathSection) {
-                storagePathSection.style.display = 'none';
-            }
-            
-            // 显示远程访问提示
-            const remoteAccessNotice = document.getElementById('remoteAccessNotice');
-            if (remoteAccessNotice) {
-                remoteAccessNotice.style.display = 'block';
-            }
-        }
+        // 存储目录配置已从界面中完全移除，不再需要远程访问检查
+        // 此函数保留以保持代码结构完整性
     }
 
     /**
