@@ -688,6 +688,50 @@ function showBasicProcessDetails(detailsData) {
                             </div>
                         </div>
                         `}
+
+                        ${detailsData.batch_details ? `
+                        <div class="mt-4">
+                            <h6>批次处理详情：</h6>
+                            <div class="alert alert-info">
+                                <i class="bi bi-grid me-2"></i>
+                                共分 ${detailsData.batch_count} 批处理，
+                                ${detailsData.completed_batches || 0} 批成功，
+                                ${detailsData.failed_batches || 0} 批失败
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>批次</th>
+                                            <th>照片数量</th>
+                                            <th>完成数量</th>
+                                            <th>状态</th>
+                                            <th>详情</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${detailsData.batch_details.map(batch => `
+                                            <tr>
+                                                <td>第${batch.batch_index}批</td>
+                                                <td>${batch.total_photos}</td>
+                                                <td>${batch.completed_photos}</td>
+                                                <td>
+                                                    ${batch.status === 'completed' ? '<span class="badge bg-success">成功</span>' :
+                                                      batch.status === 'error' ? '<span class="badge bg-danger">失败</span>' :
+                                                      '<span class="badge bg-warning">处理中</span>'}
+                                                </td>
+                                                <td>
+                                                    ${batch.error ? `<small class="text-danger">${batch.error}</small>` :
+                                                      batch.status === 'completed' ? '<small class="text-success">处理完成</small>' :
+                                                      '<small class="text-muted">正在处理</small>'}
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
