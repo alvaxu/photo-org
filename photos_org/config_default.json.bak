@@ -121,7 +121,7 @@
       ".heic",
       ".heif"
     ],
-    "max_upload_files": 1500,
+    "max_upload_files": 10000,
     "scan_batch_size": 100
   },
   "quality": {
