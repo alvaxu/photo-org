@@ -2650,7 +2650,7 @@ async function processBasicAnalysisInBatches(photoIds, batchSize) {
  */
 async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
     let checkCount = 0;
-    const maxElapsedTime = 20 * 60 * 1000; // 20分钟超时（毫秒）
+    const maxElapsedTime = 3 * 60 * 60 * 1000; // 3小时超时（毫秒）- 处理大量照片需要较长时间
     const startTime = Date.now();
     const batchProgress = {}; // 各批次进度
 
