@@ -449,28 +449,30 @@ class ImportService:
         
         # 情况1：数据库有记录 + 物理文件存在 = 完全重复
         existing_photo = db_session.query(Photo).filter(Photo.file_hash == file_hash).first()
-        
-        if existing_photo and existing_photo.original_path:
-            # 构建完整的文件路径
-            storage_base = Path(self.storage_base)
-            full_path = storage_base / existing_photo.original_path
-            
-            if full_path.exists():
-                # 检查智能处理状态
-                if existing_photo.status == 'completed':
-                    return {
-                        "is_duplicate": True,
-                        "message": "文件已存在且已完成智能处理",
-                        "duplicate_type": "full_duplicate_completed",
-                        "existing_photo": existing_photo
-                    }
-                elif existing_photo.status in ['imported', 'analyzing', 'error']:
-                    return {
-                        "is_duplicate": True,
-                        "message": "文件已存在但未完成智能处理",
-                        "duplicate_type": "full_duplicate_incomplete",
-                        "existing_photo": existing_photo
-                    }
+
+        if existing_photo:
+            # 检查是否有有效的文件路径
+            if existing_photo.original_path:
+                # 构建完整的文件路径
+                storage_base = Path(self.storage_base)
+                full_path = storage_base / existing_photo.original_path
+
+                if full_path.exists():
+                    # 检查智能处理状态
+                    if existing_photo.status == 'completed':
+                        return {
+                            "is_duplicate": True,
+                            "message": "文件已存在且已完成智能处理",
+                            "duplicate_type": "full_duplicate_completed",
+                            "existing_photo": existing_photo
+                        }
+                    elif existing_photo.status in ['imported', 'analyzing', 'error', 'quality_completed', 'content_completed']:
+                        return {
+                            "is_duplicate": True,
+                            "message": "文件已存在但未完成智能处理",
+                            "duplicate_type": "full_duplicate_incomplete",
+                            "existing_photo": existing_photo
+                        }
         
         # 情况2：数据库有记录 + 物理文件不存在 = 孤儿记录
         if existing_photo:
