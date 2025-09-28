@@ -1017,20 +1017,25 @@ class ClassificationService:
                 if len(holiday_detail) >= 2:
                     holiday_name_en = holiday_detail[1]  # 英文节假日名称
 
-                    # 将英文节假日名称转换为中文
-                    holiday_name_map = {
-                        'New Year\'s Day': '元旦',
-                        'Spring Festival': '春节',
-                        'Qingming Festival': '清明节',
-                        'Labour Day': '劳动节',
-                        'Dragon Boat Festival': '端午节',
-                        'Mid-Autumn Festival': '中秋节',
-                        'National Day': '国庆节',
-                        'Christmas Day': '圣诞节'
-                    }
-
-                    if holiday_name_en in holiday_name_map:
-                        return holiday_name_map[holiday_name_en]
+                    # 直接从Holiday枚举获取中文名称
+                    for holiday in cc.constants.Holiday:
+                        # 特殊处理枚举名称到英文名称的映射
+                        if holiday.name == 'new_years_day' and holiday_name_en == "New Year's Day":
+                            return holiday.chinese
+                        elif holiday.name == 'spring_festival' and holiday_name_en == 'Spring Festival':
+                            return holiday.chinese
+                        elif holiday.name == 'tomb_sweeping_day' and holiday_name_en == 'Tomb-sweeping Day':
+                            return holiday.chinese
+                        elif holiday.name == 'labour_day' and holiday_name_en == 'Labour Day':
+                            return holiday.chinese
+                        elif holiday.name == 'dragon_boat_festival' and holiday_name_en == 'Dragon Boat Festival':
+                            return holiday.chinese
+                        elif holiday.name == 'mid_autumn_festival' and holiday_name_en == 'Mid-autumn Festival':
+                            return holiday.chinese
+                        elif holiday.name == 'national_day' and holiday_name_en == 'National Day':
+                            return holiday.chinese
+                        elif holiday.name == 'anti_fascist_70th_day' and holiday_name_en == 'Anti-Fascist 70th Day':
+                            return holiday.chinese
 
                 # 如果无法从库中获取，使用简单方法作为备用
                 return self._get_holiday_name_simple(taken_at)

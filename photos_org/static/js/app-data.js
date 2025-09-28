@@ -92,6 +92,65 @@ let categoryMultiSelect = null;
 let globalTagsData = [];
 let globalCategoriesData = [];
 
+// 标签名称查找辅助函数
+function findTagName(tagId) {
+    console.log(`🔍 查找标签ID: ${tagId} (类型: ${typeof tagId})`);
+
+    // 首先尝试从当前显示的选项中查找（最可靠的方法）
+    const tagOptions = document.querySelectorAll('#tagOptions input[type="checkbox"]');
+    for (const checkbox of tagOptions) {
+        if (parseInt(checkbox.value) === tagId) {
+            // 找到对应的标签文本
+            const label = checkbox.parentElement.querySelector('label');
+            if (label) {
+                const tagName = label.textContent.trim();
+                console.log(`  ✅ 从DOM选项中找到: "${tagName}"`);
+                return tagName;
+            }
+        }
+    }
+
+    // 如果DOM查找失败，尝试从多选组件数据中查找
+    let tag = null;
+    if (window.tagMultiSelect && window.tagMultiSelect.filteredData) {
+        tag = window.tagMultiSelect.filteredData.find(item => item.id === tagId);
+        console.log(`  🔍 多选组件过滤数据查找:`, tag);
+    }
+
+    if (!tag && window.tagMultiSelect && window.tagMultiSelect.data) {
+        tag = window.tagMultiSelect.data.find(item => item.id === tagId);
+        console.log(`  🔍 多选组件原始数据查找:`, tag);
+    }
+
+    // 如果还是找不到，尝试从全局标签数据中查找
+    if (!tag) {
+        tag = globalTagsData ? globalTagsData.find(tag => tag.id === tagId) : null;
+        console.log(`  📊 全局标签数据查找:`, tag);
+    }
+
+    const result = tag ? tag.name : `标签${tagId}`;
+    console.log(`  ✅ 最终结果: "${result}"`);
+    return result;
+}
+
+// 分类名称查找辅助函数
+function findCategoryName(categoryId) {
+    // 首先尝试从全局分类数据中查找
+    let category = globalCategoriesData ? globalCategoriesData.find(category => category.id === categoryId) : null;
+
+    // 如果找不到，尝试从当前多选组件的过滤数据中查找
+    if (!category && window.categoryMultiSelect && window.categoryMultiSelect.filteredData) {
+        category = window.categoryMultiSelect.filteredData.find(item => item.id === categoryId);
+    }
+
+    // 如果还是找不到，尝试从当前多选组件的原始数据中查找
+    if (!category && window.categoryMultiSelect && window.categoryMultiSelect.data) {
+        category = window.categoryMultiSelect.data.find(item => item.id === categoryId);
+    }
+
+    return category ? category.name : `分类${categoryId}`;
+}
+
 /**
  * 初始化多选下拉组件
  */
@@ -159,8 +218,13 @@ function initMultiSelectDropdown(container, data, placeholder, onChange) {
             buttonText.textContent = `选择${placeholder}`;
         } else if (count <= 3) {
             const selectedNames = Array.from(selectedItems).map(id => {
-                const item = data.find(item => item.id === id);
-                return item ? item.name : id;
+                if (placeholder === '标签') {
+                    return findTagName(id);
+                } else if (placeholder === '分类') {
+                    return findCategoryName(id);
+                } else {
+                    return `ID:${id}`;
+                }
             });
             buttonText.textContent = selectedNames.join(', ');
         } else {
@@ -244,7 +308,10 @@ function initMultiSelectDropdown(container, data, placeholder, onChange) {
             renderOptions();
             updateButtonText();
             onChange([]);
-        }
+        },
+        // 暴露数据供查找函数使用
+        data: data,
+        filteredData: filteredData
     };
 }
 
@@ -256,44 +323,37 @@ async function initSearchMultiSelect() {
         // 并行加载热门标签、全部标签和分类数据
         const [hotTagsResponse, tagsResponse, categoriesResponse] = await Promise.all([
             fetch('/api/v1/tags/popular?limit=50'),  // 热门标签优先
-            fetch('/api/v1/tags/'),                  // 全部标签作为备用
+            fetch('/api/v1/tags/?limit=1000'),       // 获取最多标签确保包含所有标签
             fetch('/api/v1/categories/')
         ]);
 
         let tags = [];
         let categories = [];
 
-        // 优先使用热门标签
-        if (hotTagsResponse.ok) {
-            const hotTags = await hotTagsResponse.json();
-            tags = hotTags.map(tag => ({
+        // 使用全部标签数据，确保包含所有标签
+        if (tagsResponse.ok) {
+            const allTags = await tagsResponse.json();
+            tags = allTags.map(tag => ({
                 id: tag.id,
                 name: tag.name
             }));
-            console.log('热门标签加载成功:', tags.length, '个热门标签');
+            console.log('标签数据加载成功:', tags.length, '个标签');
         } else {
-            console.warn('热门标签加载失败，使用全部标签');
-            // 如果热门标签加载失败，使用全部标签
-            if (tagsResponse.ok) {
-                const allTags = await tagsResponse.json();
-                tags = allTags.map(tag => ({
+            console.error('标签数据加载失败:', tagsResponse.status, tagsResponse.statusText);
+            // 如果全部标签加载失败，尝试使用热门标签
+            if (hotTagsResponse.ok) {
+                const hotTags = await hotTagsResponse.json();
+                tags = hotTags.map(tag => ({
                     id: tag.id,
                     name: tag.name
                 }));
-                console.log('标签数据加载成功:', tags.length, '个标签');
-            } else {
-                console.error('标签数据加载失败:', tagsResponse.status, tagsResponse.statusText);
+                console.warn('使用热门标签作为备用:', tags.length, '个热门标签');
             }
         }
 
         // 存储完整标签数据到全局变量（用于搜索时的本地过滤备用）
-        if (tagsResponse.ok) {
-            const allTags = await tagsResponse.json();
-            globalTagsData = allTags.map(tag => ({
-                id: tag.id,
-                name: tag.name
-            }));
-        }
+        // 注意：现在tags变量已经包含了全部标签数据
+        globalTagsData = [...tags]; // 直接使用已加载的标签数据
 
         if (categoriesResponse.ok) {
             categories = await categoriesResponse.json();
@@ -314,6 +374,8 @@ async function initSearchMultiSelect() {
                 loadPhotos(1);
                 updateFilterStatus();
             });
+            // 设置为全局变量供查找函数使用
+            window.tagMultiSelect = tagMultiSelect;
         } else {
             console.error('未找到标签容器元素 #tagFilter');
         }
@@ -329,6 +391,8 @@ async function initSearchMultiSelect() {
                 loadPhotos(1);
                 updateFilterStatus();
             });
+            // 设置为全局变量供查找函数使用
+            window.categoryMultiSelect = categoryMultiSelect;
         } else {
             console.error('未找到分类容器元素 #categoryFilter');
         }
@@ -899,7 +963,7 @@ function clearAllFilters() {
         searchType: 'all',
         dateFilter: '',
         qualityFilter: '',
-        sortBy: 'quality_score',
+        sortBy: 'taken_at',
         sortOrder: 'desc',
         selectedTags: [],
         selectedCategories: []
@@ -910,7 +974,7 @@ function clearAllFilters() {
     elements.searchType.value = 'all';
     elements.dateFilter.value = '';
     elements.qualityFilter.value = '';
-    elements.sortBy.value = 'quality_score';
+    elements.sortBy.value = 'taken_at';
     elements.sortOrder.value = 'desc';
     elements.startDate.value = '';
     elements.endDate.value = '';
@@ -982,25 +1046,17 @@ function updateFilterStatus() {
     
     // 显示选中的标签
     if (filters.selectedTags.length > 0) {
-        // 从全局标签数据中获取名称
-        const selectedTagNames = filters.selectedTags.map(id => {
-            const tag = globalTagsData.find(tag => tag.id === id);
-            return tag ? tag.name : `标签${id}`;
-        });
+        const selectedTagNames = filters.selectedTags.map(id => findTagName(id));
         statusParts.push(`标签: ${selectedTagNames.join(', ')}`);
     }
     
     // 显示选中的分类
     if (filters.selectedCategories.length > 0) {
-        // 从全局分类数据中获取名称
-        const selectedCategoryNames = filters.selectedCategories.map(id => {
-            const category = globalCategoriesData.find(category => category.id === id);
-            return category ? category.name : `分类${id}`;
-        });
+        const selectedCategoryNames = filters.selectedCategories.map(id => findCategoryName(id));
         statusParts.push(`分类: ${selectedCategoryNames.join(', ')}`);
     }
     
-    if (filters.sortBy !== 'quality_score' || filters.sortOrder !== 'desc') {
+    if (filters.sortBy !== 'taken_at' || filters.sortOrder !== 'desc') {
         const sortLabels = {
             'taken_at': '拍摄时间',
             'created_at': '导入时间',
