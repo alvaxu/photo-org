@@ -316,12 +316,29 @@ function createPhotoListItem(photo) {
 
 
 /**
- * 全选照片
+ * 全选照片/取消全选
  */
 function selectAllPhotos() {
-    console.log('全选照片');
     if (window.PhotoManager) {
-        window.PhotoManager.selectAllPhotos();
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        if (selectAllBtn) {
+            const buttonText = selectAllBtn.textContent.trim();
+            console.log('按钮文本:', buttonText);
+
+            if (buttonText === '取消全选') {
+                // 当前是取消全选状态，执行取消选择
+                console.log('执行取消全选');
+                window.PhotoManager.clearSelection();
+            } else {
+                // 当前是全选状态，执行全选
+                console.log('执行全选');
+                window.PhotoManager.selectAllPhotos();
+            }
+        } else {
+            // 如果找不到按钮，默认执行全选
+            console.log('找不到全选按钮，默认执行全选');
+            window.PhotoManager.selectAllPhotos();
+        }
     } else {
         console.error('PhotoManager 未初始化');
         showError('照片管理器未初始化，请刷新页面重试');
