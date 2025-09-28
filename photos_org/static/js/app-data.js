@@ -460,6 +460,11 @@ function renderGridView(photos) {
             }
         });
     });
+
+    // 初始化选择框状态
+    if (window.initializeSelectionCheckboxes) {
+        window.initializeSelectionCheckboxes();
+    }
 }
 
 function renderListView(photos) {
@@ -497,6 +502,11 @@ function renderListView(photos) {
             }
         });
     });
+
+    // 初始化选择框状态
+    if (window.initializeSelectionCheckboxes) {
+        window.initializeSelectionCheckboxes();
+    }
 }
 
 function renderPagination() {

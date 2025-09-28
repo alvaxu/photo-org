@@ -330,6 +330,38 @@ class PhotoManager {
         this.updateSelectionUI();
     }
 
+    // 选择单张照片
+    selectPhoto(photoId) {
+        const photoIdNum = typeof photoId === 'string' ? parseInt(photoId) : photoId;
+        this.selectedPhotos.add(photoIdNum);
+        this.updateSelectionUI();
+        console.log('选择照片:', photoIdNum);
+    }
+
+    // 取消选择单张照片
+    clearSelectionForPhoto(photoId) {
+        const photoIdNum = typeof photoId === 'string' ? parseInt(photoId) : photoId;
+        this.selectedPhotos.delete(photoIdNum);
+        this.updateSelectionUI();
+        console.log('取消选择照片:', photoIdNum);
+    }
+
+    // 选择单张照片
+    selectPhoto(photoId) {
+        const photoIdNum = typeof photoId === 'string' ? parseInt(photoId) : photoId;
+        this.selectedPhotos.add(photoIdNum);
+        this.updateSelectionUI();
+        console.log('选择照片:', photoIdNum);
+    }
+
+    // 取消选择单张照片
+    clearSelectionForPhoto(photoId) {
+        const photoIdNum = typeof photoId === 'string' ? parseInt(photoId) : photoId;
+        this.selectedPhotos.delete(photoIdNum);
+        this.updateSelectionUI();
+        console.log('取消选择照片:', photoIdNum);
+    }
+
     // 取消选择
     clearSelection() {
         this.selectedPhotos.clear();
@@ -356,6 +388,16 @@ class PhotoManager {
             } else {
                 card.classList.remove('selected');
                 console.log('移除选中样式从照片:', photoId);
+            }
+
+            // 同时更新选择框视觉状态
+            const checkbox = card.querySelector('.photo-selection-checkbox');
+            if (checkbox) {
+                if (isSelected) {
+                    checkbox.classList.add('selected');
+                } else {
+                    checkbox.classList.remove('selected');
+                }
             }
         });
 

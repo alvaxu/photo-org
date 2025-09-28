@@ -119,11 +119,18 @@ function createPhotoCard(photo) {
 
     return `
         <div class="${containerClass}" data-photo-id="${photo.id}">
+            <!-- 永久选择框 - 位于最顶层 -->
+            <div class="photo-selection-checkbox"
+                 data-photo-id="${photo.id}"
+                 onclick="event.stopPropagation(); togglePhotoSelection(${photo.id}, event);"
+                 title="选择照片">
+            </div>
             <div class="photo-image-container">
                 <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
                      alt="${photo.filename}"
                      class="photo-image"
-                     loading="lazy">
+                     loading="lazy"
+                     onclick="viewPhotoDetail(${photo.id})">
                 <div class="photo-overlay">
                     <button class="btn btn-light btn-sm" data-photo-id="${photo.id}" data-action="view" title="查看详情">
                         <i class="bi bi-eye"></i>
@@ -227,10 +234,17 @@ function createPhotoListItem(photo) {
 
     return `
         <div class="${containerClass}" data-photo-id="${photo.id}">
+            <!-- 永久选择框 - 位于最顶层 -->
+            <div class="photo-selection-checkbox"
+                 data-photo-id="${photo.id}"
+                 onclick="event.stopPropagation(); togglePhotoSelection(${photo.id}, event);"
+                 title="选择照片">
+            </div>
             <div class="photo-thumbnail-container">
                 <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
                      alt="${photo.filename}"
-                     class="photo-thumbnail">
+                     class="photo-thumbnail"
+                     onclick="viewPhotoDetail(${photo.id})">
                 <div class="photo-overlay">
                     <button class="btn btn-light btn-sm" data-photo-id="${photo.id}" data-action="view" title="查看详情">
                         <i class="bi bi-eye"></i>
@@ -1252,4 +1266,82 @@ window.reprocessSelectedPhotos = () => {
     }
 };
 
+/**
+ * 切换照片选择状态
+ * @param {number} photoId - 照片ID
+ * @param {Event} event - 点击事件
+ */
+function togglePhotoSelection(photoId, event) {
+    // 完全阻止事件传播和默认行为
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    console.log('切换照片选择状态:', photoId);
+
+    if (window.PhotoManager) {
+        // 获取当前选择状态
+        const isSelected = window.PhotoManager.getSelectedPhotoIds().includes(photoId);
+
+        if (isSelected) {
+            // 取消选择
+            window.PhotoManager.clearSelectionForPhoto(photoId);
+        } else {
+            // 选择照片
+            window.PhotoManager.selectPhoto(photoId);
+        }
+
+        // 更新选择框视觉状态
+        updateSelectionCheckboxVisual(photoId);
+    } else {
+        console.error('PhotoManager 未初始化');
+    }
+
+    return false; // 额外确保不执行默认行为
+}
+
+/**
+ * 更新选择框的视觉状态
+ * @param {number} photoId - 照片ID
+ */
+function updateSelectionCheckboxVisual(photoId) {
+    const checkbox = document.querySelector(`.photo-selection-checkbox[data-photo-id="${photoId}"]`);
+    const photoCard = document.querySelector(`.photo-card[data-photo-id="${photoId}"], .photo-list-item[data-photo-id="${photoId}"]`);
+
+    if (checkbox && photoCard) {
+        const isSelected = window.PhotoManager ?
+            window.PhotoManager.getSelectedPhotoIds().includes(photoId) : false;
+
+        if (isSelected) {
+            checkbox.classList.add('selected');
+            photoCard.classList.add('selected');
+        } else {
+            checkbox.classList.remove('selected');
+            photoCard.classList.remove('selected');
+        }
+    }
+}
+
+/**
+ * 初始化所有选择框的视觉状态
+ */
+function initializeSelectionCheckboxes() {
+    if (!window.PhotoManager) {
+        console.warn('PhotoManager 未初始化，跳过选择框初始化');
+        return;
+    }
+
+    const selectedPhotoIds = window.PhotoManager.getSelectedPhotoIds();
+
+    // 更新所有已选择照片的选择框状态
+    selectedPhotoIds.forEach(photoId => {
+        updateSelectionCheckboxVisual(photoId);
+    });
+
+    console.log('选择框视觉状态初始化完成');
+}
+
 window.getProcessingStatus = getProcessingStatus;
+window.togglePhotoSelection = togglePhotoSelection;
+window.updateSelectionCheckboxVisual = updateSelectionCheckboxVisual;
+window.initializeSelectionCheckboxes = initializeSelectionCheckboxes;
