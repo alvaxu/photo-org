@@ -60,6 +60,7 @@ class AnalysisConfig(BaseSettings):
     concurrent: int = Field(default=2, description="分析并发数")
     timeout: int = Field(default=30, description="分析超时时间（秒）")
     batch_size: int = Field(default=10, description="批量分析大小")
+    batch_threshold: int = Field(default=200, description="分析分批阈值")
 
 
 class LoggingConfig(BaseSettings):
@@ -145,6 +146,7 @@ class ImportConfig(BaseSettings):
     supported_formats: list = Field(default=[".jpg", ".jpeg", ".png", ".tiff", ".tif", ".webp", ".bmp", ".gif", ".heic", ".heif"], description="支持的文件格式")
     max_upload_files: int = Field(default=50, description="单次最大上传文件数")
     scan_batch_size: int = Field(default=100, description="文件夹扫描批次大小")
+    batch_threshold: int = Field(default=200, description="导入分批阈值")
 
 
 class QualityConfig(BaseSettings):
@@ -296,11 +298,13 @@ class Settings(BaseSettings):
                 "quality_threshold": self.analysis.quality_threshold,
                 "concurrent": self.analysis.concurrent,
                 "timeout": self.analysis.timeout,
-                "batch_size": self.analysis.batch_size
+                "batch_size": self.analysis.batch_size,
+                "batch_threshold": self.analysis.batch_threshold
             },
             "import": {
                 "max_upload_files": self.import_config.max_upload_files,
                 "scan_batch_size": self.import_config.scan_batch_size,
+                "batch_threshold": self.import_config.batch_threshold,
                 "supported_formats": self.import_config.supported_formats
             }
         }
