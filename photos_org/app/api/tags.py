@@ -83,7 +83,7 @@ async def get_tag_statistics(db: Session = Depends(get_db)):
 @router.get("/", response_model=List[TagResponse])
 async def get_tags(
     skip: int = Query(0, ge=0, description="跳过的记录数"),
-    limit: int = Query(100, ge=1, le=500, description="返回的记录数"),
+    limit: int = Query(300, ge=1, le=1000, description="返回的记录数"),
     search: Optional[str] = Query(None, description="搜索关键词"),
     db: Session = Depends(get_db)
 ):

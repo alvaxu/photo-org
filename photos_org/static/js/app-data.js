@@ -168,14 +168,55 @@ function initMultiSelectDropdown(container, data, placeholder, onChange) {
         }
     }
     
-    // 搜索功能
+    // 搜索功能 - 使用后端API
     if (searchInput) {
+        let searchTimeout;
         searchInput.addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            filteredData = data.filter(item => 
-                item.name.toLowerCase().includes(searchTerm)
-            );
-            renderOptions();
+            const searchTerm = e.target.value.trim();
+
+            // 清除之前的定时器
+            clearTimeout(searchTimeout);
+
+            // 如果搜索词为空，显示所有数据
+            if (searchTerm === '') {
+                filteredData = [...data];
+                renderOptions();
+                return;
+            }
+
+            // 防抖处理，避免频繁API调用
+            searchTimeout = setTimeout(async () => {
+                try {
+                    // 调用后端搜索API
+                    const searchUrl = `/api/v1/tags/?search=${encodeURIComponent(searchTerm)}&limit=200`;
+                    const response = await fetch(searchUrl);
+
+                    if (response.ok) {
+                        const searchResults = await response.json();
+                        // 将搜索结果转换为前端需要的格式
+                        filteredData = searchResults.map(tag => ({
+                            id: tag.id,
+                            name: tag.name
+                        }));
+                        console.log(`搜索 "${searchTerm}" 找到 ${filteredData.length} 个标签`);
+                        renderOptions();
+                    } else {
+                        console.error('搜索标签失败:', response.status);
+                        // 搜索失败时，回退到本地过滤
+                        filteredData = data.filter(item =>
+                            item.name.toLowerCase().includes(searchTerm.toLowerCase())
+                        );
+                        renderOptions();
+                    }
+                } catch (error) {
+                    console.error('搜索标签出错:', error);
+                    // 出错时，回退到本地过滤
+                    filteredData = data.filter(item =>
+                        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+                    );
+                    renderOptions();
+                }
+            }, 300); // 300ms防抖
         });
     }
     
@@ -212,21 +253,46 @@ function initMultiSelectDropdown(container, data, placeholder, onChange) {
  */
 async function initSearchMultiSelect() {
     try {
-        // 加载标签和分类数据
-        const [tagsResponse, categoriesResponse] = await Promise.all([
-            fetch('/api/v1/tags/'),
+        // 并行加载热门标签、全部标签和分类数据
+        const [hotTagsResponse, tagsResponse, categoriesResponse] = await Promise.all([
+            fetch('/api/v1/tags/popular?limit=50'),  // 热门标签优先
+            fetch('/api/v1/tags/'),                  // 全部标签作为备用
             fetch('/api/v1/categories/')
         ]);
 
         let tags = [];
         let categories = [];
 
-        if (tagsResponse.ok) {
-            tags = await tagsResponse.json();
-            globalTagsData = tags; // 存储到全局变量
-            console.log('标签数据加载成功:', tags.length, '个标签');
+        // 优先使用热门标签
+        if (hotTagsResponse.ok) {
+            const hotTags = await hotTagsResponse.json();
+            tags = hotTags.map(tag => ({
+                id: tag.id,
+                name: tag.name
+            }));
+            console.log('热门标签加载成功:', tags.length, '个热门标签');
         } else {
-            console.error('标签数据加载失败:', tagsResponse.status, tagsResponse.statusText);
+            console.warn('热门标签加载失败，使用全部标签');
+            // 如果热门标签加载失败，使用全部标签
+            if (tagsResponse.ok) {
+                const allTags = await tagsResponse.json();
+                tags = allTags.map(tag => ({
+                    id: tag.id,
+                    name: tag.name
+                }));
+                console.log('标签数据加载成功:', tags.length, '个标签');
+            } else {
+                console.error('标签数据加载失败:', tagsResponse.status, tagsResponse.statusText);
+            }
+        }
+
+        // 存储完整标签数据到全局变量（用于搜索时的本地过滤备用）
+        if (tagsResponse.ok) {
+            const allTags = await tagsResponse.json();
+            globalTagsData = allTags.map(tag => ({
+                id: tag.id,
+                name: tag.name
+            }));
         }
 
         if (categoriesResponse.ok) {
