@@ -628,6 +628,30 @@ async def get_analysis_task_status(task_id: str, initial_total: int = None, db: 
     - **initial_total**: 任务开始时的待处理照片总数（imported + error）
     """
     try:
+        # 优先检查任务状态跟踪字典
+        task_data = analysis_task_status.get(task_id)
+        if task_data:
+            # 任务存在于内存中，直接返回任务状态
+            status = task_data["status"]
+            total_photos = task_data["total_photos"]
+            completed_photos = task_data["completed_photos"]
+            failed_photos = task_data["failed_photos"]
+            progress_percentage = task_data["progress_percentage"]
+            processing_photos = total_photos - completed_photos - failed_photos
+
+            return {
+                "task_id": task_id,
+                "status": status,
+                "total_photos": total_photos,
+                "completed_photos": completed_photos,
+                "failed_photos": failed_photos,
+                "progress_percentage": round(progress_percentage, 2),
+                "processing_photos": processing_photos
+            }
+
+        # 任务不存在于内存中（可能已清理或从未启动），回退到数据库统计
+        logger.warning(f"任务 {task_id} 状态不存在于内存中，回退到数据库统计")
+
         # 获取当前数据库中的统计信息
         imported_count = db.query(Photo).filter(Photo.status == 'imported').count()
         error_count = db.query(Photo).filter(Photo.status == 'error').count()
@@ -638,22 +662,20 @@ async def get_analysis_task_status(task_id: str, initial_total: int = None, db: 
         current_pending_total = imported_count + error_count
 
         # 使用提供的 initial_total 作为分母（如果提供的话）
-        # 这代表了任务开始时需要处理的照片总数
         display_total = initial_total if initial_total is not None else current_pending_total
 
-        # 计算已完成的照片数
-        # 对于已完成的任务，completed_photos 应该等于任务处理的照片数
+        # 回退逻辑：基于数据库统计估算状态
         if analyzing_count == 0:
-            # 任务已完成
+            # 没有正在分析的照片，认为任务已完成
             status = "completed"
-            # 已完成的照片数应该是任务处理的照片数
-            completed_photos = initial_total if initial_total is not None else completed_count
-            failed_photos = 0  # 简化处理，暂时设为0
+            # 已完成的照片数基于数据库统计
+            completed_photos = completed_count
+            failed_photos = 0
         else:
-            # 任务仍在进行中
+            # 有照片正在分析，认为任务进行中
             status = "processing"
-            # 正在处理的照片数就是 analyzing 状态的数量
-            completed_photos = initial_total - analyzing_count if initial_total is not None else completed_count
+            # 已完成的照片数基于数据库统计
+            completed_photos = completed_count
             failed_photos = 0
 
         progress_percentage = (completed_photos / display_total * 100) if display_total > 0 else 100
@@ -661,9 +683,9 @@ async def get_analysis_task_status(task_id: str, initial_total: int = None, db: 
         return {
             "task_id": task_id,
             "status": status,
-            "total_photos": display_total,           # 显示任务开始时的待处理总数
-            "completed_photos": completed_photos,    # 显示已完成的照片数
-            "failed_photos": failed_photos,          # 失败的照片数
+            "total_photos": display_total,
+            "completed_photos": completed_photos,
+            "failed_photos": failed_photos,
             "progress_percentage": round(progress_percentage, 2),
             "processing_photos": analyzing_count
         }
