@@ -1010,11 +1010,31 @@ class ClassificationService:
         """使用chinese_calendar库获取节假日名称"""
         try:
             import chinese_calendar as cc  # type: ignore
-            
-            # chinese_calendar库没有get_holiday_name方法，直接使用简单方法
+
             if cc.is_holiday(taken_at.date()):
+                # 从节假日详情中获取节假日名称
+                holiday_detail = cc.get_holiday_detail(taken_at.date())
+                if len(holiday_detail) >= 2:
+                    holiday_name_en = holiday_detail[1]  # 英文节假日名称
+
+                    # 将英文节假日名称转换为中文
+                    holiday_name_map = {
+                        'New Year\'s Day': '元旦',
+                        'Spring Festival': '春节',
+                        'Qingming Festival': '清明节',
+                        'Labour Day': '劳动节',
+                        'Dragon Boat Festival': '端午节',
+                        'Mid-Autumn Festival': '中秋节',
+                        'National Day': '国庆节',
+                        'Christmas Day': '圣诞节'
+                    }
+
+                    if holiday_name_en in holiday_name_map:
+                        return holiday_name_map[holiday_name_en]
+
+                # 如果无法从库中获取，使用简单方法作为备用
                 return self._get_holiday_name_simple(taken_at)
-            
+
             return None
         except Exception as e:
             self.logger.warning(f"获取节假日名称失败: {e}")
