@@ -818,8 +818,8 @@ async function startFileImport() {
     // 🔒 启用模态框保护，防止意外关闭
     window.importModalProtector.protect();
 
-    // 如果文件数量超过200个，使用分批上传（获得并行处理优势）
-    const BATCH_THRESHOLD = 200;
+    // 如果文件数量超过阈值，使用分批上传（获得并行处理优势）
+    const BATCH_THRESHOLD = CONFIG.importConfig?.batch_threshold || 200;
     if (files.length > BATCH_THRESHOLD) {
         console.log(`文件数量(${files.length})超过阈值(${BATCH_THRESHOLD})，使用分批上传`);
 
@@ -1067,8 +1067,8 @@ async function startFolderImport() {
         return;
     }
 
-    // 如果文件数量超过200个，使用分批上传（获得并行处理优势）
-    const BATCH_THRESHOLD = 200;
+    // 如果文件数量超过阈值，使用分批上传（获得并行处理优势）
+    const BATCH_THRESHOLD = CONFIG.importConfig?.batch_threshold || 200;
     if (imageFiles.length > BATCH_THRESHOLD) {
         console.log(`目录文件数量(${imageFiles.length})超过阈值(${BATCH_THRESHOLD})，使用分批上传`);
 
@@ -1858,10 +1858,10 @@ function monitorImportProgress(taskId, totalFiles) {
  * @param {number} totalFiles - 总文件数量
  * @param {Array} failedBatches - 上传失败的批次信息（可选）
  */
-function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
+function monitorBatchProgress(taskIds, totalFiles, failedBatches = [], startTime = null) {
     let checkCount = 0;
     const maxElapsedTime = 60 * 60 * 1000; // 1小时超时（毫秒）
-    const startTime = Date.now();
+    const actualStartTime = startTime || Date.now();
 
     console.log('开始监控批次聚合进度，总任务数:', taskIds.length, '总文件数:', totalFiles);
 
@@ -1873,7 +1873,7 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
         checkCount++;
 
         // 超时保护 - 基于实际时间
-        const elapsedTime = Date.now() - startTime;
+        const elapsedTime = Date.now() - actualStartTime;
         if (elapsedTime >= maxElapsedTime) {
             if (progressInterval) {
                 clearInterval(progressInterval);
@@ -1998,7 +1998,7 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
         }
 
         // 🔄 动态调整查询频率
-        // 0-30秒：2秒间隔，30-120秒：5秒间隔，120秒以后：10秒间隔
+        // 0-30秒：2秒间隔，30-120秒：5秒间隔，120-300秒：10秒间隔，300秒以后：20秒间隔
         const elapsedSeconds = (Date.now() - startTime) / 1000;
         let nextInterval;
 
@@ -2006,8 +2006,10 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = []) {
             nextInterval = 2000; // 2秒
         } else if (elapsedSeconds < 120) {
             nextInterval = 5000; // 5秒
-        } else {
+        } else if (elapsedSeconds < 300) {
             nextInterval = 10000; // 10秒
+        } else {
+            nextInterval = 20000; // 20秒
         }
 
         // 如果频率改变，重新设置定时器
@@ -2832,6 +2834,9 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
                         console.error('刷新数据失败:', error);
                     }
                 }, 300); // 等待模态框关闭动画完成
+
+                // 重要：处理完成后直接返回，不执行后续超时检查
+                return;
             }
 
         } catch (error) {
@@ -2852,16 +2857,18 @@ async function monitorBasicAnalysisBatches(batchInfo, totalPhotos) {
         }
 
         // 🔄 动态调整查询频率
-        // 0-30秒：1秒间隔，30-120秒：2秒间隔，120秒以后：5秒间隔
+        // 0-30秒：2秒间隔，30-120秒：5秒间隔，120-300秒：10秒间隔，300秒以后：20秒间隔
         const elapsedSeconds = (Date.now() - startTime) / 1000;
         let nextInterval;
 
         if (elapsedSeconds < 30) {
-            nextInterval = 1000; // 1秒
-        } else if (elapsedSeconds < 120) {
             nextInterval = 2000; // 2秒
-        } else {
+        } else if (elapsedSeconds < 120) {
             nextInterval = 5000; // 5秒
+        } else if (elapsedSeconds < 300) {
+            nextInterval = 10000; // 10秒
+        } else {
+            nextInterval = 20000; // 20秒
         }
 
         // 如果频率改变，重新设置定时器
@@ -3048,7 +3055,7 @@ async function startBasicProcess() {
         }
 
         // 分批处理配置
-        const BATCH_THRESHOLD = 200;  // 分批处理阈值
+        const BATCH_THRESHOLD = CONFIG.analysisConfig?.batch_threshold || 200;  // 分批处理阈值
         const BATCH_SIZE = CONFIG.analysisConfig?.batch_size || 100;  // 从配置读取
         console.log(`使用配置的分批大小: ${BATCH_SIZE}`);  // 调试日志
 
@@ -3546,7 +3553,7 @@ async function waitForAIBatchComplete(batchSize) {
  */
 async function monitorBasicAnalysisProgress(taskId, totalPhotos, initialTotal) {
     let checkCount = 0;
-    const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
+    const maxChecks = 1800; // 最多检查1800次，每次1秒，总共30分钟
 
     const statusCheckInterval = setInterval(async () => {
         checkCount++;
@@ -4029,4 +4036,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+
 
