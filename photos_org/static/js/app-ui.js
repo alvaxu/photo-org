@@ -48,6 +48,16 @@ function initializeUI() {
         }
     };
 
+    // 同步AppState与HTML元素的默认值
+    if (elements.sortBy && elements.sortOrder) {
+        AppState.searchFilters.sortBy = elements.sortBy.value;
+        AppState.searchFilters.sortOrder = elements.sortOrder.value;
+        console.log('🔄 已同步AppState排序默认值:', {
+            sortBy: AppState.searchFilters.sortBy,
+            sortOrder: AppState.searchFilters.sortOrder
+        });
+    }
+
     // 添加调试信息
     console.log('📱 模态框初始化完成:', {
         photoModal: !!photoModal,

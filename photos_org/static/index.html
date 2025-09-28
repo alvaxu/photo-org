@@ -237,9 +237,9 @@
                                 <label class="form-label">排序方式</label>
                                         <div class="d-flex gap-1">
                                             <select class="form-select" id="sortBy" style="flex: 2;">
+                                    <option value="taken_at" selected>拍摄时间</option>
                                                 <option value="quality_score">质量分数</option>
-                                    <option value="taken_at">拍摄时间</option>
-                                    <option value="created_at" selected>导入时间</option>
+                                    <option value="created_at">导入时间</option>
                                     <option value="filename">文件名</option>
                                             </select>
                                             <select class="form-select" id="sortOrder" style="flex: 1;">
@@ -853,12 +853,12 @@
                         <h6><i class="bi bi-mouse me-2"></i>照片选择</h6>
                         <ul class="list-unstyled small">
                             <li class="mb-2">
-                                <i class="bi bi-eye me-2 text-info"></i>
-                                <strong>查看详情：</strong>点击照片查看大图和详细信息
+                                <i class="bi bi-square me-2 text-primary"></i>
+                                <strong>选择框：</strong>每张照片左上角都有一个选择框，点击即可选择/取消选择照片
                             </li>
                             <li class="mb-2">
-                                <i class="bi bi-cursor-fill me-2 text-success"></i>
-                                <strong>多选：</strong>按住<code>Ctrl</code>键点击多张照片进行选择
+                                <i class="bi bi-eye me-2 text-info"></i>
+                                <strong>查看详情：</strong>点击照片图像查看大图和详细信息
                             </li>
                             <li class="mb-2">
                                 <i class="bi bi-check-all me-2 text-success"></i>
@@ -866,7 +866,11 @@
                             </li>
                             <li class="mb-2">
                                 <i class="bi bi-x-circle me-2 text-warning"></i>
-                                <strong>取消选择：</strong>点击"取消选择"按钮清空选择，或按住Ctrl键再次点击照片
+                                <strong>取消选择：</strong>点击"取消选择"按钮清空选择，或再次点击选择框取消选择
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-lightbulb me-2 text-secondary"></i>
+                                <strong>提示：</strong>选择框是永久可见的，无需特殊操作即可直接选择照片
                             </li>
                         </ul>
                     </div>
@@ -924,8 +928,12 @@
                             <div class="col-md-6">
                                 <ul class="list-unstyled small">
                                     <li class="mb-2">
+                                        <i class="bi bi-square me-2 text-primary"></i>
+                                        <strong>选择框：</strong>左上角的选择框，点击可选择/取消选择照片
+                                    </li>
+                                    <li class="mb-2">
                                         <i class="bi bi-image me-2 text-primary"></i>
-                                        <strong>缩略图：</strong>照片的预览图
+                                        <strong>缩略图：</strong>照片的预览图，点击查看详情
                                     </li>
                                     <li class="mb-2">
                                         <i class="bi bi-star me-2 text-warning"></i>
@@ -970,39 +978,7 @@
                     </div>
                 </div>
 
-                <hr class="my-3">
 
-                <div class="row">
-                    <div class="col-12">
-                        <h6><i class="bi bi-robot me-2"></i>智能处理功能</h6>
-                        <div class="alert alert-info small">
-                            <p class="mb-2"><strong>什么是智能处理？</strong></p>
-                            <p>智能处理使用AI技术对照片进行深度分析，包括：</p>
-                            <ul class="mb-2">
-                                <li><strong>AI内容分析：</strong>识别照片中的物体、场景、人脸等，生成详细描述</li>
-                                <li><strong>质量评估：</strong>分析照片的技术质量，包括清晰度、亮度、对比度等</li>
-                                <li><strong>智能分类：</strong>根据内容自动为照片添加合适的标签和分类</li>
-                                <li><strong>重复检测：</strong>计算照片的感知哈希，用于查找相似照片</li>
-                            </ul>
-
-                            <p class="mb-2"><strong>如何使用智能处理？</strong></p>
-                            <ol class="mb-2">
-                                <li>选择需要处理的照片（点击照片或使用全选功能）</li>
-                                <li>点击"智能处理"按钮</li>
-                                <li>查看确认对话框中的处理统计</li>
-                                <li>点击"开始处理"，等待AI分析完成</li>
-                                <li>查看处理结果和详细统计</li>
-                            </ol>
-
-                            <p class="mb-0"><strong>注意事项：</strong></p>
-                            <ul class="mb-0">
-                                <li>智能处理需要有效的AI API密钥</li>
-                                <li>处理时间与照片数量和网络状况有关</li>
-                                <li>已处理过的照片可以重新处理以更新分析结果</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
