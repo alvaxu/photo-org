@@ -265,6 +265,19 @@ if __name__ == "__main__":
     finally:
         db.close()
 
+    # 初始化数据库索引
+    print("📊 正在检查数据库索引...")
+    from app.services.index_management_service import IndexManagementService
+    index_service = IndexManagementService()
+    db = next(get_db())
+    try:
+        if index_service.ensure_indexes_exist(db):
+            print("✅ 数据库索引检查完成")
+        else:
+            print("⚠️ 数据库索引检查失败，但不影响系统启动")
+    finally:
+        db.close()
+
     # 设置日志系统
     print("📝 正在配置日志系统...")
     setup_logging()

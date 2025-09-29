@@ -283,6 +283,52 @@ def optimize_database_settings():
     finally:
         db.close()
 
+def optimize_indexes():
+    """优化和验证数据库索引"""
+    print("\n=== 数据库索引优化 ===")
+
+    from app.services.index_management_service import IndexManagementService
+    from app.db.session import get_db
+
+    index_service = IndexManagementService()
+    db = next(get_db())
+
+    try:
+        # 1. 确保索引存在
+        print("📊 检查并创建缺失的索引...")
+        if index_service.ensure_indexes_exist(db):
+            print("✅ 索引检查完成")
+
+            # 2. 验证索引性能
+            print("\n📈 验证索引性能...")
+            perf_result = index_service.validate_indexes_performance(db)
+
+            if "error" not in perf_result:
+                print(f"   📊 总索引数量: {perf_result.get('index_count', 0)}")
+
+                # 显示性能检查结果
+                for check_name, check_data in perf_result.get("performance_checks", {}).items():
+                    uses_index = check_data.get("uses_index", False)
+                    status = "✅ 使用索引" if uses_index else "⚠️ 未使用索引"
+                    print(f"   {status} - {check_name}")
+
+                # 显示建议
+                if perf_result.get("recommendations"):
+                    print("\n💡 优化建议:")
+                    for rec in perf_result["recommendations"]:
+                        print(f"   • {rec}")
+            else:
+                print(f"   ⚠️ 性能验证失败: {perf_result['error']}")
+
+        else:
+            print("❌ 索引优化失败")
+
+    except Exception as e:
+        print(f"❌ 索引优化过程出错: {e}")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     print("家庭版智能照片系统 - 数据库优化工具")
     print("=" * 60)
@@ -293,7 +339,10 @@ if __name__ == "__main__":
     # 2. 创建优化的索引
     create_optimized_indexes()
 
-    # 3. 测试查询性能
+    # 3. 使用新的索引管理服务进行优化
+    optimize_indexes()
+
+    # 4. 测试查询性能
     test_query_performance()
 
     print("\n🎯 数据库优化任务完成！")

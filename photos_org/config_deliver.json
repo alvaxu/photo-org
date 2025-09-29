@@ -6,7 +6,7 @@
     "temp_file_max_age": 24
   },
   "database": {
-    "path": "./photo_db/photos.db"
+    "path": "./photo_db/photos.db" 
   },
   "dashscope": {
     "api_key": "sk-9ade5a04da1a46c998a203db3ccd70fe",
@@ -34,7 +34,7 @@
     "max_retry_count": 3
   },
   "storage": {
-    "base_path": "./storage",
+    "base_path": "./storage",  
     "originals_path": "originals",
     "thumbnails_path": "thumbnails",
     "temp_path": "temp",
@@ -68,7 +68,7 @@
     "hot_categories_limit": 10
   },
   "search": {
-    "similarity_threshold": 0.6,
+    "similarity_threshold": 0.5,
     "timeout": 5,
     "default_page_size": 20,
     "max_page_size": 100,
@@ -77,33 +77,31 @@
   },
   "similarity": {
     "first_layer_weights": {
-      "perceptual_hash": 0.25,
-      "objects": 0.15,
-      "time": 0.15,
-      "color_histogram": 0.15,
-      "scene_type": 0.1,
-      "location": 0.05,
-      "description": 0.15,
-      "emotion": 0.05,
-      "activity": 0.05,
-      "tags": 0.05,
-      "camera": 0.05,
-      "structural": 0.1
+      "perceptual_hash": 0.30,
+      "time": 0.20,
+      "location": 0.15,
+      "camera": 0.10,
+      "basic_tags": 0.15,
+      "ai_scene": 0.03,
+      "ai_objects": 0.02,
+      "ai_emotion": 0.02,
+      "ai_activity": 0.02,
+      "ai_tags": 0.01
     },
     "first_layer_thresholds": {
-      "perceptual_hash": 0.6,
+      "perceptual_hash": 0.4,
       "color_histogram": 0.7,
       "structural": 0.8,
-      "scene_type": 1.0,
-      "objects": 0.5,
-      "emotion": 0.6,
-      "activity": 0.6,
-      "description": 0.5,
-      "tags": 0.5,
-      "time": 0.8,
-      "location": 0.9,
-      "camera": 0.7,
-      "combined": 0.55
+      "scene_type": 0.6,
+      "objects": 0.2,
+      "emotion": 0.0,
+      "activity": 0.3,
+      "description": 0.2,
+      "tags": 0.2,
+      "time": 0.5,
+      "location": 0.6,
+      "camera": 0.4,
+      "combined": 0.3
     },
     "algorithms": {
       "primary_algorithm": "perceptual_hash",
@@ -119,6 +117,10 @@
       "cache_enabled": true,
       "cache_ttl": 3600,
       "max_concurrent": 5
+    },
+    "pre_screening": {
+      "time_margin_days": 30,
+      "location_margin": 0.1
     }
   },
   "import": {

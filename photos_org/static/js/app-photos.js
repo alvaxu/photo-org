@@ -593,7 +593,7 @@ async function searchSimilarPhotos(photoId) {
         
         // 从配置中获取相似度阈值和限制数量
         const threshold = userConfig?.search?.similarity_threshold || 0.85;
-        const limit = userConfig?.search?.similar_photos_limit || 8;
+        const limit = userConfig?.ui?.similar_photos_limit || 8;
         
         // 显示加载状态
         showSimilarPhotosModal(photoId);
