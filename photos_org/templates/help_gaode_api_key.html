@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>高德地图API配置 - 家庭版智能照片系统</title>
+
+    <!-- Bootstrap CSS - 优先使用本地版本 -->
+    <link href="/static/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/lib/bootstrap-icons/css/bootstrap-icons.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons 字体修复 -->
+    <style>
+        @font-face {
+            font-display: block;
+            font-family: "bootstrap-icons";
+            src: url("/static/lib/bootstrap-icons/fonts/bootstrap-icons.woff2?2ab2cbbe07fcebb53bdaa7313bb290f2") format("woff2"),
+                 url("/static/lib/bootstrap-icons/fonts/bootstrap-icons.woff?2ab2cbbe07fcebb53bdaa7313bb290f2") format("woff");
+        }
+    </style>
+
+    <!-- CDN备用加载 -->
+    <script>
+        // 如果本地资源加载失败，尝试CDN
+        setTimeout(function() {
+            const links = document.querySelectorAll('link[href*="/static/lib/"]');
+            links.forEach(link => {
+                if (!link.sheet) {
+                    console.warn('本地资源加载失败，尝试CDN:', link.href);
+                    if (link.href.includes('bootstrap.min.css')) {
+                        link.href = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css';
+                    } else if (link.href.includes('bootstrap-icons.min.css')) {
+                        link.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css';
+                    }
+                }
+            });
+        }, 2000);
+    </script>
+
+    <!-- 自定义样式 -->
+    <link href="/static/css/style.css?v=20250119_80" rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+
+    <style>
+        .help-content {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .help-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            margin: 1rem 0;
+        }
+        .step-card {
+            border-left: 4px solid #0d6efd;
+            background-color: #f8f9fa;
+        }
+        .warning-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .info-box {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <img src="/static/images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
+                智能照片系统
+                <small class="ms-2 text-light opacity-75">2025.10.01</small>
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="../static/index.html">
+                            <i class="bi bi-grid-3x3-gap"></i> 照片库
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings">
+                            <i class="bi bi-gear"></i> 系统配置
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/help-overview">
+                            <i class="bi bi-info-circle"></i> 功能说明
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/help-api-key">
+                            <i class="bi bi-key"></i> API密钥帮助
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/help-gaode-api-key">
+                            <i class="bi bi-geo-alt"></i> 高德API配置
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="d-flex">
+                    <button class="btn btn-outline-light" onclick="window.close()">
+                        <i class="bi bi-x-lg"></i> 关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <div class="container-fluid mt-4">
+        <div class="help-content">
+            <h1 class="mb-4">
+                <i class="bi bi-geo-alt me-2"></i>
+                高德地图API配置
+            </h1>
+
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                本系统支持将照片GPS坐标转换为具体地址，您需要配置高德地图API Key。
+            </div>
+
+            <!-- 一、开通高德地图API -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">一、开通高德地图API服务</h2>
+
+                <p>访问<a href="https://lbs.amap.com/" target="_blank" class="text-decoration-none">高德开放平台</a>，注册账号并开通地图服务。</p>
+
+                <div class="info-box">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>说明：</strong>高德地图API提供免费额度，超出部分按量计费。
+                    <ul class="mt-2 mb-0">
+                        <li><strong>免费额度：</strong>每月6,000次GPS转地址调用</li>
+                        <li><strong>超出费用：</strong>¥0.005/次</li>
+                        <li><strong>调用限制：</strong>每分钟最多200次</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 二、获取API Key -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">二、获取API Key</h2>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤1：创建应用</h4>
+                    <p>登录高德开放平台 → 控制台 → 应用管理 → 创建新应用</p>
+                    <div class="text-center">
+                        <img src="/static/images/help/gaode-step1.png" alt="创建应用" class="help-image"
+                             onerror="this.style.display='none'">
+                        <p class="text-muted small">图1：创建新应用</p>
+                    </div>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤2：添加Key</h4>
+                    <p>选择应用 → 添加Key → 选择"Web服务API" → 提交</p>
+                    <div class="text-center">
+                        <img src="/static/images/help/gaode-step2.png" alt="添加API Key" class="help-image"
+                             onerror="this.style.display='none'">
+                        <p class="text-muted small">图2：添加API Key</p>
+                    </div>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">步骤3：获取Key</h4>
+                    <p>复制生成的32位Key字符串</p>
+                    <div class="text-center">
+                        <img src="/static/images/help/gaode-step3.png" alt="获取API Key" class="help-image"
+                             onerror="this.style.display='none'">
+                        <p class="text-muted small">图3：复制API Key</p>
+                    </div>
+                </div>
+
+                <div class="warning-box">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>重要提醒：</strong>
+                    <ul class="mb-0">
+                        <li>API Key是32位字符串，请完整复制</li>
+                        <li>不要泄露您的API Key给他人</li>
+                        <li>如有泄露风险，请及时删除并重新创建</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 三、配置API Key -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">三、配置API Key</h2>
+
+                <form id="apiKeyForm">
+                    <div class="mb-3">
+                        <label for="apiKey" class="form-label">
+                            <strong>高德API Key</strong>
+                        </label>
+                        <input type="text" class="form-control" id="apiKey"
+                               placeholder="输入32位API Key" maxlength="32" required>
+                        <div class="form-text">
+                            API Key将在本地保存，不会上传到服务器
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-primary" onclick="testApiKey()" id="testBtn">
+                            <i class="bi bi-check-circle"></i> 测试Key
+                        </button>
+                        <button type="submit" class="btn btn-success" id="saveBtn">
+                            <i class="bi bi-save"></i> 保存配置
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 测试结果显示 -->
+                <div id="testResult" class="mt-3" style="display: none;">
+                    <div class="alert" role="alert">
+                        <span id="testMessage"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 四、使用说明 -->
+            <section class="mb-5">
+                <h2 class="h3 mb-3">四、使用说明</h2>
+
+                <div class="info-box">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>GPS转地址功能说明：</strong>
+                    <ul class="mt-2 mb-0">
+                        <li><strong>适用范围：</strong>仅对拍摄时开启GPS定位的照片有效</li>
+                        <li><strong>转换精度：</strong>根据GPS坐标精确定位到具体地址</li>
+                        <li><strong>缓存机制：</strong>相同坐标只调用一次API，提高效率</li>
+                        <li><strong>批量转换：</strong>导航栏按钮可批量转换所有未处理的照片</li>
+                        <li><strong>单张重解析：</strong>照片卡片可单独重解析地址</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>注意事项：</strong>
+                    <ul class="mb-0">
+                        <li>请确保照片拍摄时开启了GPS定位功能</li>
+                        <li>室内拍摄或GPS信号弱的照片可能无法获取准确地址</li>
+                        <li>API调用有频率限制，请勿短时间内大量调用</li>
+                        <li>地址信息仅供参考，实际位置可能有偏差</li>
+                    </ul>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- 页面专用脚本 -->
+    <script src="/static/js/help_gaode_api_key.js"></script>
+</body>
+</html>

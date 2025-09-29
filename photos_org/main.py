@@ -192,6 +192,11 @@ async def help_overview_page():
     """功能说明帮助页面"""
     return FileResponse(get_template_path("help-overview.html"))
 
+@app.get("/help-gaode-api-key")
+async def help_gaode_api_key_page():
+    """高德地图API配置帮助页面"""
+    return FileResponse(get_template_path("help_gaode_api_key.html"))
+
 # 健康检查接口
 @app.get("/health")
 async def health_check():
