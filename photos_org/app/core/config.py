@@ -139,6 +139,10 @@ class SimilarityConfig(BaseSettings):
         "cache_ttl": 3600,
         "max_concurrent": 5
     }, description="性能配置")
+    pre_screening: dict = Field(default={
+        "time_margin_days": 30,
+        "location_margin": 0.1
+    }, description="预筛选配置")
 
 
 class ImportConfig(BaseSettings):

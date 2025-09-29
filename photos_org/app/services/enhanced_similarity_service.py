@@ -14,7 +14,7 @@ import cv2
 from pathlib import Path
 import math
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import jieba
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -45,13 +45,15 @@ class EnhancedSimilarityService:
 
         self.logger = get_logger(__name__)
         self.hash_size = 16
-        self.similarity_threshold = 0.55
-        
-        # 从配置文件读取相似度权重配置
-        self.SIMILARITY_WEIGHTS = settings.similarity.first_layer_weights
 
-        # 从配置文件读取默认阈值
-        self.DEFAULT_THRESHOLDS = settings.similarity.first_layer_thresholds
+        # 从配置文件读取所有相似度相关配置
+        self.similarity_threshold = settings.search.similarity_threshold  # 从search配置读取
+        self.SIMILARITY_WEIGHTS = settings.similarity.first_layer_weights  # 从similarity配置读取
+        self.DEFAULT_THRESHOLDS = settings.similarity.first_layer_thresholds  # 从similarity配置读取
+
+        # 从配置文件读取预筛选参数
+        self.time_margin_days = settings.similarity.pre_screening["time_margin_days"]
+        self.location_margin = settings.similarity.pre_screening["location_margin"]
 
     def calculate_multiple_hashes(self, image_path: str) -> Dict[str, str]:
         """
@@ -452,6 +454,62 @@ class EnhancedSimilarityService:
         except Exception:
             return 0.0
 
+    def _pre_screen_candidates(self, db_session, reference_photo: Photo) -> List[Photo]:
+        """
+        预筛选候选照片：基于时间和位置进行快速过滤
+        显著减少需要进行详细相似度计算的照片数量
+        """
+        try:
+            query = db_session.query(Photo).filter(Photo.id != reference_photo.id)
+
+            # 时间预筛选（如果参考照片有拍摄时间）
+            if reference_photo.taken_at:
+                # 时间范围：从配置文件读取
+                time_start = reference_photo.taken_at - timedelta(days=self.time_margin_days)
+                time_end = reference_photo.taken_at + timedelta(days=self.time_margin_days)
+                query = query.filter(Photo.taken_at.between(time_start, time_end))
+
+            # 位置预筛选（如果参考照片有GPS信息）
+            if reference_photo.location_lat and reference_photo.location_lng:
+                # 位置范围：从配置文件读取
+                lat_min = reference_photo.location_lat - self.location_margin
+                lat_max = reference_photo.location_lat + self.location_margin
+                lng_min = reference_photo.location_lng - self.location_margin
+                lng_max = reference_photo.location_lng + self.location_margin
+                query = query.filter(
+                    Photo.location_lat.between(lat_min, lat_max),
+                    Photo.location_lng.between(lng_min, lng_max)
+                )
+
+            # 如果都没有时间位置信息，至少保证有感知哈希（用于哈希相似度计算）
+            if not (reference_photo.taken_at or (reference_photo.location_lat and reference_photo.location_lng)):
+                query = query.filter(Photo.perceptual_hash.isnot(None))
+
+            candidates = query.all()
+            self.logger.debug(f"预筛选结果: {len(candidates)} 张候选照片 (原总数需实时计算)")
+
+            return candidates
+
+        except Exception as e:
+            self.logger.warning(f"预筛选失败，使用全量照片: {str(e)}")
+            # 降级策略：返回有感知哈希的所有照片
+            return db_session.query(Photo).filter(
+                Photo.id != reference_photo.id,
+                Photo.perceptual_hash.isnot(None)
+            ).all()
+
+    def _get_photo_tags_from_db(self, db_session, photo_id: int) -> List[str]:
+        """
+        从数据库获取照片的基础标签（非AI分析标签）
+        """
+        try:
+            from app.models.photo import Tag, PhotoTag
+            # 查询照片关联的标签
+            tags = db_session.query(Tag.name).join(PhotoTag).filter(PhotoTag.photo_id == photo_id).all()
+            return [tag[0] for tag in tags]
+        except Exception:
+            return []
+
     def calculate_tags_similarity(self, tags1: List, tags2: List) -> float:
         """计算标签相似度（Jaccard）"""
         if not tags1 or not tags2:
@@ -508,30 +566,55 @@ class EnhancedSimilarityService:
             reference_photo = db_session.query(Photo).filter(Photo.id == reference_photo_id).first()
             if not reference_photo:
                 return []
-            
-            # 获取所有其他照片
-            all_photos = db_session.query(Photo).filter(Photo.id != reference_photo_id).all()
-            
+
+            # 预筛选：基于时间和位置快速过滤候选照片
+            candidate_photos = self._pre_screen_candidates(db_session, reference_photo)
+
+            # 只有预筛选后还有候选照片，才进行详细计算
+            if not candidate_photos:
+                return []
+
             candidates = []
-            
-            for photo in all_photos:
+
+            for photo in candidate_photos:
                 similarities = {}
-                
-                # 1. 时间相似度
+
+                # 第一层：快速特征计算（带阈值筛选）
+                # 1. 感知哈希相似度（最重要，第一个检查）
+                if reference_photo.perceptual_hash and photo.perceptual_hash:
+                    hash_sim = self.calculate_perceptual_hash_similarity(reference_photo, photo)
+                    similarities['perceptual_hash'] = hash_sim
+
+                    # Early stopping: 如果感知哈希相似度太低，跳过这个候选照片
+                    hash_threshold = self.DEFAULT_THRESHOLDS.get('perceptual_hash', 0.6)
+                    if hash_sim < hash_threshold:
+                        continue  # 跳过这个候选照片，不再计算其他特征
+
+                # 2. 时间相似度
                 if reference_photo.taken_at and photo.taken_at:
                     time_sim = self.calculate_time_similarity(reference_photo.taken_at, photo.taken_at)
                     similarities['time'] = time_sim
-                
-                # 2. 位置相似度
-                if (reference_photo.location_lat and reference_photo.location_lng and 
+
+                    # Early stopping: 时间相似度太低
+                    time_threshold = self.DEFAULT_THRESHOLDS.get('time', 0.8)
+                    if time_sim < time_threshold:
+                        continue
+
+                # 3. 位置相似度
+                if (reference_photo.location_lat and reference_photo.location_lng and
                     photo.location_lat and photo.location_lng):
                     location_sim = self.calculate_location_similarity(
                         reference_photo.location_lat, reference_photo.location_lng,
                         photo.location_lat, photo.location_lng
                     )
                     similarities['location'] = location_sim
-                
-                # 3. 相机相似度
+
+                    # Early stopping: 位置相似度太低
+                    location_threshold = self.DEFAULT_THRESHOLDS.get('location', 0.9)
+                    if location_sim < location_threshold:
+                        continue
+
+                # 4. 相机相似度
                 camera1 = {
                     'make': reference_photo.camera_make,
                     'model': reference_photo.camera_model,
@@ -548,58 +631,80 @@ class EnhancedSimilarityService:
                 }
                 camera_sim = self.calculate_camera_similarity(camera1, camera2)
                 similarities['camera'] = camera_sim
-                
-                # 4. 感知哈希相似度
-                if reference_photo.perceptual_hash and photo.perceptual_hash:
-                    hash_sim = self.calculate_perceptual_hash_similarity(reference_photo, photo)
-                    similarities['perceptual_hash'] = hash_sim
-                
-                # 5-9. AI分析相似度（查询数据库）
+
+                # AI特征计算（可选加分项，不参与Early stopping）
                 try:
                     from app.models.photo import PhotoAnalysis
                     analysis1 = db_session.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == reference_photo.id).first()
                     analysis2 = db_session.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == photo.id).first()
-                    
+
+                    # AI特征是可选的，即使没有AI分析数据也能继续
                     if analysis1 and analysis2:
                         result1 = analysis1.analysis_result if analysis1.analysis_result else {}
                         result2 = analysis2.analysis_result if analysis2.analysis_result else {}
-                        
-                        # 场景类型相似度
+
+                        # 场景类型相似度（可选加分）
                         scene1 = result1.get('scene_type', '')
                         scene2 = result2.get('scene_type', '')
                         if scene1 and scene2:
-                            similarities['ai_scene'] = self.calculate_scene_type_similarity(scene1, scene2)
-                        
-                        # 对象相似度
+                            scene_sim = self.calculate_scene_type_similarity(scene1, scene2)
+                            similarities['ai_scene'] = scene_sim
+
+                        # 对象相似度（可选加分）
                         objects1 = result1.get('objects', [])
                         objects2 = result2.get('objects', [])
                         if objects1 and objects2:
-                            similarities['ai_objects'] = self.calculate_objects_similarity(objects1, objects2)
-                        
-                        # 情感相似度
+                            objects_sim = self.calculate_objects_similarity(objects1, objects2)
+                            similarities['ai_objects'] = objects_sim
+
+                        # 情感相似度（可选加分）
                         emotion1 = result1.get('emotion', '')
                         emotion2 = result2.get('emotion', '')
                         if emotion1 and emotion2:
-                            similarities['ai_emotion'] = self.calculate_emotion_similarity(emotion1, emotion2)
-                        
-                        # 活动相似度
+                            emotion_sim = self.calculate_emotion_similarity(emotion1, emotion2)
+                            similarities['ai_emotion'] = emotion_sim
+
+                        # 活动相似度（可选加分）
                         activity1 = result1.get('activity', '')
                         activity2 = result2.get('activity', '')
                         if activity1 and activity2:
-                            similarities['ai_activity'] = self.calculate_activity_similarity(activity1, activity2)
-                        
-                        # 标签相似度
-                        tags1 = result1.get('tags', [])
-                        tags2 = result2.get('tags', [])
-                        if tags1 and tags2:
-                            similarities['ai_tags'] = self.calculate_tags_similarity(tags1, tags2)
-                
+                            activity_sim = self.calculate_activity_similarity(activity1, activity2)
+                            similarities['ai_activity'] = activity_sim
+
+                    # 无论是否有AI分析，都尝试计算基础标签相似度
+                    # 这里使用数据库中的标签，而不是AI分析结果中的标签
+                    # 因为大部分照片只有基础标签
+                    try:
+                        # 从数据库获取标签信息（基础分析产生的标签）
+                        ref_tags = self._get_photo_tags_from_db(db_session, reference_photo.id)
+                        cand_tags = self._get_photo_tags_from_db(db_session, photo.id)
+
+                        if ref_tags and cand_tags:
+                            tags_sim = self.calculate_tags_similarity(ref_tags, cand_tags)
+                            similarities['basic_tags'] = tags_sim
+                    except Exception:
+                        pass
+
                 except Exception:
                     pass
-                
-                # 计算第一层综合相似度
+
+                # 如果通过了所有阈值检查，计算加权综合相似度
                 if similarities:
-                    first_layer_sim = sum(similarities.values()) / len(similarities)
+                    # 使用配置的权重计算加权相似度
+                    weighted_sim = 0.0
+                    total_weight = 0.0
+
+                    for feature, sim_value in similarities.items():
+                        weight = self.SIMILARITY_WEIGHTS.get(feature, 0.0)
+                        weighted_sim += sim_value * weight
+                        total_weight += weight
+
+                    # 如果有权重配置，使用加权平均；否则使用简单平均
+                    if total_weight > 0:
+                        first_layer_sim = weighted_sim / total_weight
+                    else:
+                        first_layer_sim = sum(similarities.values()) / len(similarities)
+
                     candidates.append({
                         'photo': photo,
                         'similarity': first_layer_sim,
@@ -609,16 +714,16 @@ class EnhancedSimilarityService:
             # 按相似度排序
             candidates.sort(key=lambda x: x['similarity'], reverse=True)
             
-            # 应用新的筛选逻辑
-            # 1. 先筛选出相似度 > 0.5 的照片
-            high_similarity = [c for c in candidates if c['similarity'] > 0.5]
-            
-            if high_similarity:
-                # 如果有关似度 > 0.5 的照片，最多返回8张
-                return high_similarity[:8]
+            # 应用最终的相似度阈值筛选
+            final_threshold = self.similarity_threshold  # 从配置读取
+            filtered_candidates = [c for c in candidates if c['similarity'] >= final_threshold]
+
+            if filtered_candidates:
+                # 返回指定数量的候选照片
+                return filtered_candidates[:limit]
             else:
-                # 如果没有相似度 > 0.5 的照片，返回相似度最高的1张
-                return candidates[:1] if candidates else []
+                # 如果没有达到阈值的候选，返回相似度最高的几个（降级策略）
+                return candidates[:min(limit, len(candidates))] if candidates else []
             
         except Exception as e:
             print(f"第一层相似照片搜索失败: {e}")

@@ -194,20 +194,28 @@ class ImportService:
 
         try:
             with Image.open(file_path) as img:
-                # 获取EXIF数据 - 使用现代方法
-                exif_data = {}
-                
-                # 尝试使用现代方法获取EXIF数据
+                # 获取EXIF数据 - 同时获取处理过的和原始的EXIF数据
+                processed_exif = {}
+                raw_exif = {}
+
+                # 获取处理过的EXIF数据（用于标准标签）
                 if hasattr(img, 'getexif'):
-                    exif_data = img.getexif()
+                    processed_exif = img.getexif() or {}
                 elif hasattr(img, '_getexif'):
-                    exif_data = img._getexif()
-                
-                if exif_data:
+                    processed_exif = img._getexif() or {}
+
+                # 获取原始EXIF数据（用于GPS等特殊数据）
+                if hasattr(img, '_getexif'):
+                    raw_exif = img._getexif() or {}
+                elif hasattr(img, 'getexif'):
+                    raw_exif = img.getexif() or {}
+
+                # 处理标准EXIF标签
+                if processed_exif:
                     # 创建EXIF标签映射
                     exif_tags = {v: k for k, v in ExifTags.TAGS.items()}
 
-                    for tag, value in exif_data.items():
+                    for tag, value in processed_exif.items():
                         tag_name = exif_tags.get(tag, tag)
 
                         # 处理常见标签（使用标准名称）
@@ -254,10 +262,10 @@ class ImportService:
                         elif tag == 33437:  # ISO
                             metadata['iso'] = int(value) if isinstance(value, (int, float)) else None
 
-                    # 处理GPS信息
-                    gps_info = self._extract_gps_info(exif_data)
-                    if gps_info:
-                        metadata.update(gps_info)
+                # 处理GPS信息 - 使用原始EXIF数据
+                gps_info = self._extract_gps_info(raw_exif)
+                if gps_info:
+                    metadata.update(gps_info)
 
         except Exception as e:
             print(f"EXIF提取失败: {str(e)}")
