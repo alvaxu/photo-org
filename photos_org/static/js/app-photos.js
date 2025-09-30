@@ -117,8 +117,12 @@ function createPhotoCard(photo) {
     // 获取照片处理状态
     const processingStatus = getProcessingStatus(photo);
 
+    // GPS状态判断
+    const hasGps = photo.location_lat && photo.location_lng;
+    const hasAddress = photo.location_name && photo.location_name.trim() !== '';
+
     return `
-        <div class="${containerClass}" data-photo-id="${photo.id}">
+        <div class="${containerClass}" data-photo-id="${photo.id}" data-has-gps="${hasGps}" data-has-address="${hasAddress}">
             <!-- 永久选择框 - 位于最顶层 -->
             <div class="photo-selection-checkbox"
                  data-photo-id="${photo.id}"
@@ -156,10 +160,15 @@ function createPhotoCard(photo) {
                            style="color: ${qualityStatus.color}"></i>
                         <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
                            title="${aiStatus.title}"></i>
+                        ${hasGps ? `<i class="bi bi-geo-alt-fill gps-icon ${hasAddress ? 'gps-resolved' : 'gps-unresolved'}" data-photo-id="${photo.id}" onclick="event.stopPropagation(); resolvePhotoAddress(${photo.id}, ${hasAddress})" title="${hasAddress ? '点击重新解析地址' : '点击解析地址'}"></i>` : ''}
                     </div>
                 </div>
                 <div class="photo-meta">
                     <i class="bi bi-calendar me-1"></i>${formatDate(photo.taken_at)} (拍摄日期)
+                    ${hasAddress ? `<div class="photo-address" title="${photo.location_name}">
+                        <i class="bi bi-geo-alt me-1"></i>
+                        <span class="address-text">${photo.location_name.length > 30 ? photo.location_name.substring(0, 30) + '...' : photo.location_name}</span>
+                    </div>` : ''}
                 </div>
                 <div class="photo-tags">
                     <div class="visible-tags">
@@ -204,6 +213,10 @@ function createPhotoListItem(photo) {
     const qualityStatus = getQualityStatus(photo);
     const aiStatus = getAIAnalysisStatus(photo);
 
+    // GPS状态判断
+    const hasGps = photo.location_lat && photo.location_lng;
+    const hasAddress = photo.location_name && photo.location_name.trim() !== '';
+
     // 根据照片尺寸判断方向并添加CSS类
     let containerClass = 'photo-list-item';
     if (photo.width && photo.height) {
@@ -233,7 +246,7 @@ function createPhotoListItem(photo) {
     const resolution = photo.width && photo.height ? `${photo.width} × ${photo.height}` : '未知';
 
     return `
-        <div class="${containerClass}" data-photo-id="${photo.id}">
+        <div class="${containerClass}" data-photo-id="${photo.id}" data-has-gps="${hasGps}" data-has-address="${hasAddress}">
             <!-- 永久选择框 - 位于最顶层 -->
             <div class="photo-selection-checkbox"
                  data-photo-id="${photo.id}"
@@ -271,6 +284,7 @@ function createPhotoListItem(photo) {
                                style="color: ${qualityStatus.color}"></i>
                             <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
                                title="${aiStatus.title}"></i>
+                            ${hasGps ? `<i class="bi bi-geo-alt-fill gps-icon ${hasAddress ? 'gps-resolved' : 'gps-unresolved'}" data-photo-id="${photo.id}" onclick="event.stopPropagation(); resolvePhotoAddress(${photo.id}, ${hasAddress})" title="${hasAddress ? '点击重新解析地址' : '点击解析地址'}"></i>` : ''}
                         </div>
                     </div>
                     <div class="photo-actions">
@@ -1341,7 +1355,104 @@ function initializeSelectionCheckboxes() {
     console.log('选择框视觉状态初始化完成');
 }
 
+/**
+ * GPS转地址功能
+ */
+async function resolvePhotoAddress(photoId, hasExistingAddress) {
+    const gpsIcon = document.querySelector(`.gps-icon[data-photo-id="${photoId}"]`);
+    if (!gpsIcon) return;
+
+    const originalClass = gpsIcon.className;
+
+    try {
+        // 显示加载状态
+        gpsIcon.className = 'bi bi-geo-alt-fill gps-icon processing';
+        gpsIcon.title = '解析中...';
+
+        const force = hasExistingAddress; // 如果已有地址，强制更新
+
+        const response = await fetch(`/api/maps/photos/${photoId}/convert-gps-address`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({force: force})
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            // 更新UI显示地址和GPS图标状态
+            updatePhotoAddress(photoId, result.address);
+            showToast(result.message, 'success');
+        } else {
+            // 恢复原来的状态
+            gpsIcon.className = originalClass;
+            gpsIcon.title = hasExistingAddress ? '点击重新解析地址' : '点击解析地址';
+            showToast(result.detail || '地址解析失败', 'error');
+        }
+
+    } catch (error) {
+        console.error('地址解析失败:', error);
+        // 恢复原来的状态
+        gpsIcon.className = originalClass;
+        gpsIcon.title = hasExistingAddress ? '点击重新解析地址' : '点击解析地址';
+        showToast('地址解析失败，请检查网络连接', 'error');
+    }
+}
+
+function updatePhotoAddress(photoId, address) {
+    console.log('开始更新照片地址:', photoId, address);
+    const photoCard = document.querySelector(`.photo-card[data-photo-id="${photoId}"], .photo-list-item[data-photo-id="${photoId}"]`);
+    if (!photoCard) {
+        console.warn('未找到照片卡片:', photoId);
+        return;
+    }
+    console.log('找到照片卡片:', photoCard.className);
+
+    // 更新data属性
+    photoCard.setAttribute('data-has-address', 'true');
+
+    // 查找或创建地址显示元素
+    let addressDiv = photoCard.querySelector('.photo-address');
+    if (!addressDiv) {
+        // 如果不存在，添加到photo-meta中
+        const photoMeta = photoCard.querySelector('.photo-meta');
+        if (photoMeta) {
+            addressDiv = document.createElement('div');
+            addressDiv.className = 'photo-address';
+            addressDiv.innerHTML = `
+                <i class="bi bi-geo-alt me-1"></i>
+                <span class="address-text">${address.length > 30 ? address.substring(0, 30) + '...' : address}</span>
+            `;
+            addressDiv.title = address;
+            photoMeta.appendChild(addressDiv);
+        }
+    } else {
+        // 更新现有地址
+        const addressText = addressDiv.querySelector('.address-text');
+        if (addressText) {
+            addressText.textContent = address.length > 30 ? address.substring(0, 30) + '...' : address;
+            addressDiv.title = address;
+        }
+    }
+
+    // 更新GPS图标状态为已解析
+    const gpsIcon = photoCard.querySelector('.gps-icon');
+    if (gpsIcon) {
+        gpsIcon.className = 'bi bi-geo-alt-fill gps-icon gps-resolved';
+        gpsIcon.title = '点击重新解析地址';
+        gpsIcon.onclick = (e) => {
+            e.stopPropagation();
+            resolvePhotoAddress(photoId, true);
+        };
+        console.log('GPS图标状态已更新为已解析:', photoId);
+    } else {
+        console.warn('未找到GPS图标，无法更新状态:', photoId);
+    }
+}
+
 window.getProcessingStatus = getProcessingStatus;
 window.togglePhotoSelection = togglePhotoSelection;
 window.updateSelectionCheckboxVisual = updateSelectionCheckboxVisual;
 window.initializeSelectionCheckboxes = initializeSelectionCheckboxes;
+window.resolvePhotoAddress = resolvePhotoAddress;
+window.updatePhotoAddress = updatePhotoAddress;

@@ -1649,6 +1649,12 @@ document.addEventListener('DOMContentLoaded', function() {
         aiAnalysisBtn.addEventListener('click', startAIAnalysis);
     }
 
+    // GPS转地址按钮事件监听
+    const gpsToAddressBtn = document.getElementById('gpsToAddressBtn');
+    if (gpsToAddressBtn) {
+        gpsToAddressBtn.addEventListener('click', startBatchGpsToAddress);
+    }
+
     // 基础分析模态框中的开始按钮事件监听
     const startBasicBtn = document.getElementById('startBasicBtn');
     if (startBasicBtn) {
@@ -4023,6 +4029,132 @@ window.monitorImportProgress = monitorImportProgress;
 window.monitorBatchProgress = monitorBatchProgress;
 window.resetBasicModal = resetBasicModal;
 window.resetAIModal = resetAIModal;
+
+/**
+ * GPS转地址功能
+ */
+async function startBatchGpsToAddress() {
+    const button = document.getElementById('gpsToAddressBtn');
+    if (!button) return;
+
+    const originalHtml = button.innerHTML;
+    const originalDisabled = button.disabled;
+
+    try {
+        // 显示加载状态
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> 处理中...';
+
+        // 获取GPS统计信息
+        const statsResponse = await fetch('/api/maps/photos/gps-stats');
+        if (!statsResponse.ok) {
+            throw new Error('获取GPS统计信息失败');
+        }
+
+        const stats = await statsResponse.json();
+
+        if (stats.has_gps_without_address === 0) {
+            showToast('没有需要转换的照片', 'info');
+            return;
+        }
+
+        // 确认批量转换
+        const confirmed = await showConfirmDialog(
+            `批量GPS转地址`,
+            `发现 ${stats.has_gps_without_address} 张照片有GPS信息但没有地址，是否开始批量转换？\n\n注意：此操作将在后台进行，不会阻塞界面。`
+        );
+
+        if (!confirmed) return;
+
+        // 启动批量转换
+        const convertResponse = await fetch('/api/maps/photos/batch-convert-gps-address', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({limit: 50}) // 每次最多处理50张
+        });
+
+        const result = await convertResponse.json();
+
+        if (convertResponse.ok) {
+            showToast(result.message, 'success');
+
+            // 检查是否还有更多照片需要转换
+            const remaining = stats.has_gps_without_address - result.count;
+            if (remaining > 0) {
+                setTimeout(() => {
+                    showToast(`还有 ${remaining} 张照片待转换，可再次点击按钮继续`, 'info');
+                }, 2000);
+            }
+
+            // 刷新照片列表以显示最新状态
+            setTimeout(() => {
+                if (typeof loadPhotos === 'function') {
+                    loadPhotos();
+                }
+            }, 1000);
+
+        } else {
+            showToast(result.detail || '批量转换启动失败', 'error');
+        }
+
+    } catch (error) {
+        console.error('批量GPS转地址失败:', error);
+        showToast('批量转换失败，请检查网络连接', 'error');
+    } finally {
+        // 恢复按钮状态
+        button.disabled = originalDisabled;
+        button.innerHTML = originalHtml;
+    }
+}
+
+// 确认对话框函数（如果不存在）
+function showConfirmDialog(title, message) {
+    return new Promise((resolve) => {
+        // 使用Bootstrap的模态框
+        const modalHtml = `
+            <div class="modal fade" id="confirmModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${title}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p style="white-space: pre-line;">${message}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-primary" id="confirmBtn">确定</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 移除现有模态框
+        const existingModal = document.getElementById('confirmModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // 添加新模态框
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        const confirmBtn = document.getElementById('confirmBtn');
+
+        confirmBtn.addEventListener('click', () => {
+            modal.hide();
+            resolve(true);
+        });
+
+        document.getElementById('confirmModal').addEventListener('hidden.bs.modal', () => {
+            resolve(false);
+        });
+
+        modal.show();
+    });
+}
 
 // 绑定AI分析批次设置事件
 document.addEventListener('DOMContentLoaded', function() {

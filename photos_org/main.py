@@ -120,6 +120,10 @@ app.include_router(api_router, prefix="/api/v1")
 from app.api.enhanced_search import router as enhanced_search_router
 app.include_router(enhanced_search_router)
 
+# 注册地图API路由
+from app.api.maps import router as maps_router
+app.include_router(maps_router, prefix="/api/maps")
+
 
 # 挂载静态文件
 import sys
@@ -191,6 +195,11 @@ async def help_api_key_page():
 async def help_overview_page():
     """功能说明帮助页面"""
     return FileResponse(get_template_path("help-overview.html"))
+
+@app.get("/help-gaode-api-key")
+async def help_gaode_api_key_page():
+    """高德地图API配置帮助页面"""
+    return FileResponse(get_template_path("help_gaode_api_key.html"))
 
 # 健康检查接口
 @app.get("/health")

@@ -583,3 +583,12 @@ window.testSelection = function() {
         console.log('未找到照片卡片');
     }
 };
+
+// 导出全局showToast函数
+window.showToast = function(message, type = 'info') {
+    if (photoManager) {
+        photoManager.showToast(message, type);
+    } else {
+        alert(message);
+    }
+};

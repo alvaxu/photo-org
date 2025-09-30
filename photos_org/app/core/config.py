@@ -169,6 +169,17 @@ class QualityConfig(BaseSettings):
         "poor": 20
     }, description="质量阈值")
 
+class MapConfig(BaseSettings):
+    """地图API配置"""
+    provider: str = Field(default="amap", description="地图服务提供商 (amap/baidu/google)")
+    api_key: str = Field(default="", description="地图API Key")
+    timeout: int = Field(default=10, description="API调用超时时间（秒）")
+    rate_limit: int = Field(default=180, description="每分钟最大API调用次数")
+    cache_enabled: bool = Field(default=True, description="是否启用地址缓存")
+    cache_ttl: int = Field(default=86400, description="地址缓存时间（秒）")
+    batch_size: int = Field(default=10, description="批量处理大小")
+    configured: bool = Field(default=False, description="是否已配置地图API")
+
 
 class Settings(BaseSettings):
     """全局配置类"""
@@ -186,6 +197,7 @@ class Settings(BaseSettings):
     similarity: SimilarityConfig
     import_config: ImportConfig = Field(alias="import")
     quality: QualityConfig
+    maps: MapConfig
 
     class Config:
         env_file = ".env"
@@ -310,6 +322,16 @@ class Settings(BaseSettings):
                 "scan_batch_size": self.import_config.scan_batch_size,
                 "batch_threshold": self.import_config.batch_threshold,
                 "supported_formats": self.import_config.supported_formats
+            },
+            "maps": {
+                "provider": self.maps.provider,
+                "api_key": self.maps.api_key,
+                "timeout": self.maps.timeout,
+                "rate_limit": self.maps.rate_limit,
+                "cache_enabled": self.maps.cache_enabled,
+                "cache_ttl": self.maps.cache_ttl,
+                "batch_size": self.maps.batch_size,
+                "configured": self.maps.configured
             }
         }
 
@@ -333,7 +355,8 @@ class Settings(BaseSettings):
             "search": self.search.dict(),
             "similarity": self.similarity.dict(),
             "import": self.import_config.dict(),
-            "quality": self.quality.dict()
+            "quality": self.quality.dict(),
+            "maps": self.maps.dict()
         }
 
 
