@@ -87,6 +87,7 @@ class IndexManagementService:
         self.logger.info("📸 检查Photos表索引...")
 
         indexes = {
+            # 基础索引
             "idx_photos_file_hash": "CREATE UNIQUE INDEX IF NOT EXISTS idx_photos_file_hash ON photos(file_hash)",
             "idx_photos_perceptual_hash": "CREATE INDEX IF NOT EXISTS idx_photos_perceptual_hash ON photos(perceptual_hash)",
             "idx_photos_status": "CREATE INDEX IF NOT EXISTS idx_photos_status ON photos(status)",
@@ -96,6 +97,11 @@ class IndexManagementService:
             "idx_photos_camera_model": "CREATE INDEX IF NOT EXISTS idx_photos_camera_model ON photos(camera_model)",
             "idx_photos_location": "CREATE INDEX IF NOT EXISTS idx_photos_location ON photos(location_lat, location_lng) WHERE location_lat IS NOT NULL AND location_lng IS NOT NULL",
             "idx_photos_camera_time": "CREATE INDEX IF NOT EXISTS idx_photos_camera_time ON photos(camera_make, taken_at)",
+
+            # 复合索引优化 (新增 - 最高优先级)
+            "idx_photos_status_created": "CREATE INDEX IF NOT EXISTS idx_photos_status_created ON photos(status, created_at)",
+            "idx_photos_status_taken": "CREATE INDEX IF NOT EXISTS idx_photos_status_taken ON photos(status, taken_at)",
+            "idx_photos_format_created": "CREATE INDEX IF NOT EXISTS idx_photos_format_created ON photos(format, created_at)",
         }
 
         for index_name, create_sql in indexes.items():

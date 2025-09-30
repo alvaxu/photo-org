@@ -5,7 +5,7 @@
 import time
 import logging
 from typing import Optional, Dict, Tuple, List
-import requests
+import httpx
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class AMapService:
 
         try:
             logger.debug(f"调用高德API: lat={lat}, lng={lng}")
-            response = requests.get(url, params=params, timeout=self.timeout)
+            response = httpx.get(url, params=params, timeout=self.timeout)
             data = response.json()
 
             if data.get("status") == "1" and data.get("info") == "OK":
@@ -92,10 +92,10 @@ class AMapService:
                 logger.warning(f"高德API调用失败: {error_info}")
                 return None
 
-        except requests.exceptions.Timeout:
+        except httpx.TimeoutException:
             logger.error(f"高德API调用超时: {self.timeout}秒")
             return None
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             logger.error(f"高德API网络异常: {e}")
             return None
         except Exception as e:

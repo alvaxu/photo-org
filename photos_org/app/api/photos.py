@@ -122,7 +122,11 @@ async def get_photos(
                 "updated_at": photo.updated_at.isoformat() if photo.updated_at else None,
                 "thumbnail_path": photo.thumbnail_path,
                 "tags": [tag.tag.name for tag in photo.tags] if photo.tags else [],
-                "categories": [cat.category.name for cat in photo.categories] if photo.categories else []
+                "categories": [cat.category.name for cat in photo.categories] if photo.categories else [],
+                "location_name": photo.location_name,
+                "location_lat": photo.location_lat,
+                "location_lng": photo.location_lng,
+                "location_alt": photo.location_alt
             }
 
             # 添加分析信息（通过查询获取）
@@ -192,6 +196,10 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
             "thumbnail_path": photo.thumbnail_path,
             "tags": [tag.tag.name for tag in photo.tags] if photo.tags else [],
             "categories": [cat.category.name for cat in photo.categories] if photo.categories else [],
+            "location_name": photo.location_name,
+            "location_lat": photo.location_lat,
+            "location_lng": photo.location_lng,
+            "location_alt": photo.location_alt,
             "metadata": {}
         }
 
