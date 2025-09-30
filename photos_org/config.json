@@ -6,12 +6,12 @@
     "temp_file_max_age": 24
   },
   "database": {
-    "path": "F:/PhotoSystem/photo_db/photos.db" 
+    "path": "F:/PhotoSystem/photo_db/photos.db"
   },
   "dashscope": {
     "api_key": "sk-9ade5a04da1a46c998a203db3ccd70fe",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
-    "model": "qwen-vl-max-0809",
+    "model": "qwen-vl-max-1230",
     "available_models": [
       "qwen-vl-plus",
       "qwen-vl-plus-latest",
@@ -34,7 +34,7 @@
     "max_retry_count": 3
   },
   "storage": {
-    "base_path": "F:/PhotoSystem/storage",  
+    "base_path": "F:/PhotoSystem/storage",
     "originals_path": "originals",
     "thumbnails_path": "thumbnails",
     "temp_path": "temp",
@@ -77,10 +77,10 @@
   },
   "similarity": {
     "first_layer_weights": {
-      "perceptual_hash": 0.30,
-      "time": 0.20,
+      "perceptual_hash": 0.3,
+      "time": 0.2,
       "location": 0.15,
-      "camera": 0.10,
+      "camera": 0.1,
       "basic_tags": 0.15,
       "ai_scene": 0.03,
       "ai_objects": 0.02,
@@ -154,5 +154,15 @@
       "fair": 40,
       "poor": 20
     }
+  },
+  "maps": {
+    "provider": "amap",
+    "api_key": "f7ed013ec2d45e241d79a883ba96483c",
+    "timeout": 10,
+    "rate_limit": 180,
+    "cache_enabled": true,
+    "cache_ttl": 86400,
+    "batch_size": 10,
+    "configured": true
   }
 }

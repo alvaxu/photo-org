@@ -120,6 +120,10 @@ app.include_router(api_router, prefix="/api/v1")
 from app.api.enhanced_search import router as enhanced_search_router
 app.include_router(enhanced_search_router)
 
+# 注册地图API路由
+from app.api.maps import router as maps_router
+app.include_router(maps_router, prefix="/api/maps")
+
 
 # 挂载静态文件
 import sys

@@ -569,25 +569,38 @@ function renderGridView(photos) {
             if (window.HybridInputManager && window.HybridInputManager.getCurrentInputType() === 'touch') {
                 const photoImage = event.target.closest('.photo-image, .photo-thumbnail');
                 const photoOverlay = event.target.closest('.photo-overlay');
-                
+
                 // 如果是触摸图片区域，不处理点击事件（由混合交互管理器处理）
                 if (photoImage && !photoOverlay) {
                     return;
                 }
             }
-            
-            // 如果按住了Ctrl键，则切换选择状态
+
+            // 检查点击的是否是照片图片区域（只有图片区域才触发查看详情）
+            const isPhotoImage = event.target.closest('.photo-image, .photo-thumbnail');
+            const isPhotoOverlay = event.target.closest('.photo-overlay');
+            const isGpsIcon = event.target.closest('.gps-icon');
+            const isPhotoInfo = event.target.closest('.photo-info');
+
+            // 如果按住了Ctrl键，则切换选择状态（无论点击哪里）
             if (event.ctrlKey || event.metaKey) {
                 event.preventDefault();
                 event.stopPropagation();
-                
+
                 if (window.PhotoManager) {
                     window.PhotoManager.togglePhotoSelection(photo.id);
                 }
-            } else {
-                // 普通点击查看详情
-                showPhotoDetail(photo);
+                return;
             }
+
+            // 如果点击的是照片图片区域，查看详情
+            if (isPhotoImage && !isPhotoOverlay) {
+                showPhotoDetail(photo);
+                return;
+            }
+
+            // 如果点击的是GPS图标或照片信息区域，不做任何处理（由各自的事件处理器处理）
+            // 这样可以避免误触发查看详情
         });
     });
 
@@ -611,25 +624,38 @@ function renderListView(photos) {
             if (window.HybridInputManager && window.HybridInputManager.getCurrentInputType() === 'touch') {
                 const photoImage = event.target.closest('.photo-image, .photo-thumbnail');
                 const photoOverlay = event.target.closest('.photo-overlay');
-                
+
                 // 如果是触摸图片区域，不处理点击事件（由混合交互管理器处理）
                 if (photoImage && !photoOverlay) {
                     return;
                 }
             }
-            
-            // 如果按住了Ctrl键，则切换选择状态
+
+            // 检查点击的是否是照片缩略图区域（只有缩略图区域才触发查看详情）
+            const isPhotoThumbnail = event.target.closest('.photo-thumbnail');
+            const isPhotoOverlay = event.target.closest('.photo-overlay');
+            const isGpsIcon = event.target.closest('.gps-icon');
+            const isPhotoDetails = event.target.closest('.photo-details');
+
+            // 如果按住了Ctrl键，则切换选择状态（无论点击哪里）
             if (event.ctrlKey || event.metaKey) {
                 event.preventDefault();
                 event.stopPropagation();
-                
+
                 if (window.PhotoManager) {
                     window.PhotoManager.togglePhotoSelection(photo.id);
                 }
-            } else {
-                // 普通点击查看详情
-                showPhotoDetail(photo);
+                return;
             }
+
+            // 如果点击的是照片缩略图区域，查看详情
+            if (isPhotoThumbnail && !isPhotoOverlay) {
+                showPhotoDetail(photo);
+                return;
+            }
+
+            // 如果点击的是GPS图标或照片详情区域，不做任何处理（由各自的事件处理器处理）
+            // 这样可以避免误触发查看详情
         });
     });
 

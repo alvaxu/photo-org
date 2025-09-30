@@ -1142,24 +1142,6 @@ body {
     /* transform: scale(1.02); */
 }
 
-.photo-card.selected::after {
-    content: "✓";
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    background-color: var(--primary-color);
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 14px;
-    z-index: 10;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
 
 .photo-card .photo-image-container {
     position: relative;
@@ -1364,24 +1346,6 @@ body {
     background-color: rgba(13, 110, 253, 0.05);
 }
 
-.photo-list-item.selected::after {
-    content: "✓";
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    background-color: var(--primary-color);
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 14px;
-    z-index: 10;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
 
 .photo-list-item .photo-thumbnail-container {
     position: relative;
@@ -2378,5 +2342,101 @@ body {
     .photo-selection-checkbox.selected {
         background: #000;
         border-color: #000;
+    }
+}
+
+/* ===== GPS相关样式 ===== */
+
+/* GPS图标（在照片标题栏中） */
+.gps-icon {
+    font-size: 1.1rem;
+    margin-left: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.8;
+}
+
+.gps-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.gps-icon.gps-unresolved {
+    color: #6c757d; /* 灰色 - 未解析 */
+}
+
+.gps-icon.gps-resolved {
+    color: #198754; /* 绿色 - 已解析 */
+}
+
+.gps-icon.processing {
+    animation: gpsPulse 1.5s infinite;
+    color: #ffc107; /* 黄色 - 处理中 */
+}
+
+/* 地址显示 */
+.photo-address {
+    display: flex;
+    align-items: center;
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 2px;
+    overflow: hidden;
+}
+
+.photo-address .address-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+.photo-address:hover {
+    color: #0d6efd;
+}
+
+/* GPS解析按钮 */
+.address-resolve-btn {
+    transition: all 0.2s ease;
+}
+
+.address-resolve-btn:hover {
+    transform: scale(1.1);
+}
+
+.address-resolve-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* GPS相关动画 */
+@keyframes gpsPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.gps-indicator.processing {
+    animation: gpsPulse 1.5s infinite;
+}
+
+/* 移动端GPS样式 */
+@media (max-width: 768px) {
+    .gps-indicator {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+        top: 6px;
+        right: 6px;
+    }
+
+    .photo-address {
+        font-size: 0.75rem;
+    }
+
+    .address-resolve-btn {
+        padding: 0.25rem 0.4rem;
+        font-size: 0.75rem;
     }
 }

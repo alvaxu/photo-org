@@ -4,7 +4,7 @@
 import json
 import os
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -42,13 +42,14 @@ async def reload_config():
 
 class ConfigUpdateRequest(BaseModel):
     """配置更新请求"""
-    dashscope: Dict[str, Any] = None
-    storage: Dict[str, Any] = None
-    database: Dict[str, Any] = None
-    system: Dict[str, Any] = None
-    ui: Dict[str, Any] = None
-    search: Dict[str, Any] = None
-    analysis: Dict[str, Any] = None
+    dashscope: Optional[Dict[str, Any]] = None
+    storage: Optional[Dict[str, Any]] = None
+    database: Optional[Dict[str, Any]] = None
+    system: Optional[Dict[str, Any]] = None
+    ui: Optional[Dict[str, Any]] = None
+    search: Optional[Dict[str, Any]] = None
+    analysis: Optional[Dict[str, Any]] = None
+    # maps 配置通过专门的API更新，不在这里处理
 
 
 @router.get("/user")
@@ -76,7 +77,18 @@ async def update_user_config(request: ConfigUpdateRequest, http_request: Request
         
         # 获取当前配置
         current_config = settings.get_full_config()
-        
+
+        # 确保所有必需的配置字段都存在
+        required_fields = ["system", "database", "dashscope", "storage", "analysis", "logging", "server", "ui", "search", "similarity", "import", "quality", "maps"]
+        for field in required_fields:
+            if field not in current_config:
+                logger.warning(f"配置中缺少必需字段: {field}")
+                # 从默认配置中获取
+                if hasattr(settings, field):
+                    current_config[field] = getattr(settings, field).dict()
+                else:
+                    logger.error(f"无法获取默认配置字段: {field}")
+
         # 更新用户配置部分（数据库路径已从用户界面移除）
         if request.dashscope:
             current_config["dashscope"].update(request.dashscope)
@@ -91,6 +103,9 @@ async def update_user_config(request: ConfigUpdateRequest, http_request: Request
             current_config["search"].update(request.search)
         if request.analysis:
             current_config["analysis"].update(request.analysis)
+        # maps 配置通过专门的API更新，不在这里处理
+        # if request.maps:
+        #     current_config["maps"].update(request.maps)
 
         # 保存到配置文件
         if getattr(sys, 'frozen', False):
