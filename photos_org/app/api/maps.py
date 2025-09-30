@@ -82,6 +82,10 @@ async def update_maps_config(config: ApiKeyConfig):
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(existing_config, f, indent=2, ensure_ascii=False)
 
+        # 重新加载配置，使更改立即生效
+        from app.api.config import reload_config
+        await reload_config()
+
         return {"message": "高德API Key配置成功"}
 
     except HTTPException:
@@ -165,8 +169,9 @@ async def convert_single_photo_address(
 ):
     """转换单张照片的GPS为地址"""
 
-    # 检查API Key
-    if not settings.maps.api_key:
+    # 检查API Key - 动态导入以确保使用最新配置
+    from app.core.config import settings as current_settings
+    if not current_settings.maps.api_key:
         raise HTTPException(
             status_code=400,
             detail="请先配置高德地图API Key",
@@ -259,8 +264,9 @@ async def batch_convert_gps_address(
 ):
     """批量转换GPS为地址"""
 
-    # 检查API Key
-    if not settings.maps.api_key:
+    # 检查API Key - 动态导入以确保使用最新配置
+    from app.core.config import settings as current_settings
+    if not current_settings.maps.api_key:
         raise HTTPException(
             status_code=400,
             detail="请先配置高德地图API Key",
