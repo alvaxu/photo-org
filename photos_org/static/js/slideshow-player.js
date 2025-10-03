@@ -316,6 +316,9 @@ class SlideshowDataManager {
  */
 async function generateSlideshowPlaylist(currentPhotoId) {
     try {
+        // 等待一小段时间，确保筛选状态稳定（避免快速切换筛选条件时的时序问题）
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         // 获取当前筛选条件
         const filters = AppState.searchFilters;
 
@@ -384,6 +387,9 @@ async function generateSlideshowPlaylist(currentPhotoId) {
  */
 async function generateSlideshowPlaylistAll() {
     try {
+        // 等待一小段时间，确保筛选状态稳定（避免快速切换筛选条件时的时序问题）
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         // 获取当前筛选条件
         const filters = AppState.searchFilters;
 
@@ -418,8 +424,6 @@ async function generateSlideshowPlaylistAll() {
                 params.append('end_date', window.elements.endDate.value);
             }
         }
-
-        console.log('生成全部照片播放列表:', `${window.CONFIG.API_BASE_URL}/search/photos?${params}`);
 
         const response = await fetch(`${window.CONFIG.API_BASE_URL}/search/photos?${params}`);
         const data = await response.json();

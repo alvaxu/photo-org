@@ -207,6 +207,37 @@ function showSuccess(message, showDetails = false, detailsData = null) {
     // 不自动消失，只有用户点击关闭按钮才会消失
 }
 
+function showInfo(message, showDetails = false, detailsData = null) {
+    console.log('信息:', message);
+
+    // 处理多行消息
+    const formattedMessage = message.replace(/\n/g, '<br>');
+
+    // 构建查看详情按钮
+    let detailsButton = '';
+    if (showDetails && detailsData) {
+        detailsButton = `<button type="button" class="btn btn-outline-info btn-sm ms-2" onclick="showImportDetails(${JSON.stringify(detailsData).replace(/"/g, '&quot;')})">查看详情</button>`;
+    }
+
+    // 使用Bootstrap的alert组件显示信息消息
+    const alertHtml = `
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            ${formattedMessage}
+            ${detailsButton}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    // 在页面顶部显示信息
+    const container = document.querySelector('.container-fluid') || document.body;
+    const alertDiv = document.createElement('div');
+    alertDiv.innerHTML = alertHtml;
+    container.insertBefore(alertDiv.firstElementChild, container.firstChild);
+
+    // 不自动消失，只有用户点击关闭按钮才会消失
+}
+
 function showWarning(message, showDetails = false, detailsData = null) {
     console.warn('警告:', message);
     
@@ -928,3 +959,4 @@ window.hideEmptyState = hideEmptyState;
 window.updatePhotoCount = updatePhotoCount;
 window.showLoading = showLoading;
 window.hideLoading = hideLoading;
+window.showInfo = showInfo;

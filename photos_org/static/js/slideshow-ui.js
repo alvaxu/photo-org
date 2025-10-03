@@ -545,10 +545,17 @@ async function startSlideshowFromCurrent(currentPhotoId) {
         showLoading('正在准备播放列表...');
 
         // 生成播放列表
-        const playlistData = await generateSlideshowPlaylist(currentPhotoId);
+        let playlistData = await generateSlideshowPlaylist(currentPhotoId);
+
+        // 如果播放列表为空，等待一下再重试一次（处理可能的时序问题）
+        if (!playlistData || playlistData.photos.length === 0) {
+            console.warn('播放列表为空，等待重试:', playlistData);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            playlistData = await generateSlideshowPlaylist(currentPhotoId);
+        }
 
         if (!playlistData || playlistData.photos.length === 0) {
-            throw new Error('没有找到可播放的照片');
+            throw new Error('没有找到可播放的照片，请稍后重试');
         }
 
         // 创建播放器和数据管理器
@@ -563,11 +570,6 @@ async function startSlideshowFromCurrent(currentPhotoId) {
 
         // 显示播放器
         ui.show();
-
-        // 如果播放列表被截断，显示提示
-        if (playlistData.hasMore) {
-            showInfo(`播放列表包含 ${playlistData.totalCount} 张照片，已加载 ${playlistData.photos.length} 张`);
-        }
 
     } catch (error) {
         console.error('开始幻灯片播放失败:', error);
@@ -624,10 +626,18 @@ async function startSlideshowFromAll() {
         showLoading('正在准备播放列表...');
 
         // 生成播放列表 - 播放当前筛选条件下的所有照片
-        const playlistData = await generateSlideshowPlaylistAll();
+        let playlistData = await generateSlideshowPlaylistAll();
+
+        // 如果播放列表为空，等待一下再重试一次（处理可能的时序问题）
+        if (!playlistData || playlistData.photos.length === 0) {
+            console.warn('播放列表为空，等待重试:', playlistData);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            playlistData = await generateSlideshowPlaylistAll();
+        }
 
         if (!playlistData || playlistData.photos.length === 0) {
-            throw new Error('没有找到可播放的照片');
+            console.warn('播放列表仍为空:', playlistData);
+            throw new Error('当前筛选条件下没有找到可播放的照片，请稍后重试或调整筛选条件');
         }
 
         // 创建播放器和数据管理器
@@ -642,11 +652,6 @@ async function startSlideshowFromAll() {
 
         // 显示播放器
         ui.show();
-
-        // 如果播放列表被截断，显示提示
-        if (playlistData.hasMore) {
-            showInfo(`播放列表包含 ${playlistData.totalCount} 张照片，已加载 ${playlistData.photos.length} 张`);
-        }
 
     } catch (error) {
         console.error('播放全部照片失败:', error);
