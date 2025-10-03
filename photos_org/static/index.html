@@ -48,6 +48,7 @@
     <!-- 自定义样式 -->
     <link href="css/style.css?v=20250120_01" rel="stylesheet">
     <link href="css/search-multiselect.css?v=20250120_01" rel="stylesheet">
+    <link href="css/slideshow-player.css?v=20250120_01" rel="stylesheet">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="images/xuwh.ico">
@@ -318,13 +319,27 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="bi bi-images me-2"></i>
-                            <span id="photoCount">0</span> 张照片
-                        </h5>
-                        <div class="d-flex align-items-center">
+                        <!-- 左侧播放按钮组 -->
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-success" id="slideshowAllBtn">
+                                <i class="bi bi-play-circle-fill me-1"></i>播放全部
+                            </button>
+                            <button class="btn btn-sm btn-success" id="slideshowSelectedBtn" disabled>
+                                <i class="bi bi-play-circle me-1"></i>播放选中
+                            </button>
+                        </div>
+
+                        <!-- 中间标题和视图模式 -->
+                        <div class="flex-grow-1 text-center d-flex align-items-center justify-content-center gap-3">
+                            <h5 class="mb-0">
+                                <i class="bi bi-images me-2"></i>
+                                照片库
+                                <small class="text-muted ms-2">
+                                    <span id="photoCount">0</span> 张照片
+                                </small>
+                            </h5>
                             <!-- 视图模式按钮 -->
-                            <div class="btn-group me-3" role="group">
+                            <div class="btn-group" role="group">
                                 <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off" checked>
                                 <label class="btn btn-outline-secondary btn-sm" for="gridView">
                                     <i class="bi bi-grid-3x3-gap"></i>
@@ -334,18 +349,22 @@
                                     <i class="bi bi-list"></i>
                                 </label>
                             </div>
+                        </div>
+
+                        <!-- 右侧操作按钮 -->
+                        <div class="d-flex align-items-center">
                             <!-- 操作按钮 -->
                             <div class="btn-group" role="group">
                                 <button class="btn btn-sm btn-outline-secondary" id="selectAllBtn">全选</button>
                                 <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn">取消选择</button>
+                                <button class="btn btn-sm btn-outline-danger" id="deleteSelectedBtn" disabled>
+                                    <i class="bi bi-trash"></i> 删除选中
+                                </button>
                                 <button class="btn btn-sm btn-warning" id="basicProcessSelectedBtn" disabled>
                                     <i class="bi bi-graph-up"></i> 基础分析
                                 </button>
                                 <button class="btn btn-sm btn-primary" id="aiProcessSelectedBtn" disabled>
                                     <i class="bi bi-robot"></i> AI分析
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" id="deleteSelectedBtn" disabled>
-                                    <i class="bi bi-trash"></i> 删除选中
                                 </button>
                                 <button class="btn btn-sm btn-outline-info" id="photoDisplayHelpBtn" onclick="togglePhotoDisplayHelp()">
                                     <i class="bi bi-question-circle"></i> 帮助
@@ -413,28 +432,38 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="photoModalTitle">照片详情</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-success btn-sm" id="startSlideshowBtn">
+                            <i class="bi bi-play-circle-fill me-1"></i>幻灯片播放
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     <!-- 照片详情内容将通过JavaScript动态生成 -->
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-primary" id="downloadPhotoBtn">
-                        <i class="bi bi-download me-2"></i>下载原图
-                    </button>
-                    <button type="button" class="btn btn-outline-info" id="searchSimilarBtn">
-                        <i class="bi bi-search me-2"></i>搜索相似照片
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" id="editPhotoBtn">
-                        <i class="bi bi-pencil me-2"></i>编辑照片
-                    </button>
-                    <button type="button" class="btn btn-outline-success" id="addToFavoritesBtn">
-                        <i class="bi bi-heart me-2"></i>添加到收藏
-                    </button>
-                    <button type="button" class="btn btn-outline-danger" id="deletePhotoBtn">
-                        <i class="bi bi-trash me-2"></i>删除照片
-                    </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div class="btn-group">
+                        <!-- 幻灯片播放按钮已移至右上角 -->
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-primary" id="downloadPhotoBtn">
+                            <i class="bi bi-download me-2"></i>下载原图
+                        </button>
+                        <button type="button" class="btn btn-outline-info" id="searchSimilarBtn">
+                            <i class="bi bi-search me-2"></i>搜索相似照片
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="editPhotoBtn">
+                            <i class="bi bi-pencil me-2"></i>编辑照片
+                        </button>
+                        <button type="button" class="btn btn-outline-success" id="addToFavoritesBtn">
+                            <i class="bi bi-heart me-2"></i>添加到收藏
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" id="deletePhotoBtn">
+                            <i class="bi bi-trash me-2"></i>删除照片
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1116,6 +1145,8 @@
             <script src="js/search-multiselect.js?v=20250120_01"></script>
             <script src="js/app.js?v=20250120_01"></script>
             <script src="js/photo-manager.js?v=20250120_01"></script>
+            <script src="js/slideshow-player.js?v=20250120_01"></script>
+            <script src="js/slideshow-ui.js?v=20250120_01"></script>
     <script src="js/ui-components.js"></script>
 </body>
 </html>

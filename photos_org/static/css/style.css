@@ -2226,6 +2226,21 @@ body {
     }
 }
 
+/* 键盘快捷键样式 */
+kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 0.75em;
+    font-weight: bold;
+    line-height: 1;
+    color: #495057;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.2), 0 0 0 2px #fff inset;
+    white-space: nowrap;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .photo-status-badge {

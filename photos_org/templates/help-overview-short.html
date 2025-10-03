@@ -225,7 +225,7 @@
                                 <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>重复照片自动检测</li>
                                 <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>节假日识别，地址提取</li>
                                 <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>基础分析：免费的质量评估和基础标签</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>AI分析：深度内容识别、智能标签和分类</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>AI分析：深度内容识别、智能标签和分类</li>                                
                                 <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>支持重新分析和结果更新</li>
                             </ul>
                         </div>
@@ -349,66 +349,6 @@
                         </div>
                     </div>
 
-                    <!-- 智能分析的使用方式 -->
-                    <div class="mb-3">
-                        <h6><i class="bi bi-play-circle me-2"></i>智能分析的使用方式</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-graph-up me-2 text-primary"></i>导航栏分析</h6>
-                        <ul class="small">
-                                    <li><strong>基础分析：</strong>点击导航栏"基础分析"按钮，批量处理所有未进行质量评估的照片</li>
-                                    <li><strong>AI分析：</strong>点击导航栏"AI分析"按钮，批量处理所有未进行AI分析的照片</li>
-                        </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-mouse me-2 text-success"></i>选择性分析</h6>
-                                <ul class="small">
-                                    <li><strong>基础分析：</strong>在照片展示区选择特定照片，点击"基础分析"按钮进行处理</li>
-                                    <li><strong>AI分析：</strong>在照片展示区选择特定照片，点击"AI分析"按钮进行处理</li>
-                                    <li><strong>重新分析：</strong>已分析的照片也可以重新选择进行分析，更新分析结果</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 智能分析的执行步骤 -->
-                    <div class="mb-3">
-                        <h6><i class="bi bi-list-ol me-2"></i>智能分析的执行步骤</h6>
-                        <ol class="small">
-                            <li>导入照片后，照片质量状态显示为"未评估"（灰色圆圈图标）</li>
-                            <li>先点击"基础分析"按钮进行质量评估和基础标签生成，完成后质量状态显示为相应等级（如"优秀"红色星星图标）</li>
-                            <li>如需更深入分析，可再点击"AI分析"按钮进行AI内容分析，完成后AI状态显示为"AI已分析"（绿色机器人图标）</li>
-                            <li>在确认对话框中确认开始分析</li>
-                            <li>分析过程中显示实时进度条</li>
-                            <li>分析完成后可在照片详情页面查看完整结果</li>
-                        </ol>
-                    </div>
-
-                    <!-- 注意事项 -->
-                    <div class="warning-box">
-                        <h6><i class="bi bi-exclamation-triangle me-2"></i>智能分析注意事项</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-graph-up me-2 text-primary"></i>基础分析</h6>
-                        <ul class="mb-0 small">
-                                    <li>完全免费，无需网络连接</li>
-                                    <li>本地处理，速度快，资源占用少</li>
-                                    <li>可离线使用</li>
-                                    <li>已处理过的照片可以重新分析</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-robot me-2 text-success"></i>AI分析</h6>
-                                <ul class="mb-0 small">
-                                    <li>需要有效的阿里云DashScope千问大模型API密钥</li>
-                            <li>处理时间与照片数量、复杂度、网络状况有关</li>
-                                    <li>已处理过的照片可以重新分析以更新AI分析结果</li>
-                            <li>建议在网络稳定时进行批量处理</li>
-                            <li>处理过程中请勿关闭浏览器窗口</li>
-                        </ul>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- 3.3 GPS转地址 -->
@@ -441,53 +381,7 @@
                         </div>
                     </div>
 
-                    <!-- GPS转地址的使用方式 -->
-                    <div class="mb-3">
-                        <h6><i class="bi bi-play-circle me-2"></i>GPS转地址的使用方式</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-geo-alt me-2 text-info"></i>导航栏转换</h6>
-                                <ul class="small">
-                                    <li><strong>批量转换：</strong>点击导航栏"GPS转地址"按钮，批量处理所有有GPS但未转换地址的照片</li>
-                                    <li><strong>进度显示：</strong>显示转换进度和成功/失败统计</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-mouse me-2 text-success"></i>单张转换</h6>
-                                <ul class="small">
-                                    <li><strong>照片卡片：</strong>点击照片信息区域的GPS图标，转换单张照片地址</li>
-                                    <li><strong>重新解析：</strong>已转换的照片可以重新点击进行地址更新</li>
-                                    <li><strong>状态反馈：</strong>转换完成后GPS图标颜色会从灰色变为绿色</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 注意事项 -->
-                    <div class="warning-box">
-                        <h6><i class="bi bi-exclamation-triangle me-2"></i>GPS转地址注意事项</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-key me-2 text-warning"></i>API配置</h6>
-                                <ul class="mb-0 small">
-                                    <li>首次使用前需要配置高德地图API密钥</li>
-                                    <li>访问系统配置页面设置API密钥</li>
-                                    <li>配置后无需重启应用即可生效</li>
-                                    <li>API密钥泄露时及时更换</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-camera me-2 text-info"></i>照片要求</h6>
-                                <ul class="mb-0 small">
-                                    <li>照片必须在拍摄时开启GPS定位</li>
-                                    <li>iPhone用户需在设置中开启定位服务</li>
-                                    <li>室内拍摄可能无法获取GPS信息</li>
-                                    <li>GPS信息不完整的照片无法转换</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                 </div>
 
                 <!-- 3.4 智能搜索 -->
                 <div class="step-card p-3 mb-3">
@@ -499,65 +393,6 @@
                         <li><strong>相似照片：</strong>通过图片悬停功能快速发现相似照片</li>
                         <li><strong>搜索建议：</strong>基于热门标签和分类的智能建议</li>
                     </ul>
-
-                    <div class="info-box">
-                        <h6><i class="bi bi-lightbulb me-2"></i>基础搜索技巧</h6>
-                        <ul class="mb-0">
-                            <li><code>花朵</code> - 搜索包含"花朵"的照片</li>
-                            <li><code>家庭 全家福</code> - 搜索同时包含"家庭"和"全家福"的照片</li>
-                            <li>选择搜索类型：文件名、标签、分类、AI分析结果等</li>
-                            <li>使用日期筛选：今天、本周、本月、今年</li>
-                            <li>使用质量筛选：优秀、良好、一般、较差</li>
-                        </ul>
-                        <div class="mt-2">
-                            <a href="#!" class="text-decoration-none" data-bs-toggle="collapse" data-bs-target="#search-advanced-inline" aria-expanded="false">
-                                <i class="bi bi-arrow-right-circle me-1"></i>
-                                查看更多搜索技巧和高级用法
-                            </a>
-                            <div class="collapse mt-2" id="search-advanced-inline">
-                                <div class="step-card p-3">
-                                    <h6><i class="bi bi-question-circle me-2"></i>搜索帮助</h6>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <h6>基础搜索</h6>
-                                            <ul class="list-unstyled small">
-                                                <li><code>花朵</code> - 搜索包含"花朵"的照片</li>
-                                                <li><code>Apple iPhone</code> - 搜索包含"Apple"和"iPhone"的照片</li>
-                                                <li><code>"Apple iPhone"</code> - 精确匹配"Apple iPhone"</li>
-                                            </ul>
-
-                                            <h6>高级搜索</h6>
-                                            <ul class="list-unstyled small">
-                                                <li><code>花朵 AND 盆栽</code> - 同时包含"花朵"和"盆栽"</li>
-                                                <li><code>花朵 OR 植物</code> - 包含"花朵"或"植物"</li>
-                                                <li><code>花朵 NOT 盆栽</code> - 包含"花朵"但不包含"盆栽"</li>
-                                                <li><code>花朵%</code> - 以"花朵"开头的词（推荐）</li>
-                                            </ul>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <h6>搜索范围</h6>
-                                            <ul class="list-unstyled small">
-                                                <li><strong>全部内容：</strong>文件名、标签、分类、描述、AI分析</li>
-                                                <li><strong>文件名：</strong>仅搜索照片文件名</li>
-                                                <li><strong>用户描述：</strong>仅搜索用户添加的描述</li>
-                                                <li><strong>AI分析结果：</strong>仅搜索AI自动分析的内容</li>
-                                            </ul>
-
-                                            <h6>热门搜索词</h6>
-                                            <div class="d-flex flex-wrap gap-1">
-                                                <span class="badge bg-secondary" onclick="searchSuggestion('花朵%')">花朵</span>
-                                                <span class="badge bg-secondary" onclick="searchSuggestion('盆栽%')">盆栽</span>
-                                                <span class="badge bg-secondary" onclick="searchSuggestion('欢乐%')">欢乐</span>
-                                                <span class="badge bg-secondary" onclick="searchSuggestion('宁静%')">宁静</span>
-                                                <span class="badge bg-secondary" onclick="searchSuggestion('室内%')">室内</span>
-                                                <span class="badge bg-secondary" onclick="searchSuggestion('户外%')">户外</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- 3.5 照片显示 -->
@@ -578,30 +413,12 @@
                     <!-- 幻灯片播放功能 -->
                     <div class="mb-3">
                         <h6><i class="bi bi-play-circle me-2"></i>幻灯片播放功能</h6>
-                        <p class="small text-muted mb-2">全屏连续播放照片，支持多种播放控制和设置选项。</p>
+                        <p class="small text-muted mb-2">全屏连续播放照片，支持多种播放控制选项。</p>
                         <ul class="small">
-                            <li><strong>启动方式：</strong>
-                                <ul class="small mt-1">
-                                    <li>• 在照片详情页点击"幻灯片播放"按钮</li>
-                                    <li>• 选择多张照片后点击"播放选中"按钮</li>
-                                </ul>
-                            </li>
-                            <li><strong>播放控制：</strong>
-                                <ul class="small mt-1">
-                                    <li>• <kbd>空格</kbd> 或点击播放按钮：播放/暂停</li>
-                                    <li>• <kbd>←</kbd> <kbd>→</kbd> 方向键：上一张/下一张</li>
-                                    <li>• <kbd>ESC</kbd> 键：退出播放</li>
-                                </ul>
-                            </li>
-                            <li><strong>播放设置：</strong>
-                                <ul class="small mt-1">
-                                    <li>• 播放速度：慢速(5秒)、中速(3秒)、快速(1.5秒)</li>
-                                    <li>• 循环播放：开启后播放到最后一张自动从头开始</li>
-                                    <li>• 显示信息：控制是否显示照片文件名和元数据</li>
-                                </ul>
-                            </li>
-                            <li><strong>播放列表：</strong>自动包含当前筛选条件下的所有照片，支持海量播放</li>
-                            <li><strong>智能预加载：</strong>仅缓存当前及相邻照片，保证流畅播放体验</li>
+                            <li><strong>启动方式：</strong>在照片详情页点击"幻灯片播放"按钮，或选择多张照片后点击"播放选中"</li>
+                            <li><strong>播放控制：</strong><kbd>空格</kbd>播放/暂停，<kbd>←</kbd><kbd>→</kbd>切换，<kbd>ESC</kbd>退出</li>
+                            <li><strong>播放设置：</strong>支持调节播放速度、循环播放和信息显示</li>
+                            <li><strong>智能预加载：</strong>仅缓存必要照片，保证流畅播放</li>
                         </ul>
                     </div>
 
@@ -635,186 +452,9 @@
                         </ul>
                     </div>
 
-                    <!-- 展开式详细指南 -->
-                    <div class="mt-3">
-                        <a href="#!" class="text-decoration-none" data-bs-toggle="collapse" data-bs-target="#photo-display-full" aria-expanded="false">
-                            <i class="bi bi-chevron-down me-1"></i>
-                            查看完整的照片显示区使用指南
-                        </a>
-                        <div class="collapse mt-2" id="photo-display-full">
-                            <div class="step-card p-3">
-                                <h6><i class="bi bi-question-circle me-2"></i>完整照片显示区使用指南</h6>
 
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <h6><i class="bi bi-grid-3x3-gap me-2"></i>视图模式</h6>
-                                        <ul class="list-unstyled small mb-3">
-                                            <li class="mb-2">
-                                                <i class="bi bi-grid-3x3-gap me-2 text-primary"></i>
-                                                <strong>网格视图：</strong>以紧凑的网格形式展示照片缩略图，适合快速浏览大量照片
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-list me-2 text-primary"></i>
-                                                <strong>列表视图：</strong>以列表形式展示照片，可能包含更多详细信息
-                                            </li>
-                                        </ul>
-
-                                        <h6><i class="bi bi-mouse me-2"></i>照片选择</h6>
-                                        <ul class="list-unstyled small mb-3">
-                                            <li class="mb-2">
-                                                <i class="bi bi-square me-2 text-primary"></i>
-                                                <strong>选择框：</strong>每张照片左上角都有一个选择框，点击即可选择/取消选择照片
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-eye me-2 text-info"></i>
-                                                <strong>查看详情：</strong>点击照片图像查看大图和详细信息
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-check-all me-2 text-success"></i>
-                                                <strong>全选：</strong>点击"全选"按钮选择当前页所有照片
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-x-circle me-2 text-warning"></i>
-                                                <strong>取消选择：</strong>点击"取消选择"按钮清空选择，或再次点击选择框取消选择
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-lightbulb me-2 text-secondary"></i>
-                                                <strong>提示：</strong>选择框是永久可见的，无需特殊操作即可直接选择照片
-                                            </li>
-                                        </ul>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h6><i class="bi bi-gear me-2"></i>操作按钮</h6>
-                                        <ul class="list-unstyled small mb-3">
-                                            <li class="mb-2">
-                                                <i class="bi bi-check-all me-2 text-primary"></i>
-                                                <strong>全选：</strong>选中当前页面所有照片
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-x-circle me-2 text-secondary"></i>
-                                                <strong>取消选择：</strong>取消所有已选中的照片
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-trash me-2 text-danger"></i>
-                                                <strong>删除选中：</strong>永久删除所有选中的照片（谨慎操作）
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-geo-alt me-2 text-info"></i>
-                                                <strong>GPS转地址：</strong>批量将所有有GPS信息的照片转换为地理地址
-                                            </li>
-                                        </ul>
-
-                                        <h6><i class="bi bi-hand-index me-2"></i>照片交互</h6>
-                                        <ul class="list-unstyled small mb-3">
-                                            <li class="mb-2">
-                                                <i class="bi bi-mouse me-2 text-info"></i>
-                                                <strong>悬停效果：</strong>鼠标悬停时显示四个操作按钮
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-eye me-2 text-light"></i>
-                                                <strong>查看详情：</strong>点击查看照片大图和详细信息
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-pencil me-2 text-warning"></i>
-                                                <strong>编辑：</strong>点击编辑照片标签和描述信息
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-trash me-2 text-danger"></i>
-                                                <strong>删除：</strong>点击删除单张照片
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-search me-2 text-info"></i>
-                                                <strong>相似照片：</strong>点击搜索相似的照片
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-geo-alt-fill me-2 text-info"></i>
-                                                <strong>GPS转地址：</strong>点击将GPS坐标转换为地理地址（需要高德地图API密钥）
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <h6><i class="bi bi-info-circle me-2"></i>照片信息</h6>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <ul class="list-unstyled small mb-3">
-                                                    <li class="mb-2">
-                                                        <i class="bi bi-square me-2 text-primary"></i>
-                                                        <strong>选择框：</strong>左上角的选择框，点击可选择/取消选择照片
-                                                    </li>
-                                                    <li class="mb-2">
-                                                        <i class="bi bi-image me-2 text-primary"></i>
-                                                        <strong>缩略图：</strong>照片的预览图，点击查看详情
-                                                    </li>
-                                                    <li class="mb-2">
-                                                        <i class="bi bi-star me-2 text-warning"></i>
-                                                        <strong>质量等级：</strong>基础分析结果（○未评估、⭐优秀、⭑良好、⊝一般、⚠️较差、❌很差）
-                                                    </li>
-                                                    <li class="mb-2">
-                                                        <i class="bi bi-robot me-2 text-success"></i>
-                                                        <strong>AI分析状态：</strong>AI分析结果（🤖已分析、⚪未分析）
-                                                    </li>
-                                                    <li class="mb-2">
-                                                        <i class="bi bi-geo-alt-fill me-2 text-info"></i>
-                                                        <strong>GPS转地址状态：</strong>GPS坐标转换地址结果（📍已解析、⚪未解析）
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <ul class="list-unstyled small mb-3">
-                                                    <li class="mb-2">
-                                                        <i class="bi bi-tags me-2 text-success"></i>
-                                                        <strong>标签：</strong>照片的标签信息
-                                                    </li>
-                                                    <li class="mb-2">
-                                                        <i class="bi bi-clock me-2 text-info"></i>
-                                                        <strong>拍摄时间：</strong>照片的拍摄日期和时间
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <h6><i class="bi bi-arrow-left-right me-2"></i>分页导航</h6>
-                                        <ul class="list-unstyled small mb-0">
-                                            <li class="mb-2">
-                                                <i class="bi bi-info-square me-2 text-secondary"></i>
-                                                <strong>分页信息：</strong>显示当前页数和总页数
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-list-ol me-2 text-secondary"></i>
-                                                <strong>每页显示数量：</strong>可以调整每页显示的照片数量
-                                            </li>
-                                            <li class="mb-2">
-                                                <i class="bi bi-chevron-left me-2 text-secondary"></i>
-                                                <i class="bi bi-chevron-right me-2 text-secondary"></i>
-                                                <strong>翻页按钮：</strong>可以快速跳转到其他页面
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
-                <!-- 3.6 系统配置 -->
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5">3.6 系统配置</h4>
-                    <p>通过系统配置，您可以根据个人需求调整系统的各项参数和功能设置。</p>
-                    <ul>
-                        <li><strong>AI设置：</strong>配置免费阿里云千问大模型DashScope API密钥和模型选择</li>
-                        <li><strong>地图设置：</strong>配置高德地图API密钥，支持GPS坐标转地址功能</li>
-                        <li><strong>界面设置：</strong>调整显示数量、排序方式等界面参数</li>
-                        <li><strong>搜索设置：</strong>配置相似度阈值、重复检测参数</li>
-
-                    </ul>
-                </div>
 
             </section>
 
@@ -1041,242 +681,9 @@
                 </div>
             </section>
 
-            <!-- 常见问题 -->
-            <section class="mb-5">
-                <h2 class="h3 mb-3">八、常见问题解答</h2>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5">配置相关问题</h4>
-                    <div class="accordion" id="faqAccordion">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
-                                    Q: 修改配置后为什么没有生效？
-                                </button>
-                            </h2>
-                            <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
-                                <div class="accordion-body">
-                                    A: 修改配置后需要点击"保存配置"按钮，系统会重新加载配置使其生效。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
-                                    Q: 如何恢复默认配置？
-                                </button>
-                            </h2>
-                            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                                <div class="accordion-body">
-                                    A: 点击导航栏中的"重置为默认"按钮，系统会将所有配置恢复为默认值，然后需要再次保存。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
-                                    Q: 配置保存失败怎么办？
-                                </button>
-                            </h2>
-                            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                                <div class="accordion-body">
-                                    A: 检查网络连接和文件权限，确保系统有写入配置文件的权限。
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5">搜索相关问题</h4>
-                    <div class="accordion" id="searchAccordion">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#search1">
-                                    Q: 搜索为什么没有结果？
-                                </button>
-                            </h2>
-                            <div id="search1" class="accordion-collapse collapse show" data-bs-parent="#searchAccordion">
-                                <div class="accordion-body">
-                                    A: 检查搜索关键词是否正确，尝试使用不同的搜索类型（全部内容、文件名、标签等）。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#search2">
-                                    Q: 如何搜索相似照片？
-                                </button>
-                            </h2>
-                            <div id="search2" class="accordion-collapse collapse" data-bs-parent="#searchAccordion">
-                                <div class="accordion-body">
-                                    A: 将鼠标悬停在照片上，点击相似照片按钮，或使用搜索框下方的"搜索相似照片"功能。
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5">AI分析相关问题</h4>
-                    <div class="accordion" id="aiAccordion">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#ai1">
-                                    Q: 基础分析和AI分析有什么区别？
-                                </button>
-                            </h2>
-                            <div id="ai1" class="accordion-collapse collapse show" data-bs-parent="#aiAccordion">
-                                <div class="accordion-body">
-                                    A: 基础分析是免费的本地处理，主要进行质量评估和生成基础标签，无需网络连接。AI分析需要API密钥和网络连接，使用千问大模型进行深度内容分析，包括场景识别、物体检测、情感分析等。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ai2">
-                                    Q: AI分析为什么失败？
-                                </button>
-                            </h2>
-                            <div id="ai2" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
-                                <div class="accordion-body">
-                                    A: 检查API密钥是否正确配置，网络连接是否正常，以及API余额是否充足。基础分析不会失败，因为它是本地处理。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ai3">
-                                    Q: 如何重新分析照片？
-                                </button>
-                            </h2>
-                            <div id="ai3" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
-                                <div class="accordion-body">
-                                    A: 选择需要重新分析的照片，点击相应的"基础分析"或"AI分析"按钮即可重新处理。系统会自动清理旧的分析结果并生成新的结果。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ai4">
-                                    Q: 智能分析包含哪些功能？
-                                </button>
-                            </h2>
-                            <div id="ai4" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
-                                <div class="accordion-body">
-                                    A: 基础分析包括质量评估（清晰度、亮度、对比度等）和基础标签生成（时间、EXIF信息）。AI分析包括内容识别（场景、物体、人脸、情感）、智能分类、重复检测等功能。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ai5">
-                                    Q: 分析完成后能看到什么结果？
-                                </button>
-                            </h2>
-                            <div id="ai5" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
-                                <div class="accordion-body">
-                                    A: 基础分析完成后，照片会显示质量等级图标（⭐优秀、⭑良好等）。AI分析完成后，会显示AI分析状态图标（🤖已分析），并生成场景、物体、情感等标签。可以在照片详情页面查看完整的分析结果。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ai6">
-                                    Q: 导航栏分析和选择性分析有什么区别？
-                                </button>
-                            </h2>
-                            <div id="ai6" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
-                                <div class="accordion-body">
-                                    A: 导航栏分析对所有符合条件的照片进行批量处理，会显示待分析照片数量。选择性分析允许您在照片展示区选择特定照片进行分析，包括重新分析已处理的照片。导航栏分析只处理未分析的照片，选择性分析可以处理任何选中的照片。
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5">GPS转地址相关问题</h4>
-                    <div class="accordion" id="gpsAccordion">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#gps1">
-                                    Q: GPS转地址功能如何使用？
-                                </button>
-                            </h2>
-                            <div id="gps1" class="accordion-collapse collapse show" data-bs-parent="#gpsAccordion">
-                                <div class="accordion-body">
-                                    A: 首先需要在系统配置中设置高德地图API密钥。然后点击导航栏的"GPS转地址"按钮进行批量转换，或点击照片信息区域的GPS图标进行单张照片转换。转换完成后，地址信息会显示在照片详情中。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#gps2">
-                                    Q: 为什么有些照片没有GPS信息？
-                                </button>
-                            </h2>
-                            <div id="gps2" class="accordion-collapse collapse" data-bs-parent="#gpsAccordion">
-                                <div class="accordion-body">
-                                    A: 照片GPS信息需要在拍摄时开启手机定位功能。对于iPhone用户，需要在设置中允许相机访问位置信息。室内拍摄或GPS信号弱的环境下可能无法获取GPS坐标。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#gps3">
-                                    Q: GPS转地址失败怎么办？
-                                </button>
-                            </h2>
-                            <div id="gps3" class="accordion-collapse collapse" data-bs-parent="#gpsAccordion">
-                                <div class="accordion-body">
-                                    A: 检查API密钥是否正确配置，网络连接是否正常，以及API使用额度是否充足。也可以尝试重新点击GPS图标进行地址解析。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#gps4">
-                                    Q: 如何重新解析地址？
-                                </button>
-                            </h2>
-                            <div id="gps4" class="accordion-collapse collapse" data-bs-parent="#gpsAccordion">
-                                <div class="accordion-body">
-                                    A: 点击照片信息区域的GPS图标，可以重新解析地址。系统会使用最新的GPS坐标重新获取地址信息，覆盖之前的转换结果。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#gps5">
-                                    Q: GPS转地址需要收费吗？
-                                </button>
-                            </h2>
-                            <div id="gps5" class="accordion-collapse collapse" data-bs-parent="#gpsAccordion">
-                                <div class="accordion-body">
-                                    A: 高德地图提供一定量的免费API调用额度，日常使用通常在免费额度范围内。如果超出免费额度，可能需要付费使用。
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- 系统要求 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">九、系统要求</h2>
+                <h2 class="h3 mb-3">八、系统要求</h2>
 
                 <div class="row">
                     <div class="col-md-6">
@@ -1306,7 +713,7 @@
 
             <!-- 技术支持 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">十、技术支持</h2>
+                <h2 class="h3 mb-3">九、技术支持</h2>
 
                 <div class="info-box">
                     <h5><i class="bi bi-headset me-2"></i>获取帮助</h5>
@@ -1344,7 +751,7 @@
 
             <!-- 推广与支持 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">十一、推广与支持</h2>
+                <h2 class="h3 mb-3">十、推广与支持</h2>
 
                 <div class="row g-4">
                     <div class="col-md-6">

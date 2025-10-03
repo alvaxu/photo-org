@@ -434,6 +434,15 @@ class PhotoManager {
             console.log('未找到AI分析按钮');
         }
 
+        // 更新幻灯片播放按钮状态
+        const slideshowBtn = document.getElementById('slideshowSelectedBtn');
+        if (slideshowBtn) {
+            slideshowBtn.disabled = selectedCount === 0;
+            slideshowBtn.innerHTML = selectedCount > 0 ?
+                `<i class="bi bi-play-circle"></i> 播放选中 (${selectedCount})` :
+                `<i class="bi bi-play-circle"></i> 播放选中`;
+        }
+
         // 更新全选按钮文本
         const selectAllBtn = document.getElementById('selectAllBtn');
         if (selectAllBtn) {

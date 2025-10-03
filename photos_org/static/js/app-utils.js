@@ -238,6 +238,42 @@ function showWarning(message, showDetails = false, detailsData = null) {
     // 不自动消失，只有用户点击关闭按钮才会消失
 }
 
+// ============ 加载状态管理 ============
+
+/**
+ * 显示加载状态
+ * @param {string} message - 加载提示消息
+ */
+function showLoading(message = '正在加载...') {
+    // 移除现有的加载提示
+    hideLoading();
+
+    const loadingHtml = `
+        <div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="z-index: 9999; background: rgba(0,0,0,0.5);">
+            <div class="bg-white rounded p-4 shadow">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-3" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <div class="fw-semibold">${message}</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', loadingHtml);
+}
+
+/**
+ * 隐藏加载状态
+ */
+function hideLoading() {
+    const loadingElement = document.getElementById('globalLoading');
+    if (loadingElement) {
+        loadingElement.remove();
+    }
+}
+
 function createToastContainer() {
     const container = document.createElement('div');
     container.className = 'toast-container position-fixed top-0 end-0 p-3';
@@ -592,7 +628,9 @@ function hideEmptyState() {
 }
 
 function updatePhotoCount(count) {
-    elements.photoCount.textContent = count;
+    if (elements.photoCount) {
+        elements.photoCount.textContent = count;
+    }
 }
 
 // ============ 全局导出 ============
@@ -888,3 +926,5 @@ window.setLoading = setLoading;
 window.showEmptyState = showEmptyState;
 window.hideEmptyState = hideEmptyState;
 window.updatePhotoCount = updatePhotoCount;
+window.showLoading = showLoading;
+window.hideLoading = hideLoading;
