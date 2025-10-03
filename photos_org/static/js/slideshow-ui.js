@@ -535,12 +535,27 @@ class SlideshowUI {
 
         // 清理错误状态
         this.hideErrorState();
+
+        // 清除全局引用
+        globalSlideshowPlayer = null;
+        globalSlideshowUI = null;
     }
 }
+
+// 全局播放器实例管理（避免重复创建）
+let globalSlideshowPlayer = null;
+let globalSlideshowUI = null;
 
 // 全局函数：开始幻灯片播放
 async function startSlideshowFromCurrent(currentPhotoId) {
     try {
+        // 检查是否已有播放器在运行
+        if (globalSlideshowPlayer && globalSlideshowUI) {
+            console.log('播放器已在运行，直接开始播放');
+            globalSlideshowPlayer.play();
+            return;
+        }
+
         // 显示加载提示
         showLoading('正在准备播放列表...');
 
@@ -568,6 +583,10 @@ async function startSlideshowFromCurrent(currentPhotoId) {
         // 创建UI
         const ui = new SlideshowUI(player, dataManager);
 
+        // 保存全局引用
+        globalSlideshowPlayer = player;
+        globalSlideshowUI = ui;
+
         // 显示播放器
         ui.show();
 
@@ -582,6 +601,13 @@ async function startSlideshowFromCurrent(currentPhotoId) {
 // 全局函数：从选中照片开始播放
 async function startSlideshowFromSelection() {
     try {
+        // 检查是否已有播放器在运行
+        if (globalSlideshowPlayer && globalSlideshowUI) {
+            console.log('播放器已在运行，直接开始播放');
+            globalSlideshowPlayer.play();
+            return;
+        }
+
         // 使用PhotoManager的状态，确保与UI同步
         const selectedIds = window.PhotoManager ? window.PhotoManager.selectedPhotos : new Set();
 
@@ -609,6 +635,10 @@ async function startSlideshowFromSelection() {
         // 创建UI
         const ui = new SlideshowUI(player, dataManager);
 
+        // 保存全局引用
+        globalSlideshowPlayer = player;
+        globalSlideshowUI = ui;
+
         // 显示播放器
         ui.show();
 
@@ -623,6 +653,13 @@ async function startSlideshowFromSelection() {
 // 开始播放全部照片（当前筛选条件下的所有照片）
 async function startSlideshowFromAll() {
     try {
+        // 检查是否已有播放器在运行
+        if (globalSlideshowPlayer && globalSlideshowUI) {
+            console.log('播放器已在运行，直接开始播放');
+            globalSlideshowPlayer.play();
+            return;
+        }
+
         // 显示加载提示
         showLoading('正在准备播放列表...');
 
@@ -650,6 +687,10 @@ async function startSlideshowFromAll() {
 
         // 创建UI
         const ui = new SlideshowUI(player, dataManager);
+
+        // 保存全局引用
+        globalSlideshowPlayer = player;
+        globalSlideshowUI = ui;
 
         // 显示播放器
         ui.show();
