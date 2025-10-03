@@ -64,6 +64,48 @@ function bindBasicEvents() {
     window.elements.clearSelectionBtn.addEventListener('click', clearSelection);
     window.elements.deleteSelectedBtn.addEventListener('click', deleteSelectedPhotos);
 
+    // 幻灯片播放按钮事件
+    const slideshowSelectedBtn = document.getElementById('slideshowSelectedBtn');
+    if (slideshowSelectedBtn) {
+        slideshowSelectedBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.PhotoManager && window.PhotoManager.selectedPhotos.size > 0) {
+                const checkAndStart = () => {
+                    if (typeof window.startSlideshowFromSelection === 'function') {
+                        window.startSlideshowFromSelection();
+                    } else {
+                        console.warn('幻灯片播放功能尚未加载，1秒后重试...');
+                        // 1秒后重试一次
+                        setTimeout(checkAndStart, 1000);
+                    }
+                };
+
+                checkAndStart();
+            } else {
+                showWarning('请先选择要播放的照片');
+            }
+        });
+    }
+
+    // 播放全部照片按钮事件
+    const slideshowAllBtn = document.getElementById('slideshowAllBtn');
+    if (slideshowAllBtn) {
+        slideshowAllBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const checkAndStart = () => {
+                if (typeof window.startSlideshowFromAll === 'function') {
+                    window.startSlideshowFromAll();
+                } else {
+                    console.warn('幻灯片播放功能尚未加载，1秒后重试...');
+                    // 1秒后重试一次
+                    setTimeout(checkAndStart, 1000);
+                }
+            };
+
+            checkAndStart();
+        });
+    }
+
     // 基础分析按钮事件 - 使用PhotoManager
     console.log('查找基础分析按钮:', !!window.elements.basicProcessSelectedBtn);
     if (window.elements.basicProcessSelectedBtn) {

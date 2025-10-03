@@ -207,6 +207,37 @@ function showSuccess(message, showDetails = false, detailsData = null) {
     // 不自动消失，只有用户点击关闭按钮才会消失
 }
 
+function showInfo(message, showDetails = false, detailsData = null) {
+    console.log('信息:', message);
+
+    // 处理多行消息
+    const formattedMessage = message.replace(/\n/g, '<br>');
+
+    // 构建查看详情按钮
+    let detailsButton = '';
+    if (showDetails && detailsData) {
+        detailsButton = `<button type="button" class="btn btn-outline-info btn-sm ms-2" onclick="showImportDetails(${JSON.stringify(detailsData).replace(/"/g, '&quot;')})">查看详情</button>`;
+    }
+
+    // 使用Bootstrap的alert组件显示信息消息
+    const alertHtml = `
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            ${formattedMessage}
+            ${detailsButton}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    // 在页面顶部显示信息
+    const container = document.querySelector('.container-fluid') || document.body;
+    const alertDiv = document.createElement('div');
+    alertDiv.innerHTML = alertHtml;
+    container.insertBefore(alertDiv.firstElementChild, container.firstChild);
+
+    // 不自动消失，只有用户点击关闭按钮才会消失
+}
+
 function showWarning(message, showDetails = false, detailsData = null) {
     console.warn('警告:', message);
     
@@ -236,6 +267,42 @@ function showWarning(message, showDetails = false, detailsData = null) {
     container.insertBefore(alertDiv.firstElementChild, container.firstChild);
     
     // 不自动消失，只有用户点击关闭按钮才会消失
+}
+
+// ============ 加载状态管理 ============
+
+/**
+ * 显示加载状态
+ * @param {string} message - 加载提示消息
+ */
+function showLoading(message = '正在加载...') {
+    // 移除现有的加载提示
+    hideLoading();
+
+    const loadingHtml = `
+        <div id="globalLoading" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="z-index: 9999; background: rgba(0,0,0,0.5);">
+            <div class="bg-white rounded p-4 shadow">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-3" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <div class="fw-semibold">${message}</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', loadingHtml);
+}
+
+/**
+ * 隐藏加载状态
+ */
+function hideLoading() {
+    const loadingElement = document.getElementById('globalLoading');
+    if (loadingElement) {
+        loadingElement.remove();
+    }
 }
 
 function createToastContainer() {
@@ -592,7 +659,9 @@ function hideEmptyState() {
 }
 
 function updatePhotoCount(count) {
-    elements.photoCount.textContent = count;
+    if (elements.photoCount) {
+        elements.photoCount.textContent = count;
+    }
 }
 
 // ============ 全局导出 ============
@@ -888,3 +957,6 @@ window.setLoading = setLoading;
 window.showEmptyState = showEmptyState;
 window.hideEmptyState = hideEmptyState;
 window.updatePhotoCount = updatePhotoCount;
+window.showLoading = showLoading;
+window.hideLoading = hideLoading;
+window.showInfo = showInfo;

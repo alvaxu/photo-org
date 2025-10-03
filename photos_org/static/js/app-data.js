@@ -30,7 +30,7 @@ const AppState = {
         searchType: 'all',
         dateFilter: '',
         qualityFilter: '',
-        sortBy: 'created_at',
+        sortBy: 'taken_at',
         sortOrder: 'desc',
         selectedTags: [],
         selectedCategories: []

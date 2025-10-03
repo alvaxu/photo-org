@@ -105,9 +105,9 @@ function cacheElements() {
 
         // 统计信息
         statsRow: document.getElementById('statsRow'),
+        photoCount: document.getElementById('photoCount'),
 
         // 照片区域
-        photoCount: document.getElementById('photoCount'),
         loadingIndicator: document.getElementById('loadingIndicator'),
         emptyState: document.getElementById('emptyState'),
         photosGrid: document.getElementById('photosGrid'),

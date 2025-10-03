@@ -5,7 +5,7 @@
 import time
 import logging
 from typing import Optional, Dict, Tuple, List
-import requests
+import httpx
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -54,9 +54,7 @@ class AMapService:
     """高德地图服务"""
 
     def __init__(self):
-        self.api_key = settings.maps.api_key
         self.base_url = "https://restapi.amap.com"
-        self.timeout = settings.maps.timeout
 
     def reverse_geocode(self, lat: float, lng: float) -> Optional[str]:
         """
@@ -66,13 +64,18 @@ class AMapService:
         :param lng: 经度
         :return: 格式化的地址字符串
         """
-        if not self.api_key:
+        # 动态获取最新配置，避免缓存问题
+        from app.core.config import settings as current_settings
+        api_key = current_settings.maps.api_key
+        timeout = current_settings.maps.timeout
+
+        if not api_key:
             raise ValueError("高德API Key未配置")
 
         url = f"{self.base_url}/v3/geocode/regeo"
         params = {
             "location": f"{lng},{lat}",  # 高德API：经度,纬度
-            "key": self.api_key,
+            "key": api_key,
             "radius": 1000,  # 搜索半径(米)
             "extensions": "all",  # 返回详细信息
             "output": "json"
@@ -80,7 +83,7 @@ class AMapService:
 
         try:
             logger.debug(f"调用高德API: lat={lat}, lng={lng}")
-            response = requests.get(url, params=params, timeout=self.timeout)
+            response = httpx.get(url, params=params, timeout=timeout)
             data = response.json()
 
             if data.get("status") == "1" and data.get("info") == "OK":
@@ -92,10 +95,10 @@ class AMapService:
                 logger.warning(f"高德API调用失败: {error_info}")
                 return None
 
-        except requests.exceptions.Timeout:
-            logger.error(f"高德API调用超时: {self.timeout}秒")
+        except httpx.TimeoutException:
+            logger.error(f"高德API调用超时: {timeout}秒")
             return None
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             logger.error(f"高德API网络异常: {e}")
             return None
         except Exception as e:
