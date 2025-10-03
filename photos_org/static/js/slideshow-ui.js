@@ -582,7 +582,8 @@ async function startSlideshowFromCurrent(currentPhotoId) {
 // 全局函数：从选中照片开始播放
 async function startSlideshowFromSelection() {
     try {
-        const selectedIds = AppState.selectedPhotos;
+        // 使用PhotoManager的状态，确保与UI同步
+        const selectedIds = window.PhotoManager ? window.PhotoManager.selectedPhotos : new Set();
 
         if (selectedIds.size === 0) {
             showWarning('请先选择要播放的照片');
