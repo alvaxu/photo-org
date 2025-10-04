@@ -6,7 +6,7 @@
 // ============ UI组件初始化 ============
 
 function initializeUI() {
-    console.log('🎨 初始化UI组件');
+    // 初始化UI组件
 
     // 设置初始搜索框placeholder
     if (elements.searchInput) {
@@ -34,7 +34,7 @@ function initializeUI() {
     window.closeModal = function(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
-            console.log('🔒 全局关闭模态框:', modalId);
+            // 关闭模态框
             
             // 使用Bootstrap API关闭模态框
             const modalInstance = bootstrap.Modal.getInstance(modal);
@@ -52,36 +52,27 @@ function initializeUI() {
     if (elements.sortBy && elements.sortOrder) {
         AppState.searchFilters.sortBy = elements.sortBy.value;
         AppState.searchFilters.sortOrder = elements.sortOrder.value;
-        console.log('🔄 已同步AppState排序默认值:', {
-            sortBy: AppState.searchFilters.sortBy,
-            sortOrder: AppState.searchFilters.sortOrder
-        });
+        // 同步AppState排序默认值
     }
 
-    // 添加调试信息
-    console.log('📱 模态框初始化完成:', {
-        photoModal: !!photoModal,
-        importModal: !!importModal,
-        batchModal: !!batchModal
-    });
+    // 模态框初始化完成
 
     // 添加测试函数
     window.testModalClose = function() {
-        console.log('🧪 测试模态框关闭功能');
+        // 测试模态框关闭功能
         const modals = ['importModal', 'batchModal', 'photoModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (modal) {
-                console.log(`模态框 ${modalId} 存在:`, modal);
+                // 检查模态框和关闭按钮
                 const closeButtons = modal.querySelectorAll('[data-bs-dismiss="modal"]');
-                console.log(`关闭按钮数量:`, closeButtons.length);
             }
         });
     };
 
     // 添加紧急清理函数
     window.forceCleanup = function() {
-        console.log('🚨 强制清理页面状态');
+        // 强制清理页面状态
         
         // 关闭所有模态框
         const modals = document.querySelectorAll('.modal');
@@ -101,41 +92,36 @@ function initializeUI() {
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
         
-        console.log('✅ 强制清理完成');
+        // 强制清理完成
     };
 
     // 监听模态框事件并确保正确清理
+    // 监听模态框显示事件
     document.addEventListener('shown.bs.modal', function(e) {
-        console.log('📱 模态框完全显示:', e.target.id);
-
         // 特别检查importModal的显示，调用重置函数
         if (e.target.id === 'importModal') {
-            console.log('🎯 importModal完全显示，开始重置状态');
             resetImportModalState();
-            console.log('✅ importModal状态重置完成');
         }
 
         // 特别检查batchModal的显示，调用重置函数
         if (e.target.id === 'batchModal') {
-            console.log('🎯 batchModal完全显示，开始重置状态');
             resetBatchModalState();
         }
     });
     
-    document.addEventListener('hide.bs.modal', function(e) {
-        console.log('📱 模态框隐藏:', e.target.id);
-        
+    // 监听模态框隐藏事件
+    document.addEventListener('hidden.bs.modal', function(e) {
         // 确保清理所有可能的遮罩层
         setTimeout(() => {
             const backdrops = document.querySelectorAll('.modal-backdrop');
             backdrops.forEach(backdrop => backdrop.remove());
-            
+
             // 确保body恢复正常状态
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
             document.body.style.paddingRight = '';
-            
-            console.log('🧹 清理完成，页面应该可以正常点击了');
+
+            // 清理完成
         }, 100);
     });
     
@@ -154,18 +140,7 @@ function initializeUI() {
     // 页面完全加载后再次检查
     window.addEventListener('load', checkAndCleanupOverlay);
 
-    // 监听模态框完全隐藏后的事件
-    document.addEventListener('hidden.bs.modal', function(e) {
-        console.log('📱 模态框完全隐藏:', e.target.id);
-        
-        // 再次确保清理
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        backdrops.forEach(backdrop => backdrop.remove());
-        
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
-    });
+    // 模态框事件监听器已在上方定义
 
     // 初始化工具提示
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));

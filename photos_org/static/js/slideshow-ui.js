@@ -18,12 +18,130 @@ class SlideshowUI {
         this.modal = null;
         this.controlsVisible = true;
         this.controlsHideTimer = null;
+        this.isLoadingImage = false;     // 新增：当前是否正在加载图片
+        this.pendingPhotoIndex = -1;     // 新增：等待加载的照片索引
+        this.consecutiveFailures = 0;    // 新增：连续失败计数
+        this.maxConsecutiveFailures = 3; // 新增：最大连续失败次数
+        this.isRecoveringFromError = false; // 新增：是否正在错误恢复中
+        this.heicSupported = null;       // 新增：浏览器是否支持HEIC
+        this.heicLoadTimeout = 30000;    // 新增：HEIC加载超时时间（30秒）
+
+        // 检测HEIC支持
+        this.detectHeicSupport();
 
         // 绑定事件
         this.bindPlayerEvents();
 
         // 初始化UI
         this.init();
+    }
+
+    // 检测浏览器HEIC支持
+    async detectHeicSupport() {
+        if (this.heicSupported !== null) {
+            return this.heicSupported;
+        }
+
+        console.log('开始检测浏览器HEIC支持...');
+
+        // 方法1: 使用Canvas API测试（最可靠）
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // 创建一个小的测试HEIC图片
+            const img = new Image();
+            const testPromise = new Promise((resolve, reject) => {
+                img.onload = () => {
+                    try {
+                        // 尝试在canvas上绘制HEIC图片
+                        canvas.width = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        ctx.drawImage(img, 0, 0);
+
+                        // 如果能成功绘制，说明浏览器支持HEIC
+                        const imageData = ctx.getImageData(0, 0, 1, 1);
+                        if (imageData.data[3] > 0) { // 检查alpha通道
+                            this.heicSupported = true;
+                            console.log('✅ 浏览器支持HEIC格式（Canvas测试成功）');
+                            resolve(true);
+                        } else {
+                            throw new Error('Canvas绘制失败');
+                        }
+                    } catch (e) {
+                        reject(e);
+                    }
+                };
+
+                img.onerror = () => reject(new Error('HEIC图片加载失败'));
+                img.src = '/static/images/heic-test.heic';
+            });
+
+            // 设置超时
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('HEIC检测超时')), 10000);
+            });
+
+            await Promise.race([testPromise, timeoutPromise]);
+            return this.heicSupported;
+
+        } catch (e) {
+            console.log('❌ Canvas测试失败:', e.message);
+        }
+
+        // 方法2: 检查MIME类型支持
+        try {
+            // 现代浏览器支持检查
+            if ('supported' in navigator && navigator.supported) {
+                // 一些浏览器可能暴露支持信息
+            }
+
+            // 检查是否为Safari（通常支持HEIC）
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            if (isSafari) {
+                this.heicSupported = true;
+                console.log('✅ 检测到Safari浏览器，默认支持HEIC');
+                return true;
+            }
+        } catch (e) {
+            console.log('MIME类型检查失败:', e.message);
+        }
+
+        // 方法3: 简单图片加载测试
+        try {
+            const testResult = await this.testHeicLoading('/static/images/heic-test.heic');
+            this.heicSupported = testResult;
+            console.log(`📊 简单加载测试结果: ${testResult ? '支持' : '不支持'}`);
+            return testResult;
+        } catch (e) {
+            console.warn('所有HEIC检测方法失败，默认不支持');
+            this.heicSupported = false;
+            return false;
+        }
+    }
+
+    // 测试HEIC图片加载
+    testHeicLoading(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            const timeout = setTimeout(() => {
+                img.src = '';
+                resolve(false);
+            }, 5000); // 5秒超时
+
+            img.onload = () => {
+                clearTimeout(timeout);
+                // 检查图片是否真的加载成功（不是错误占位符）
+                resolve(img.naturalWidth > 1 && img.naturalHeight > 1);
+            };
+
+            img.onerror = () => {
+                clearTimeout(timeout);
+                resolve(false);
+            };
+
+            img.src = url;
+        });
     }
 
     // 初始化UI
@@ -35,6 +153,12 @@ class SlideshowUI {
 
     // 创建播放器模态框
     createModal() {
+        // 如果已存在模态框，先移除
+        const existingModal = document.getElementById('slideshowModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
         const modalHtml = `
             <div class="modal slideshow-modal" id="slideshowModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="slideshowTitle" aria-describedby="slideshowMeta">
                 <div class="modal-dialog modal-fullscreen">
@@ -143,6 +267,14 @@ class SlideshowUI {
     // 更新显示内容
     updateDisplay() {
         try {
+            // 检查连续失败次数，防止无限重试
+            if (this.consecutiveFailures >= this.maxConsecutiveFailures) {
+                console.warn(`连续失败 ${this.consecutiveFailures} 次，停止播放以保护系统`);
+                this.showErrorState('图片加载连续失败，请检查网络连接或图片文件', false);
+                this.player.stopTimer(); // 彻底停止播放
+                return;
+            }
+
             const info = this.player.getPlaybackInfo();
             const photo = info.currentPhoto;
 
@@ -174,42 +306,141 @@ class SlideshowUI {
                 return;
             }
 
-            // 更新图片 - 总是优先尝试原图，确保最佳质量
+            // 如果正在加载图片，记录待显示的照片索引，等待加载完成
+            if (this.isLoadingImage) {
+                console.log('图片正在加载中，记录待显示照片:', info.currentIndex);
+                this.pendingPhotoIndex = info.currentIndex;
+                return;
+            }
+
+            // 标记开始加载
+            this.isLoadingImage = true;
+
+
+            // 更新图片 - 根据格式和浏览器支持情况调整策略
+            const isHeicFormat = photo.filename.toLowerCase().endsWith('.heic') || photo.filename.toLowerCase().endsWith('.heif');
+
+            // 设置加载超时时间
+            let loadTimeout;
+            if (isHeicFormat && this.heicSupported) {
+                // HEIC格式且浏览器支持：给予更长的时间，并暂停定时器等待加载
+                loadTimeout = this.heicLoadTimeout; // 30秒
+                console.log(`HEIC原图加载中，给予 ${loadTimeout/1000} 秒超时时间，暂停自动切换:`, photo.filename);
+
+                // 暂停播放定时器，等待HEIC加载完成
+                if (this.player && this.player.timer) {
+                    console.log('暂停播放定时器，等待HEIC加载完成');
+                    this.player.stopTimer();
+                }
+            } else {
+                // 普通格式或不支持HEIC：使用标准超时
+                loadTimeout = 15000; // 15秒
+                console.log(`图片加载中，使用 ${loadTimeout/1000} 秒超时时间:`, photo.filename);
+            }
+
             this.imageElement.src = this.dataManager.getPhotoUrl(photo);
             this.imageElement.alt = photo.filename || '照片';
             this.imageElement.classList.add('active');
 
-            // 监听加载状态
-            this.imageElement.onload = () => {
+            // 设置显示图片的超时
+            let displayTimeoutId = setTimeout(() => {
+                console.log(`图片加载超时 (${loadTimeout/1000}秒)，强制处理:`, photo.filename);
+                this.isLoadingImage = false; // 清除加载状态
+                this.handleImageError(photo); // 调用错误处理
+            }, loadTimeout);
+
+            // 通用图片加载成功处理函数
+            const handleImageLoadSuccess = () => {
+                clearTimeout(displayTimeoutId);
                 this.imageElement.classList.add('active');
-                console.log('照片显示成功:', photo.filename);
+
+                // 检查是否为HEIC格式且浏览器支持
+                const isHeicFormat = photo.filename.toLowerCase().endsWith('.heic') || photo.filename.toLowerCase().endsWith('.heif');
+                const isHeicSupported = this.heicSupported;
+
+                if (isHeicFormat && isHeicSupported) {
+                    console.log('HEIC原图加载成功:', photo.filename);
+                } else {
+                    console.log('照片显示成功:', photo.filename);
+                }
+
+                // 加载完成，清除加载状态
+                this.isLoadingImage = false;
+
+                // 重置连续失败计数
+                this.consecutiveFailures = 0;
+
+                // 确保预加载已恢复（以防被意外暂停）
+                this.dataManager.resumePreloading();
+
+                // 如果有待显示的照片，立即切换
+                if (this.pendingPhotoIndex !== -1) {
+                    const currentIndex = this.player.currentIndex;
+                    if (this.pendingPhotoIndex !== currentIndex) {
+                        console.log('加载完成，切换到待显示照片:', this.pendingPhotoIndex);
+                        this.player.goToPhoto(this.pendingPhotoIndex);
+                    }
+                    this.pendingPhotoIndex = -1;
+                }
+
+                // 对于HEIC格式且浏览器支持的情况，加载完成后立即开始下一张的倒计时
+                if (isHeicFormat && isHeicSupported && this.player && this.player.isPlaying) {
+                    if (!this.player.timer) {
+                        console.log('HEIC加载完成，启动播放定时器');
+                        // 重新启动定时器，从现在开始计算interval
+                        this.player.startTimer();
+                    } else {
+                        console.log('HEIC加载完成，定时器已在运行中');
+                    }
+                }
             };
 
+            // 监听加载状态
+            this.imageElement.onload = handleImageLoadSuccess;
+
             this.imageElement.onerror = () => {
-                console.warn('原图加载失败，尝试使用缩略图:', photo.filename);
+                clearTimeout(displayTimeoutId);
+                console.warn('原图加载失败:', photo.filename);
 
-                // 如果原图加载失败，尝试使用缩略图
-                if (photo.thumbnail_path && photo.original_path !== photo.thumbnail_path) {
-                    this.imageElement.src = `/photos_storage/${photo.thumbnail_path.replace(/\\/g, '/')}`;
-                    console.log('回退到缩略图:', photo.filename);
+                // 延迟一小段时间再尝试缩略图，避免立即取消请求导致ConnectionResetError
+                setTimeout(() => {
+                    // 如果原图加载失败，尝试使用缩略图
+                    if (photo.thumbnail_path && photo.original_path !== photo.thumbnail_path) {
+                        console.log('尝试回退到缩略图:', photo.filename);
+                        this.imageElement.src = `/photos_storage/${photo.thumbnail_path.replace(/\\/g, '/')}`;
 
-                    // 重新设置错误处理
-                    this.imageElement.onerror = () => {
-                        console.error('缩略图也加载失败:', photo.filename);
+                        // 为缩略图设置超时
+                        let thumbnailTimeoutId = setTimeout(() => {
+                            console.log('缩略图显示超时，强制处理:', photo.filename);
+                            this.isLoadingImage = false;
+                            this.handleImageError(photo);
+                        }, 10000);
+
+                        // 重新设置加载处理
+                        this.imageElement.onload = () => {
+                            clearTimeout(thumbnailTimeoutId);
+                            handleImageLoadSuccess();
+                        };
+
+                        this.imageElement.onerror = () => {
+                            clearTimeout(thumbnailTimeoutId);
+                            console.error('缩略图也加载失败:', photo.filename);
+                            this.handleImageError(photo);
+                        };
+                    } else {
+                        // 没有缩略图，直接显示错误
+                        console.log('无缩略图可用，直接显示错误:', photo.filename);
                         this.handleImageError(photo);
-                    };
-                } else {
-                    // 没有缩略图，直接显示错误
-                    this.handleImageError(photo);
-                }
+                    }
+                }, 100); // 短暂延迟，避免ConnectionResetError
             };
 
             // 更新照片信息
             this.titleElement.textContent = photo.filename || '未命名照片';
 
             const metaInfo = [];
-        if (photo.created_at) {
-            const date = new Date(photo.created_at);
+        if (photo.taken_at) {
+            const date = new Date(photo.taken_at);
             metaInfo.push(`拍摄时间: ${date.toLocaleString()}`);
         }
         if (photo.width && photo.height) {
@@ -264,6 +495,8 @@ class SlideshowUI {
         } catch (error) {
             console.error('更新播放器显示失败:', error);
             this.showErrorState('播放器显示错误，请重试');
+            // 出错时也要清除加载状态
+            this.isLoadingImage = false;
         }
     }
 
@@ -356,6 +589,8 @@ class SlideshowUI {
         // 退出按钮
         document.getElementById('slideshowExit').addEventListener('click', () => {
             this.hide();
+            // 确保清理状态
+            setTimeout(() => this.cleanup(), 100);
         });
 
         // 点击照片区域显示/隐藏控制面板
@@ -424,9 +659,12 @@ class SlideshowUI {
         // 监听全局键盘事件
         document.addEventListener('keydown', handleKeydown);
 
+        // 存储键盘事件处理器引用，用于后续清理
+        this.keyboardHandler = handleKeydown;
+
         // 播放器关闭时移除事件监听器
         this.modal.addEventListener('hidden.bs.modal', () => {
-            document.removeEventListener('keydown', handleKeydown);
+            document.removeEventListener('keydown', this.keyboardHandler);
             this.cleanup();
         });
     }
@@ -465,6 +703,11 @@ class SlideshowUI {
 
     // 处理图片加载错误
     handleImageError(photo) {
+        console.warn('图片加载失败:', photo.filename, '连续失败次数:', this.consecutiveFailures + 1);
+
+        // 增加连续失败计数
+        this.consecutiveFailures++;
+
         // 使用简单的颜色背景作为错误状态
         this.imageElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+PHRleHQgeD0iNTAlIiB5PSI0NSUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNkYzM1NDUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCI+56eB5a2Q5Yqf5aSx5L2gPC90ZXh0Pjx0ZXh0IHg9IjUwJSIgeT0iNjUlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNmM3NTdkIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTIiPkltYWdlIExvYWQgRmFpbGVkPC90ZXh0Pjwvc3ZnPg==';
         this.imageElement.alt = '照片加载失败';
@@ -476,16 +719,34 @@ class SlideshowUI {
 
         console.log('显示错误占位图 for photo:', photo.filename);
 
-        // 自动跳到下一张（延迟3秒）
+        // 加载失败也要清除加载状态
+        this.isLoadingImage = false;
+
+        // 暂停定时器，防止竞态条件
+        this.player.stopTimer();
+
+        // 暂停预加载，防止并发HTTP请求
+        this.dataManager.pausePreloading();
+
+        // 设置错误恢复标志
+        this.isRecoveringFromError = true;
+
+        // 延迟重试，重新启动定时器
         setTimeout(() => {
+            this.isRecoveringFromError = false; // 清除恢复标志
             if (this.player && this.player.isPlaying) {
+                // 恢复预加载
+                this.dataManager.resumePreloading();
+                // 重新启动定时器
+                this.player.startTimer();
+                // 切换到下一张
                 this.player.next();
             }
         }, 3000);
     }
 
     // 显示错误状态
-    showErrorState(message) {
+    showErrorState(message, isFatal = true) {
         // 隐藏正常内容
         this.imageElement.style.display = 'none';
         this.titleElement.style.display = 'none';
@@ -498,14 +759,25 @@ class SlideshowUI {
             this.modal.querySelector('.slideshow-display').appendChild(this.errorElement);
         }
 
-        this.errorElement.innerHTML = `
-            <i class="bi bi-exclamation-triangle"></i>
-            <h5>播放错误</h5>
-            <p>${message}</p>
-            <button class="btn btn-outline-light mt-3" onclick="window.location.reload()">
-                刷新页面
-            </button>
-        `;
+        if (isFatal) {
+            // 严重错误：显示刷新按钮
+            this.errorElement.innerHTML = `
+                <i class="bi bi-exclamation-triangle"></i>
+                <h5>播放错误</h5>
+                <p>${message}</p>
+                <button class="btn btn-outline-light mt-3" onclick="window.location.reload()">
+                    刷新页面
+                </button>
+            `;
+        } else {
+            // 临时错误：显示等待信息
+            this.errorElement.innerHTML = `
+                <i class="bi bi-clock"></i>
+                <h5>加载中...</h5>
+                <p>${message}</p>
+                <small>正在尝试恢复播放...</small>
+            `;
+        }
         this.errorElement.style.display = 'block';
     }
 
@@ -520,11 +792,18 @@ class SlideshowUI {
         this.metaElement.style.display = '';
     }
 
+
     // 清理资源
     cleanup() {
         if (this.controlsHideTimer) {
             clearTimeout(this.controlsHideTimer);
             this.controlsHideTimer = null;
+        }
+
+        // 移除键盘事件监听器
+        if (this.keyboardHandler) {
+            document.removeEventListener('keydown', this.keyboardHandler);
+            this.keyboardHandler = null;
         }
 
         // 清理图片缓存
@@ -535,12 +814,57 @@ class SlideshowUI {
 
         // 清理错误状态
         this.hideErrorState();
+
+        // 移除模态框DOM元素
+        if (this.modal && this.modal.parentNode) {
+            this.modal.parentNode.removeChild(this.modal);
+        }
+
+        // 清理公告元素
+        if (this.announcementElement && this.announcementElement.parentNode) {
+            this.announcementElement.parentNode.removeChild(this.announcementElement);
+        }
+
+        // 清理加载状态
+        this.isLoadingImage = false;
+        this.pendingPhotoIndex = -1;
+        this.consecutiveFailures = 0;
+        this.isRecoveringFromError = false;
+
+        // 清理属性引用
+        this.modal = null;
+        this.controlsVisible = true;
+        this.imageElement = null;
+        this.titleElement = null;
+        this.metaElement = null;
+        this.progressElement = null;
+        this.errorElement = null;
+        this.announcementElement = null;
+
+        // 清理全局实例引用
+        if (currentSlideshowInstance === this) {
+            currentSlideshowInstance = null;
+        }
     }
 }
+
+// 全局播放状态管理 - 防止同时运行多个播放实例
+let currentSlideshowInstance = null;
 
 // 全局函数：开始幻灯片播放
 async function startSlideshowFromCurrent(currentPhotoId) {
     try {
+        // 如果已有播放实例在运行，先清理
+        if (currentSlideshowInstance) {
+            console.log('检测到已有播放实例，正在清理...');
+            try {
+                currentSlideshowInstance.cleanup();
+            } catch (e) {
+                console.warn('清理旧播放实例时出错:', e);
+            }
+            currentSlideshowInstance = null;
+        }
+
         // 显示加载提示
         showLoading('正在准备播放列表...');
 
@@ -568,6 +892,12 @@ async function startSlideshowFromCurrent(currentPhotoId) {
         // 创建UI
         const ui = new SlideshowUI(player, dataManager);
 
+        // 设置player的UI引用，用于加载状态检查
+        player.ui = ui;
+
+        // 设置全局播放实例引用
+        currentSlideshowInstance = ui;
+
         // 显示播放器
         ui.show();
 
@@ -582,6 +912,20 @@ async function startSlideshowFromCurrent(currentPhotoId) {
 // 全局函数：从选中照片开始播放
 async function startSlideshowFromSelection() {
     try {
+        // 如果已有播放实例在运行，先清理
+        if (currentSlideshowInstance) {
+            console.log('检测到已有播放实例，正在清理...');
+            try {
+                currentSlideshowInstance.cleanup();
+            } catch (e) {
+                console.warn('清理旧播放实例时出错:', e);
+            }
+            currentSlideshowInstance = null;
+        }
+
+        // 显示加载提示
+        showLoading('正在准备播放列表...');
+
         // 使用PhotoManager的状态，确保与UI同步
         const selectedIds = window.PhotoManager ? window.PhotoManager.selectedPhotos : new Set();
 
@@ -609,6 +953,12 @@ async function startSlideshowFromSelection() {
         // 创建UI
         const ui = new SlideshowUI(player, dataManager);
 
+        // 设置player的UI引用，用于加载状态检查
+        player.ui = ui;
+
+        // 设置全局播放实例引用
+        currentSlideshowInstance = ui;
+
         // 显示播放器
         ui.show();
 
@@ -623,6 +973,17 @@ async function startSlideshowFromSelection() {
 // 开始播放全部照片（当前筛选条件下的所有照片）
 async function startSlideshowFromAll() {
     try {
+        // 如果已有播放实例在运行，先清理
+        if (currentSlideshowInstance) {
+            console.log('检测到已有播放实例，正在清理...');
+            try {
+                currentSlideshowInstance.cleanup();
+            } catch (e) {
+                console.warn('清理旧播放实例时出错:', e);
+            }
+            currentSlideshowInstance = null;
+        }
+
         // 显示加载提示
         showLoading('正在准备播放列表...');
 
@@ -650,6 +1011,12 @@ async function startSlideshowFromAll() {
 
         // 创建UI
         const ui = new SlideshowUI(player, dataManager);
+
+        // 设置player的UI引用，用于加载状态检查
+        player.ui = ui;
+
+        // 设置全局播放实例引用
+        currentSlideshowInstance = ui;
 
         // 显示播放器
         ui.show();
