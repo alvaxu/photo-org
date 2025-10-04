@@ -98,14 +98,12 @@ def create_optimized_indexes():
         # 6. 创建全文搜索虚拟表
         print("\n🔍 创建全文搜索功能...")
 
-        # 为照片内容创建FTS5虚拟表
+        # 为照片内容创建FTS5虚拟表 (V2版本，包含地址字段)
         fts_sql = """
         CREATE VIRTUAL TABLE IF NOT EXISTS photos_fts USING fts5(
             photo_id UNINDEXED,
-            filename, original_path,
-            analysis_content, tags_content,
-            content=photos,
-            content_rowid=id
+            filename, original_path, description, location_name,
+            tags_content, categories_content, analysis_content
         )
         """
         connection.execute(text(fts_sql))

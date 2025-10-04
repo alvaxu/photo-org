@@ -283,15 +283,46 @@ if __name__ == "__main__":
     init_system_categories()
     print("✅ 系统分类初始化完成")
 
-    # 初始化FTS表
+    # 初始化/升级FTS表
     print("🔍 正在初始化全文搜索...")
     from app.services.fts_service import FTSService
     from app.db.session import get_db
     fts_service = FTSService()
     db = next(get_db())
     try:
-        fts_service.create_fts_table(db)
-        print("✅ 全文搜索初始化完成")
+        # 检查FTS表是否存在
+        if not fts_service.check_fts_table_exists(db):
+            # 新建数据库，从0开始
+            print("🆕 新建数据库，创建FTS表和触发器...")
+            success = fts_service.create_fts_table(db)
+            if success:
+                print("✅ 全文搜索表创建完成")
+            else:
+                print("❌ 全文搜索表创建失败")
+        else:
+            # 已有数据库，检查FTS表版本
+            print("🔍 检测到FTS表存在，检查版本...")
+            current_version = fts_service.get_fts_version(db)
+
+            try:
+                if current_version < 2:
+                    # 老版本FTS表（V1），需要重建为V2
+                    print(f"⬆️  FTS表版本{current_version}，重建到V2...")
+                    success = fts_service.rebuild_fts_table(db)
+                    if success:
+                        print("✅ FTS表重建到V2完成")
+                    else:
+                        print("❌ FTS表重建失败")
+                else:
+                    # 最新版本FTS表（V2），直接跳过
+                    print(f"✅ FTS表已是最新版本{current_version}，无需操作")
+
+                # 清理可能的备份表
+                fts_service._cleanup_backup_table(db)
+
+            except Exception as e:
+                print(f"❌ FTS处理异常: {e}")
+                # 继续启动，不因为FTS失败而停止应用
     finally:
         db.close()
 

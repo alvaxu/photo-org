@@ -75,19 +75,37 @@ async def search_photos(
         elif date_filter:
             from datetime import datetime, timedelta
             today = datetime.now().date()
-            
+
             if date_filter == "today":
                 processed_date_from = today
                 processed_date_to = today
-            elif date_filter == "week":
-                processed_date_from = today - timedelta(days=today.weekday())
+            elif date_filter == "yesterday":
+                yesterday = today - timedelta(days=1)
+                processed_date_from = yesterday
+                processed_date_to = yesterday
+            elif date_filter == "last_7_days":
+                processed_date_from = today - timedelta(days=7)
                 processed_date_to = today
-            elif date_filter == "month":
-                processed_date_from = today.replace(day=1)
+            elif date_filter == "last_30_days":
+                processed_date_from = today - timedelta(days=30)
                 processed_date_to = today
-            elif date_filter == "year":
+            elif date_filter == "last_month":
+                # 获取上个月的日期范围
+                first_day_of_current_month = today.replace(day=1)
+                last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
+                first_day_of_last_month = last_day_of_last_month.replace(day=1)
+                processed_date_from = first_day_of_last_month
+                processed_date_to = last_day_of_last_month
+            elif date_filter == "this_year":
                 processed_date_from = today.replace(month=1, day=1)
                 processed_date_to = today
+            elif date_filter == "last_year":
+                processed_date_from = date(today.year - 1, 1, 1)
+                processed_date_to = date(today.year - 1, 12, 31)
+            elif date_filter == "no_date":
+                # 特殊处理：无拍摄时间，使用特殊标识值
+                processed_date_from = "no_date"
+                processed_date_to = "no_date"
         
         # 处理质量筛选
         processed_quality_level = quality_level or quality_filter

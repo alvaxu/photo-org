@@ -87,9 +87,17 @@ class SearchService:
                 query = query.filter(Photo.camera_model == camera_model)
 
             # 日期筛选
-            if date_from:
+            if date_from == "no_date" and date_to == "no_date":
+                # 特殊处理：筛选无拍摄时间的照片
+                query = query.filter(Photo.taken_at.is_(None))
+            elif date_from and date_from != "no_date" and date_to and date_to != "no_date":
+                # 日期范围查询（同时设置开始和结束日期）
+                query = query.filter(Photo.taken_at.between(date_from, date_to))
+            elif date_from and date_from != "no_date":
+                # 只设置开始日期
                 query = query.filter(Photo.taken_at >= date_from)
-            if date_to:
+            elif date_to and date_to != "no_date":
+                # 只设置结束日期
                 query = query.filter(Photo.taken_at <= date_to)
 
             # 质量筛选
@@ -229,6 +237,13 @@ class SearchService:
             )
             return query
 
+        elif search_type == "address":
+            # 搜索拍摄地址信息
+            query = query.filter(
+                Photo.location_name.ilike(f"%{keyword}%")
+            )
+            return query
+
         elif search_type == "ai_analysis":
             # 搜索所有类型的AI分析结果（content, scene, objects, faces等）
             query = query.filter(
@@ -240,12 +255,13 @@ class SearchService:
 
         # 如果FTS失败或search_type为all，使用传统的LIKE查询作为后备
         if search_type == "all":
-            # 搜索文件名、路径、标签、分类和分析结果
+            # 搜索文件名、路径、描述、标签、分类、分析结果和地址信息
             query = query.filter(
                 or_(
                     Photo.filename.ilike(f"%{keyword}%"),
                     Photo.original_path.ilike(f"%{keyword}%"),
                     Photo.description.ilike(f"%{keyword}%"),
+                    Photo.location_name.ilike(f"%{keyword}%"),  # 搜索地址信息
                     # 搜索标签
                     Photo.tags.any(PhotoTag.tag.has(Tag.name.ilike(f"%{keyword}%"))),
                     # 搜索分类

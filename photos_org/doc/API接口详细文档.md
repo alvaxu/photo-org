@@ -1026,14 +1026,14 @@
 | 参数名 | 类型 | 必需 | 默认值 | 描述 |
 |--------|------|------|--------|------|
 | keyword | string | 否 | null | 关键词搜索 |
-| search_type | string | 否 | "all" | 搜索类型 |
+| search_type | string | 否 | "all" | 搜索类型：all(全部内容)、filename(文件名)、description(用户描述)、address(拍摄地址)、ai_analysis(AI分析结果) |
 | camera_make | string | 否 | null | 相机品牌 |
 | camera_model | string | 否 | null | 相机型号 |
 | date_from | date | 否 | null | 开始日期 |
 | date_to | date | 否 | null | 结束日期 |
 | start_date | date | 否 | null | 自定义开始日期 |
 | end_date | date | 否 | null | 自定义结束日期 |
-| date_filter | string | 否 | null | 日期筛选类型 |
+| date_filter | string | 否 | null | 日期筛选类型：today(今天)、yesterday(昨天)、last_7_days(最近7天)、last_30_days(最近30天)、last_month(上个月)、this_year(今年)、last_year(去年)、no_date(无拍摄时间)、custom(自定义范围) |
 | quality_min | float | 否 | null | 最低质量分数 (0-100) |
 | quality_level | string | 否 | null | 质量等级 |
 | quality_filter | string | 否 | null | 质量筛选 |
@@ -1106,7 +1106,7 @@
 | 参数名 | 类型 | 必需 | 默认值 | 描述 |
 |--------|------|------|--------|------|
 | prefix | string | 是 | - | 搜索前缀 |
-| search_type | string | 否 | "all" | 搜索类型 |
+| search_type | string | 否 | "all" | 搜索类型：all(全部内容)、filename(文件名)、description(用户描述)、address(拍摄地址)、ai_analysis(AI分析结果) |
 | limit | integer | 否 | 10 | 建议数量限制 |
 
 **实际响应格式**：

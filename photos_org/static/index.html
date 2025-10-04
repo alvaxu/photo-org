@@ -139,6 +139,7 @@
                                             <option value="all">全部内容</option>
                                             <option value="filename">文件名</option>
                                             <option value="description">用户描述</option>
+                                            <option value="address">拍摄地址</option>
                                             <option value="ai_analysis">AI分析结果</option>
                                         </select>
                                         <input type="text" class="form-control" id="searchInput" 
@@ -223,10 +224,14 @@
                                 <select class="form-select" id="dateFilter">
                                             <option value="" selected>全部时间</option>
                                     <option value="today">今天</option>
-                                    <option value="week">本周</option>
-                                    <option value="month">本月</option>
-                                    <option value="year">今年</option>
-                                    <option value="custom">自定义</option>
+                                    <option value="yesterday">昨天</option>
+                                    <option value="last_7_days">最近7天</option>
+                                    <option value="last_30_days">最近30天</option>
+                                    <option value="last_month">上个月</option>
+                                    <option value="this_year">今年</option>
+                                    <option value="last_year">去年</option>
+                                    <option value="no_date">无拍摄时间</option>
+                                    <option value="custom">自定义范围</option>
                                 </select>
                             </div>
 

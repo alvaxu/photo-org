@@ -1032,6 +1032,7 @@ function updateFilterStatus() {
             'all': '全部内容',
             'filename': '文件名',
             'description': '描述',
+            'address': '拍摄地址',
             'ai_analysis': 'AI分析结果'
         };
         const searchTypeLabel = searchTypeLabels[filters.searchType] || '全部内容';
@@ -1041,15 +1042,21 @@ function updateFilterStatus() {
     if (filters.dateFilter && filters.dateFilter !== '') {
         const dateLabels = {
             'today': '今天',
-            'week': '本周',
-            'month': '本月',
-            'year': '今年',
+            'yesterday': '昨天',
+            'last_7_days': '最近7天',
+            'last_30_days': '最近30天',
+            'last_month': '上个月',
+            'this_year': '今年',
+            'last_year': '去年',
+            'no_date': '无拍摄时间',
             'custom': '自定义'
         };
         if (filters.dateFilter === 'custom' && elements.startDate.value && elements.endDate.value) {
             statusParts.push(`日期: ${elements.startDate.value} 至 ${elements.endDate.value}`);
         } else if (dateLabels[filters.dateFilter]) {
             statusParts.push(`日期: ${dateLabels[filters.dateFilter]}`);
+        } else if (filters.dateFilter === 'no_date') {
+            statusParts.push('日期: 无拍摄时间');
         }
     }
     
