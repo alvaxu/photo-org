@@ -207,7 +207,7 @@ function hideImportError() {
  * @param {string} method - 导入方式 ('file' 或 'folder')
  */
 function switchImportMethod(method) {
-    console.log('切换导入方式:', method);
+    // 移除调试日志
     
     // 切换时隐藏错误信息
     hideImportError();
@@ -240,17 +240,14 @@ function handleFolderPathChange() {
  * 浏览文件夹
  */
 function browseFolder() {
-    console.log('🔍 点击浏览文件夹按钮');
     // 触发隐藏的文件夹选择输入框
     const folderFilesInput = document.getElementById('folderFiles');
-    console.log('文件夹输入框:', folderFilesInput);
     if (folderFilesInput) {
-        console.log('✅ 触发文件夹选择对话框');
         // 先清空之前的选择，避免浏览器缓存
         folderFilesInput.value = '';
         folderFilesInput.click();
     } else {
-        console.error('❌ 找不到文件夹输入框');
+        console.error('找不到文件夹输入框');
     }
 }
 
@@ -265,9 +262,7 @@ function handleFolderSelection(event) {
      * 
      * @param {Event} event - 文件选择事件
      */
-    console.log('📁 文件夹选择事件触发');
     const files = event.target.files;
-    console.log('选择的文件数量:', files?.length || 0);
     
     // 隐藏之前的错误信息
     hideImportError();
@@ -281,7 +276,7 @@ function handleFolderSelection(event) {
         const filePath = firstFile.webkitRelativePath || firstFile.name;
         const folderPath = filePath.substring(0, filePath.lastIndexOf('/'));
         
-        console.log('文件夹路径:', folderPath);
+        // 处理文件夹路径
         
         // 显示文件夹路径
         elements.folderPath.value = folderPath;
@@ -296,7 +291,7 @@ function handleFolderSelection(event) {
             
             return isImageByType || isImageByExt;
         });
-        console.log(`选择了文件夹，包含 ${imageFiles.length} 个图片文件`);
+        // 显示选择的文件数量
         
         // 更新导入按钮状态
         handleFolderPathChange();
@@ -304,7 +299,7 @@ function handleFolderSelection(event) {
         // 延迟显示文件预览信息，确保浏览器确认对话框关闭后再显示
         setTimeout(() => {
             previewFolderContents(files);
-            console.log('📋 文件预览已显示，等待用户确认导入');
+            // 文件预览已显示
         }, 100);
     } else {
         console.log('❌ 没有选择任何文件');
@@ -696,18 +691,16 @@ function validateFolderPath(path) {
  * 开始导入
  */
 async function startImport() {
-    console.log('🚀 开始导入，检查配置和状态...');
-    console.log('CONFIG 对象:', window.CONFIG);
-    console.log('AppState 对象:', window.AppState);
+    // 检查配置和状态
     
     const importMethod = document.querySelector('input[name="importMethod"]:checked').value;
-    console.log('选择的导入方式:', importMethod);
+    // 获取选择的导入方式
     
     if (importMethod === 'file') {
-        console.log('执行文件导入...');
+        // 执行文件导入
         await startFileImport();
     } else if (importMethod === 'folder') {
-        console.log('执行文件夹导入...');
+        // 执行文件夹导入
         await startFolderImport();
     } else {
         console.error('未知的导入方式:', importMethod);
@@ -800,11 +793,11 @@ async function uploadFilesInBatches(allFiles, batchSize = 100) {
 }
 
 async function startFileImport() {
-    console.log('开始文件导入');
+    // 开始文件导入
 
     // 确保用户配置已加载
     if (!window.userConfig) {
-        console.log('加载用户配置...');
+        // 加载用户配置
         await loadUserConfig();
     }
 
@@ -821,7 +814,7 @@ async function startFileImport() {
     // 如果文件数量超过阈值，使用分批上传（获得并行处理优势）
     const BATCH_THRESHOLD = CONFIG.importConfig?.batch_threshold || 200;
     if (files.length > BATCH_THRESHOLD) {
-        console.log(`文件数量(${files.length})超过阈值(${BATCH_THRESHOLD})，使用分批上传`);
+        // 文件数量超过阈值，使用分批上传
 
         // 隐藏之前的错误信息
         hideImportError();
@@ -838,7 +831,7 @@ async function startFileImport() {
 
         try {
             const batchSize = CONFIG.importConfig?.scan_batch_size || 100;
-            console.log(`使用配置的导入批次大小: ${batchSize}`);
+            // 使用配置的导入批次大小
             const batchResults = await uploadFilesInBatches(files, batchSize);
 
             // 统计结果
@@ -851,11 +844,11 @@ async function startFileImport() {
             }
 
             // 所有批次上传成功，开始监控批次完成状态
-            console.log(`所有批次上传成功，共${successfulBatches.length}批，${successfulBatches.reduce((sum, b) => sum + b.files, 0)}个文件`);
+            // 所有批次上传成功
 
             // 收集所有批次的任务ID
             const batchTaskIds = successfulBatches.map(batch => batch.taskId);
-            console.log('收集到批次任务ID:', batchTaskIds);
+            // 收集批次任务ID
 
             // 开始监控批次聚合状态
             monitorBatchProgress(batchTaskIds, files.length);
@@ -1026,12 +1019,11 @@ async function startFileImport() {
  * 开始文件夹导入
  */
 async function startFolderImport() {
-    console.log('开始目录扫描导入');
-    console.log('CONFIG.API_BASE_URL:', window.CONFIG?.API_BASE_URL);
+    // 开始目录扫描导入
 
     // 确保用户配置已加载
     if (!window.userConfig) {
-        console.log('加载用户配置...');
+        // 加载用户配置
         await loadUserConfig();
     }
     
@@ -1070,7 +1062,7 @@ async function startFolderImport() {
     // 如果文件数量超过阈值，使用分批上传（获得并行处理优势）
     const BATCH_THRESHOLD = CONFIG.importConfig?.batch_threshold || 200;
     if (imageFiles.length > BATCH_THRESHOLD) {
-        console.log(`目录文件数量(${imageFiles.length})超过阈值(${BATCH_THRESHOLD})，使用分批上传`);
+        // 目录文件数量超过阈值，使用分批上传
 
         // 隐藏之前的错误信息
         hideImportError();
@@ -1090,7 +1082,7 @@ async function startFolderImport() {
 
         try {
             const batchSize = CONFIG.importConfig?.scan_batch_size || 100;
-            console.log(`使用配置的导入批次大小: ${batchSize}`);
+            // 使用配置的导入批次大小
             const batchResults = await uploadFilesInBatches(imageFiles, batchSize);
 
             // 统计上传结果
@@ -1105,7 +1097,7 @@ async function startFolderImport() {
 
                 // 收集成功批次的任务ID
                 const successfulTaskIds = successfulBatches.map(batch => batch.taskId);
-                console.log('将监控成功批次任务ID:', successfulTaskIds);
+                // 监控成功批次任务ID
 
                 // 开始监控成功的批次处理进度
                 monitorBatchProgress(successfulTaskIds, totalSuccessfulFiles, failedBatches);
@@ -1157,7 +1149,7 @@ async function startFolderImport() {
         });
         
         const apiUrl = `${window.CONFIG.API_BASE_URL}/import/upload`;
-        console.log('API URL:', apiUrl);
+        // API调用
         console.log('发送的文件数量:', imageFiles.length);
         
         // 使用XMLHttpRequest替代fetch以获取上传进度
@@ -1350,8 +1342,7 @@ async function monitorScanProgress(taskId, totalFiles) {
  * 开始智能处理
  */
 async function startBatchProcess() {
-    console.log('开始智能处理');
-    console.log('智能处理按钮点击事件触发');
+    // 智能处理按钮点击事件
     
     // 智能处理默认执行所有三种分析类型
     const enableAIAnalysis = true;
@@ -1435,7 +1426,7 @@ async function startBatchProcess() {
                     const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/queue/status?initial_total=${initialTotal}`);
                     const statusData = await statusResponse.json();
                     
-                    console.log('处理状态:', statusData);
+                    // 处理状态更新
                     
                     // 更新进度条
                     const progress = Math.min(statusData.progress_percentage || 0, 95);
@@ -2532,7 +2523,7 @@ window.reprocessSelectedPhotos = () => window.batchProcessor.processSelectedPhot
  * 开始基础分析
  */
 async function startBasicAnalysis() {
-    console.log('开始基础分析');
+    // 开始基础分析
 
     // 重置模态框状态到初始状态
     resetBasicModal();
@@ -2626,7 +2617,7 @@ async function processBasicAnalysisInBatches(photoIds, batchSize) {
     const totalBatches = Math.ceil(totalPhotos / batchSize);
     const batchInfo = []; // 保存每个批次的信息
 
-    console.log(`基础分析分批处理：${totalPhotos}张照片，分为${totalBatches}批`);
+    // 基础分析分批处理
 
     // 禁用开始按钮，防止重复点击
     document.getElementById('startBasicBtn').disabled = true;
@@ -2670,11 +2661,11 @@ async function processBasicAnalysisInBatches(photoIds, batchSize) {
                 batchIndex: currentBatch
             });
 
-            console.log(`第${currentBatch}批分析任务已启动: ${data.task_id}, 照片数量: ${batchPhotoIds.length}`);
+            // 第${currentBatch}批分析任务已启动
         }
 
         // 所有批次启动完成，开始监控
-        console.log('所有基础分析批次已启动，开始监控聚合进度');
+        // 所有基础分析批次已启动，开始监控聚合进度
         document.getElementById('basicStatus').textContent =
             `所有${totalBatches}批分析任务已启动，正在后台处理...`;
 
@@ -2960,7 +2951,7 @@ async function showBasicAnalysisBatchResults(batchInfo, batchProgress, totalPhot
  * 开始AI分析
  */
 async function startAIAnalysis() {
-    console.log('开始AI分析');
+    // 开始AI分析
 
     // 重置模态框状态到初始状态
     resetAIModal();
@@ -3030,7 +3021,7 @@ async function startBasicProcess() {
 
     // 确保用户配置已加载
     if (!window.userConfig) {
-        console.log('加载用户配置...');
+        // 加载用户配置
         await loadUserConfig();
     }
 
@@ -3178,7 +3169,7 @@ function calculateBatchDistribution(photoIds, batchCount) {
  * AI分析分批处理
  */
 async function processAIAnalysisInBatches(photoIds, batchCount) {
-    console.log(`开始AI分析分批处理: ${photoIds.length}张照片分${batchCount}批`);
+    // 开始AI分析分批处理
 
     // 计算批次分配
     const batches = calculateBatchDistribution(photoIds, batchCount);
@@ -3199,7 +3190,7 @@ async function processAIAnalysisInBatches(photoIds, batchCount) {
 
     for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
-        console.log(`处理第${i + 1}批: ${batch.photoIds.length}张照片`);
+        // 处理第${i + 1}批
 
         // 更新批次进度显示
         updateAIBatchProgress(i + 1, batches.length, batch, totalPhotosInAllBatches);
@@ -3291,7 +3282,7 @@ async function processAIAnalysisInBatches(photoIds, batchCount) {
  * 处理单批次AI分析（少量照片时的直接处理）
  */
 async function processAISingleBatch(photoIds) {
-    console.log(`直接处理AI分析: ${photoIds.length}张照片`);
+    // 直接处理AI分析
 
     // 显示进度
     document.getElementById('aiProgress').classList.remove('d-none');
@@ -3489,7 +3480,7 @@ function showBatchConfirmation(batchIndex, totalBatches, batch, totalPhotosInAll
  * 提交单个AI分析批次
  */
 async function submitAIBatch(photoIds) {
-    console.log(`提交AI分析批次: ${photoIds.length}张照片`);
+    // 提交AI分析批次
 
     const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
         method: 'POST',
@@ -3568,7 +3559,7 @@ async function monitorBasicAnalysisProgress(taskId, totalPhotos, initialTotal) {
             const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/task-status/${taskId}?initial_total=${initialTotal}`);
             const statusData = await statusResponse.json();
 
-            console.log('基础分析状态:', statusData);
+            // 移除频繁的状态日志以提升性能
 
             // 更新进度条
             const progress = Math.min(statusData.progress_percentage || 0, 95);
@@ -3659,7 +3650,7 @@ async function monitorAIAnalysisProgress(taskId, totalPhotos, initialTotal) {
             const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/task-status/${taskId}?initial_total=${initialTotal}`);
             const statusData = await statusResponse.json();
 
-            console.log('AI分析状态:', statusData);
+            // 移除频繁的状态日志以提升性能
 
             // 更新进度条
             const progress = Math.min(statusData.progress_percentage || 0, 95);
@@ -3897,7 +3888,7 @@ async function startSelectedBasicAnalysis(selectedPhotoIds) {
         }
 
         const result = await response.json();
-        console.log('基础分析任务已启动:', result);
+        // 基础分析任务已启动
 
         // 监控处理进度
         await monitorBasicAnalysisProgress(result.task_id, photoIds.length, photoIds.length);
@@ -3950,7 +3941,7 @@ async function startSelectedAIAnalysis(selectedPhotoIds) {
         }
 
         const result = await response.json();
-        console.log('AI分析任务已启动:', result);
+        // AI分析任务已启动
 
         // 监控处理进度
         await monitorAIAnalysisProgress(result.task_id, photoIds.length, photoIds.length);

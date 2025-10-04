@@ -71,7 +71,7 @@ async function loadUserConfig() {
                 CONFIG.PAGE_SIZE = userConfig.ui?.photos_per_page || 12;
                 CONFIG.importConfig = userConfig.import || {};
                 CONFIG.analysisConfig = userConfig.analysis || {};
-                console.log('用户配置加载成功:', userConfig);
+                // 用户配置加载成功
             }
         }
     } catch (error) {
@@ -94,7 +94,7 @@ let globalCategoriesData = [];
 
 // 标签名称查找辅助函数
 function findTagName(tagId) {
-    console.log(`🔍 查找标签ID: ${tagId} (类型: ${typeof tagId})`);
+    // 查找标签名称
 
     // 首先尝试从当前显示的选项中查找（最可靠的方法）
     const tagOptions = document.querySelectorAll('#tagOptions input[type="checkbox"]');
@@ -104,7 +104,7 @@ function findTagName(tagId) {
             const label = checkbox.parentElement.querySelector('label');
             if (label) {
                 const tagName = label.textContent.trim();
-                console.log(`  ✅ 从DOM选项中找到: "${tagName}"`);
+                // 从DOM选项中找到标签
                 return tagName;
             }
         }
@@ -114,22 +114,22 @@ function findTagName(tagId) {
     let tag = null;
     if (window.tagMultiSelect && window.tagMultiSelect.filteredData) {
         tag = window.tagMultiSelect.filteredData.find(item => item.id === tagId);
-        console.log(`  🔍 多选组件过滤数据查找:`, tag);
+        // 从多选组件过滤数据查找
     }
 
     if (!tag && window.tagMultiSelect && window.tagMultiSelect.data) {
         tag = window.tagMultiSelect.data.find(item => item.id === tagId);
-        console.log(`  🔍 多选组件原始数据查找:`, tag);
+        // 从多选组件原始数据查找
     }
 
     // 如果还是找不到，尝试从全局标签数据中查找
     if (!tag) {
         tag = globalTagsData ? globalTagsData.find(tag => tag.id === tagId) : null;
-        console.log(`  📊 全局标签数据查找:`, tag);
+        // 从全局标签数据查找
     }
 
     const result = tag ? tag.name : `标签${tagId}`;
-    console.log(`  ✅ 最终结果: "${result}"`);
+    // 返回结果
     return result;
 }
 
@@ -155,20 +155,14 @@ function findCategoryName(categoryId) {
  * 初始化多选下拉组件
  */
 function initMultiSelectDropdown(container, data, placeholder, onChange) {
-    console.log('初始化多选下拉 - 容器:', container);
-    console.log('初始化多选下拉 - 数据:', data);
+    // 初始化多选下拉组件
     
     const button = container.querySelector('.dropdown-toggle');
     const buttonText = container.querySelector('[id$="FilterText"]');
     const searchInput = container.querySelector('input[type="text"]');
     const optionsContainer = container.querySelector('[id$="Options"]');
     
-    console.log('找到的元素:', {
-        button,
-        buttonText,
-        searchInput,
-        optionsContainer
-    });
+    // 找到必要的DOM元素
     
     let selectedItems = new Set();
     let filteredData = [...data];

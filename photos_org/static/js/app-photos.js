@@ -351,20 +351,20 @@ function selectAllPhotos() {
         const selectAllBtn = document.getElementById('selectAllBtn');
         if (selectAllBtn) {
             const buttonText = selectAllBtn.textContent.trim();
-            console.log('按钮文本:', buttonText);
+            // 检查按钮文本
 
             if (buttonText === '取消全选') {
                 // 当前是取消全选状态，执行取消选择
-                console.log('执行取消全选');
+                // 执行取消全选
                 window.PhotoManager.clearSelection();
             } else {
                 // 当前是全选状态，执行全选
-                console.log('执行全选');
+                // 执行全选
                 window.PhotoManager.selectAllPhotos();
             }
         } else {
             // 如果找不到按钮，默认执行全选
-            console.log('找不到全选按钮，默认执行全选');
+            // 找不到全选按钮，默认执行全选
             window.PhotoManager.selectAllPhotos();
         }
     } else {
@@ -377,7 +377,7 @@ function selectAllPhotos() {
  * 取消选择
  */
 function clearSelection() {
-    console.log('取消选择');
+    // 取消选择
     if (window.PhotoManager) {
         window.PhotoManager.clearSelection();
     } else {
@@ -390,7 +390,7 @@ function clearSelection() {
  * 删除选中照片
  */
 function deleteSelectedPhotos() {
-    console.log('删除选中照片');
+    // 删除选中照片
     if (window.PhotoManager) {
         const selectedIds = window.PhotoManager.getSelectedPhotoIds();
         if (selectedIds.length > 0) {
@@ -410,7 +410,7 @@ function deleteSelectedPhotos() {
  * @param {string} section - 页面名称
  */
 function switchSection(section) {
-    console.log('📄 切换到页面:', section);
+    // 切换页面
     
     // 更新导航状态
     updateNavigation(section);
@@ -474,7 +474,7 @@ async function viewPhotoDetail(photoId) {
     
     // 如果本地找不到，通过API获取照片详情
     try {
-        console.log('从API获取照片详情:', photoId);
+        // 从API获取照片详情
         const response = await fetch(`${CONFIG.API_BASE_URL}/search/photos/${photoId}`);
         
         if (response.ok) {
@@ -501,7 +501,7 @@ async function viewPhotoDetail(photoId) {
  * @param {number} photoId - 照片ID
  */
 async function editPhoto(photoId) {
-    console.log('编辑照片:', photoId);
+    // 编辑照片
     
     // 检查是否有相似照片模态框显示，如果有则先隐藏并标记
     const similarModal = document.getElementById('similarPhotosModal');
