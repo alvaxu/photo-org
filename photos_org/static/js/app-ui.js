@@ -361,16 +361,92 @@ function createPhotoDetailModal(photo) {
     // 构建AI分析信息
     const aiInfo = [];
     if (photo.analysis) {
-        if (photo.analysis.description) aiInfo.push(`<p><strong>AI内容描述：</strong>${photo.analysis.description}</p>`);
-        if (photo.analysis.scene_type) aiInfo.push(`<p><strong>场景类型：</strong>${photo.analysis.scene_type}</p>`);
+        // AI内容描述
+        if (photo.analysis.description) {
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>AI内容描述：</strong></div>
+                <div class="text-muted small">${photo.analysis.description}</div>
+            </div>`);
+        }
+
+        // 场景类型
+        if (photo.analysis.scene_type) {
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>场景类型：</strong>${photo.analysis.scene_type}</div>
+            </div>`);
+        }
+
+        // 检测到的物体
         if (photo.analysis.objects && photo.analysis.objects.length > 0) {
-            aiInfo.push(`<p><strong>检测到的物体：</strong>${photo.analysis.objects.join(', ')}</p>`);
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>检测到的物体：</strong></div>
+                <div class="text-muted small">${photo.analysis.objects.join('、')}</div>
+            </div>`);
         }
+
+        // 人物数量
+        if (photo.analysis.people_count) {
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>人物数量：</strong>${photo.analysis.people_count}</div>
+            </div>`);
+        }
+
+        // 情感
+        if (photo.analysis.emotion) {
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>情感：</strong>${photo.analysis.emotion}</div>
+            </div>`);
+        }
+
+        // 活动类型
+        if (photo.analysis.activity) {
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>活动类型：</strong>${photo.analysis.activity}</div>
+            </div>`);
+        }
+
+        // 时间特征
+        if (photo.analysis.time_period) {
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>时间特征：</strong>${photo.analysis.time_period}</div>
+            </div>`);
+        }
+
+        // 地点类型
+        if (photo.analysis.location_type) {
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>地点类型：</strong>${photo.analysis.location_type}</div>
+            </div>`);
+        }
+
+        // AI标签
         if (photo.analysis.tags && photo.analysis.tags.length > 0) {
-            aiInfo.push(`<p><strong>AI标签：</strong>${photo.analysis.tags.join(', ')}</p>`);
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>AI标签：</strong></div>
+                <div class="text-muted small">${photo.analysis.tags.join('、')}</div>
+            </div>`);
         }
+
+        // 置信度
         if (photo.analysis.confidence) {
-            aiInfo.push(`<p><strong>置信度：</strong>${(photo.analysis.confidence * 100).toFixed(1)}%</p>`);
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>置信度：</strong>${(photo.analysis.confidence * 100).toFixed(1)}%</div>
+            </div>`);
+        }
+
+        // 分析时间
+        if (photo.analysis.analyzed_at) {
+            const analyzedDate = new Date(photo.analysis.analyzed_at);
+            const formattedDate = analyzedDate.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            aiInfo.push(`<div class="mb-2">
+                <div><strong>分析时间：</strong>${formattedDate}</div>
+            </div>`);
         }
     }
     
@@ -467,70 +543,84 @@ function createPhotoDetailModal(photo) {
             ` : ''}
             
             ${aiInfo.length > 0 ? `
-            <!-- AI分析结果 -->
-            <div class="col-md-6 col-lg-4">
+            <!-- AI分析结果 - 占用更多宽度以适应内容 -->
+            <div class="col-md-8">
                 <div class="card h-100">
                     <div class="card-header">
                         <h6 class="card-title mb-0"><i class="bi bi-robot me-2"></i>AI分析结果</h6>
                     </div>
                     <div class="card-body">
-                        ${aiInfo.join('')}
+                        <div class="row">
+                            <!-- 左侧列：主要分析结果 -->
+                            <div class="col-md-6">
+                                ${aiInfo.slice(0, Math.ceil(aiInfo.length / 2)).join('')}
+                            </div>
+                            <!-- 右侧列：其他分析信息 -->
+                            <div class="col-md-6">
+                                ${aiInfo.slice(Math.ceil(aiInfo.length / 2)).join('')}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             ` : ''}
             
-            ${descriptionInfo.length > 0 ? `
-            <!-- 用户照片描述 -->
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0"><i class="bi bi-chat-text me-2"></i>用户描述</h6>
+            <!-- 右侧信息区域 -->
+            <div class="col-md-4">
+                <div class="row g-3">
+                    ${descriptionInfo.length > 0 ? `
+                    <!-- 用户照片描述 -->
+                    <div class="col-12">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0"><i class="bi bi-chat-text me-2"></i>用户描述</h6>
+                            </div>
+                            <div class="card-body">
+                                ${descriptionInfo.join('')}
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        ${descriptionInfo.join('')}
+                    ` : ''}
+
+                    <!-- 标签 -->
+                    <div class="col-12">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0"><i class="bi bi-tags me-2"></i>标签</h6>
+                            </div>
+                            <div class="card-body">
+                                ${photo.tags && photo.tags.length > 0 ?
+                                    photo.tags.map(tag => `<span class="badge bg-secondary me-1 mb-1">${tag}</span>`).join('') :
+                                    '<p class="text-muted mb-0">暂无标签</p>'
+                                }
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            ` : ''}
-            
-            <!-- 标签 -->
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0"><i class="bi bi-tags me-2"></i>标签</h6>
+
+                    ${categoryInfo.length > 0 ? `
+                    <!-- 分类 -->
+                    <div class="col-12">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0"><i class="bi bi-folder me-2"></i>分类</h6>
+                            </div>
+                            <div class="card-body">
+                                ${categoryInfo.join('')}
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        ${photo.tags && photo.tags.length > 0 ? 
-                            photo.tags.map(tag => `<span class="badge bg-secondary me-1 mb-1">${tag}</span>`).join('') : 
-                            '<p class="text-muted mb-0">暂无标签</p>'
-                        }
-                    </div>
-                </div>
-            </div>
-            
-            ${categoryInfo.length > 0 ? `
-            <!-- 分类 -->
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0"><i class="bi bi-folder me-2"></i>分类</h6>
-                    </div>
-                    <div class="card-body">
-                        ${categoryInfo.join('')}
-                    </div>
-                </div>
-            </div>
-            ` : ''}
-            
-            <!-- 文件信息 -->
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0"><i class="bi bi-file-earmark me-2"></i>文件信息</h6>
-                    </div>
-                    <div class="card-body">
-                        ${fileInfo.map(info => `<p class="small mb-1">${info}</p>`).join('')}
+                    ` : ''}
+
+                    <!-- 文件信息 -->
+                    <div class="col-12">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0"><i class="bi bi-file-earmark me-2"></i>文件信息</h6>
+                            </div>
+                            <div class="card-body">
+                                ${fileInfo.map(info => `<p class="small mb-1">${info}</p>`).join('')}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

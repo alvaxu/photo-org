@@ -134,19 +134,29 @@ async def get_photos(
             if analysis:
                 # 解析analysis_result JSON数据
                 try:
-                    analysis_data = analysis.analysis_result if isinstance(analysis.analysis_result, dict) else {}
+                    # ChineseFriendlyJSON应该自动反序列化为dict，但这里确保兼容性
+                    if isinstance(analysis.analysis_result, dict):
+                        analysis_data = analysis.analysis_result
+                    elif isinstance(analysis.analysis_result, str):
+                        import json
+                        analysis_data = json.loads(analysis.analysis_result)
+                    else:
+                        analysis_data = {}
+
                     photo_dict["analysis"] = {
                         "description": analysis_data.get("description", ""),
                         "tags": analysis_data.get("tags", []),
                         "confidence": analysis.confidence_score,
                         "type": analysis.analysis_type
                     }
-                except:
+                except Exception as e:
+                    # 如果解析失败，至少返回基本信息
                     photo_dict["analysis"] = {
                         "description": "",
                         "tags": [],
                         "confidence": analysis.confidence_score,
-                        "type": analysis.analysis_type
+                        "type": analysis.analysis_type,
+                        "parse_error": str(e)
                     }
 
             photo_list.append(photo_dict)
@@ -222,7 +232,15 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
         if analysis:
             # 解析analysis_result JSON数据
             try:
-                analysis_data = analysis.analysis_result if isinstance(analysis.analysis_result, dict) else {}
+                # ChineseFriendlyJSON应该自动反序列化为dict，但这里确保兼容性
+                if isinstance(analysis.analysis_result, dict):
+                    analysis_data = analysis.analysis_result
+                elif isinstance(analysis.analysis_result, str):
+                    import json
+                    analysis_data = json.loads(analysis.analysis_result)
+                else:
+                    analysis_data = {}
+
                 response["analysis"] = {
                     "description": analysis_data.get("description", ""),
                     "tags": analysis_data.get("tags", []),
@@ -230,13 +248,15 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
                     "type": analysis.analysis_type,
                     "analyzed_at": analysis.created_at.isoformat() if analysis.created_at else None
                 }
-            except:
+            except Exception as e:
+                # 如果解析失败，至少返回基本信息
                 response["analysis"] = {
                     "description": "",
                     "tags": [],
                     "confidence": analysis.confidence_score,
                     "type": analysis.analysis_type,
-                    "analyzed_at": analysis.created_at.isoformat() if analysis.created_at else None
+                    "analyzed_at": analysis.created_at.isoformat() if analysis.created_at else None,
+                    "parse_error": str(e)
                 }
 
 

@@ -464,23 +464,15 @@ function showPhotosSection() {
  * @param {number} photoId - 照片ID
  */
 async function viewPhotoDetail(photoId) {
-    // 首先从当前显示的照片中查找
-    let photo = AppState.photos.find(p => p.id === photoId);
-    
-    if (photo) {
-        showPhotoDetail(photo);
-        return;
-    }
-    
-    // 如果本地找不到，通过API获取照片详情
+    // 总是从API获取最新的照片详情，确保显示最新数据
     try {
-        // 从API获取照片详情
+        console.log('从API获取照片详情:', photoId);
         const response = await fetch(`${CONFIG.API_BASE_URL}/search/photos/${photoId}`);
-        
+
         if (response.ok) {
             const result = await response.json();
             if (result.success) {
-                photo = result.data;
+                const photo = result.data;
                 showPhotoDetail(photo);
             } else {
                 console.error('API返回错误:', result.message);

@@ -631,47 +631,26 @@ class ClassificationService:
         return None
 
     def _extract_tags_from_content(self, analysis_result: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """从内容分析结果中提取标签（多维度标签）"""
+        """从内容分析结果中提取标签（纯AI标签策略）"""
         tags = []
 
         if not analysis_result:
             return tags
 
-        # 场景标签
-        scene_type = analysis_result.get('scene_type', '')
-        if scene_type:
-            tags.append({
-                'name': scene_type,
-                'type': 'scene',
-                'confidence': 0.9
-            })
+        # 只使用AI生成的精质量标签，不补充任何结构化字段
+        ai_tags = analysis_result.get('tags', [])
+        if ai_tags and isinstance(ai_tags, list):
+            for tag_name in ai_tags:
+                if tag_name and isinstance(tag_name, str) and tag_name.strip():
+                    tags.append({
+                        'name': tag_name.strip(),
+                        'type': 'ai_generated',
+                        'confidence': 0.95,  # AI生成标签置信度较高
+                        'source': 'ai_analysis'  # 标识AI标签来源
+                    })
 
-        # 活动标签
-        activity = analysis_result.get('activity', '')
-        if activity:
-            tags.append({
-                'name': activity,
-                'type': 'activity',
-                'confidence': 0.8
-            })
-
-        # 情感标签
-        emotion = analysis_result.get('emotion', '')
-        if emotion:
-            tags.append({
-                'name': emotion,
-                'type': 'emotion',
-                'confidence': 0.85
-            })
-
-        # 物体标签
-        objects = analysis_result.get('objects', [])
-        for obj in objects:
-            tags.append({
-                'name': obj,
-                'type': 'object',
-                'confidence': 0.8
-            })
+        # 不补充scene_type, activity, emotion, objects等结构化字段
+        # 保持AI的原始标签意图，可能少于5个标签
 
         return tags
 
@@ -767,17 +746,28 @@ class ClassificationService:
                 db.flush()  # 刷新以获取ID
                 db.refresh(tag)
 
-            # 创建照片-标签关联
-            photo_tag = PhotoTag(
-                photo_id=photo_id,
-                tag_id=tag.id,
-                confidence=tag_data['confidence'],
-                source='auto'
-            )
-            db.add(photo_tag)
-            
-            # 更新标签使用次数
-            tag.usage_count = (tag.usage_count or 0) + 1
+            # 检查是否已存在相同的照片-标签关联，避免重复创建
+            existing_photo_tag = db.query(PhotoTag).filter(
+                PhotoTag.photo_id == photo_id,
+                PhotoTag.tag_id == tag.id
+            ).first()
+
+            if not existing_photo_tag:
+                # 创建照片-标签关联
+                photo_tag = PhotoTag(
+                    photo_id=photo_id,
+                    tag_id=tag.id,
+                    confidence=tag_data['confidence'],
+                    source='auto'
+                )
+                db.add(photo_tag)
+
+                # 更新标签使用次数（只有新增关联时才增加计数）
+                tag.usage_count = (tag.usage_count or 0) + 1
+            else:
+                # 如果关联已存在，只更新置信度（如果新的置信度更高）
+                if tag_data['confidence'] > existing_photo_tag.confidence:
+                    existing_photo_tag.confidence = tag_data['confidence']
 
             saved_tags.append(tag_data['name'])
 
