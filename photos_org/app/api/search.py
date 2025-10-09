@@ -41,7 +41,7 @@ async def search_photos(
     location_radius: Optional[float] = Query(None, ge=0, description="搜索半径(公里)"),
     sort_by: str = Query("taken_at", description="排序字段"),
     sort_order: str = Query("desc", description="排序顺序"),
-    limit: int = Query(50, ge=1, le=200, description="返回数量"),
+    limit: int = Query(50, ge=1, le=1000, description="返回数量"),
     offset: int = Query(0, ge=0, description="偏移量"),
     db: Session = Depends(get_db)
 ):

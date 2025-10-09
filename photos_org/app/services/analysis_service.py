@@ -175,30 +175,70 @@ class AnalysisService:
             保存的分析结果
         """
         try:
-            # 保存内容分析结果
+            # 保存内容分析结果 - 检查是否存在，存在则更新，否则创建
             if content_result:
-                analysis_record = PhotoAnalysis(
-                    photo_id=photo_id,
-                    analysis_type="content",
-                    analysis_result=content_result,
-                    confidence_score=content_result.get("confidence", 0.0)
-                )
-                db.add(analysis_record)
+                existing_content_analysis = db.query(PhotoAnalysis).filter(
+                    PhotoAnalysis.photo_id == photo_id,
+                    PhotoAnalysis.analysis_type == "content"
+                ).first()
 
-            # 保存质量分析结果
+                if existing_content_analysis:
+                    # 更新现有记录
+                    existing_content_analysis.analysis_result = content_result
+                    existing_content_analysis.confidence_score = content_result.get("confidence", 0.0)
+                    existing_content_analysis.updated_at = datetime.now()
+                else:
+                    # 创建新记录
+                    analysis_record = PhotoAnalysis(
+                        photo_id=photo_id,
+                        analysis_type="content",
+                        analysis_result=content_result,
+                        confidence_score=content_result.get("confidence", 0.0)
+                    )
+                    db.add(analysis_record)
+
+            # 保存质量分析结果 - 检查是否存在，存在则更新，否则创建
             if quality_result:
-                quality_record = PhotoQuality(
-                    photo_id=photo_id,
-                    quality_score=quality_result.get("quality_score"),
-                    sharpness_score=quality_result.get("sharpness_score"),
-                    brightness_score=quality_result.get("brightness_score"),
-                    contrast_score=quality_result.get("contrast_score"),
-                    color_score=quality_result.get("color_score"),
-                    composition_score=quality_result.get("composition_score"),
-                    quality_level=quality_result.get("quality_level"),
-                    technical_issues=quality_result.get("technical_issues", [])
-                )
-                db.add(quality_record)
+                existing_quality_analysis = db.query(PhotoQuality).filter(
+                    PhotoQuality.photo_id == photo_id
+                ).first()
+
+                if existing_quality_analysis:
+                    # 更新现有记录
+                    existing_quality_analysis.quality_score = quality_result.get("quality_score")
+                    existing_quality_analysis.sharpness_score = quality_result.get("sharpness_score")
+                    existing_quality_analysis.brightness_score = quality_result.get("brightness_score")
+                    existing_quality_analysis.contrast_score = quality_result.get("contrast_score")
+                    existing_quality_analysis.color_score = quality_result.get("color_score")
+                    existing_quality_analysis.composition_score = quality_result.get("composition_score")
+                    existing_quality_analysis.quality_level = quality_result.get("quality_level")
+                    # 将list转换为dict格式存储（兼容ChineseFriendlyJSON）
+                    technical_issues = quality_result.get("technical_issues", [])
+                    if isinstance(technical_issues, list):
+                        existing_quality_analysis.technical_issues = {"issues": technical_issues, "count": len(technical_issues), "has_issues": len(technical_issues) > 0}
+                    else:
+                        existing_quality_analysis.technical_issues = technical_issues
+                    existing_quality_analysis.assessed_at = datetime.now()
+                else:
+                    # 创建新记录
+                    technical_issues = quality_result.get("technical_issues", [])
+                    if isinstance(technical_issues, list):
+                        technical_issues_data = {"issues": technical_issues, "count": len(technical_issues), "has_issues": len(technical_issues) > 0}
+                    else:
+                        technical_issues_data = technical_issues
+
+                    quality_record = PhotoQuality(
+                        photo_id=photo_id,
+                        quality_score=quality_result.get("quality_score"),
+                        sharpness_score=quality_result.get("sharpness_score"),
+                        brightness_score=quality_result.get("brightness_score"),
+                        contrast_score=quality_result.get("contrast_score"),
+                        color_score=quality_result.get("color_score"),
+                        composition_score=quality_result.get("composition_score"),
+                        quality_level=quality_result.get("quality_level"),
+                        technical_issues=technical_issues_data
+                    )
+                    db.add(quality_record)
 
             # 更新照片状态（感知哈希已在导入时保存）
             photo = db.query(Photo).filter(Photo.id == photo_id).first()

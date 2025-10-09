@@ -491,10 +491,10 @@ async function generateSlideshowPlaylist(currentPhotoId) {
         // 获取当前筛选条件
         const filters = AppState.searchFilters;
 
-        // 构建API参数 - 获取符合条件的照片（API最大限制200）
+        // 构建API参数 - 获取符合条件的照片（API最大限制500）
         const params = new URLSearchParams({
             offset: 0,
-            limit: 200,  // API最大限制为200
+            limit: 500,  // API最大限制为500
             sort_by: filters.sortBy,
             sort_order: filters.sortOrder,
             keyword: filters.keyword,
@@ -562,10 +562,10 @@ async function generateSlideshowPlaylistAll() {
         // 获取当前筛选条件
         const filters = AppState.searchFilters;
 
-        // 构建API参数 - 获取符合条件的照片（API最大限制200）
+        // 构建API参数 - 获取符合条件的照片（API最大限制100）
         const params = new URLSearchParams({
             offset: 0,
-            limit: 200,  // API最大限制为200
+            limit: 1000,  // API最大限制为1000
             sort_by: filters.sortBy,
             sort_order: filters.sortOrder,
             keyword: filters.keyword,

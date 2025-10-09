@@ -440,8 +440,14 @@ class SearchService:
                 "description": analysis.analysis_result.get("description", "") if analysis else "",
                 "scene_type": analysis.analysis_result.get("scene_type", "") if analysis else "",
                 "objects": analysis.analysis_result.get("objects", []) if analysis else [],
+                "people_count": analysis.analysis_result.get("people_count", "") if analysis else "",
+                "emotion": analysis.analysis_result.get("emotion", "") if analysis else "",
+                "activity": analysis.analysis_result.get("activity", "") if analysis else "",
+                "time_period": analysis.analysis_result.get("time_period", "") if analysis else "",
+                "location_type": analysis.analysis_result.get("location_type", "") if analysis else "",
                 "tags": analysis.analysis_result.get("tags", []) if analysis else [],
-                "confidence": analysis.confidence_score if analysis else 0.0
+                "confidence": analysis.confidence_score if analysis else 0.0,
+                "analyzed_at": analysis.created_at.isoformat() if analysis and analysis.created_at else None
             } if analysis else None,
 
             # 质量评估（字段名必须与Pydantic模型匹配）

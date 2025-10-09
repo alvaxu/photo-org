@@ -305,16 +305,16 @@ if __name__ == "__main__":
             current_version = fts_service.get_fts_version(db)
 
             try:
-                if current_version < 2:
-                    # 老版本FTS表（V1），需要重建为V2
-                    print(f"⬆️  FTS表版本{current_version}，重建到V2...")
-                    success = fts_service.rebuild_fts_table(db)
+                if current_version < 3:
+                    # 老版本FTS表，需要重建为V3
+                    print(f"⬆️  FTS表版本{current_version}，重建到V3...")
+                    success = fts_service.rebuild_fts_table_v3(db)
                     if success:
-                        print("✅ FTS表重建到V2完成")
+                        print("✅ FTS表重建到V3完成")
                     else:
                         print("❌ FTS表重建失败")
                 else:
-                    # 最新版本FTS表（V2），直接跳过
+                    # 最新版本FTS表（V3），直接跳过
                     print(f"✅ FTS表已是最新版本{current_version}，无需操作")
 
                 # 清理可能的备份表
