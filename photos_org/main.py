@@ -38,6 +38,11 @@ from app.db.session import engine
 from app.models import base
 from app.services.storage_service import StorageService
 
+import warnings
+# 抑制 jieba 相关的警告
+warnings.filterwarnings('ignore', category=SyntaxWarning, module='jieba.*')
+warnings.filterwarnings('ignore', message='pkg_resources is deprecated', module='jieba.*')
+
 # 辅助函数：获取模板文件路径（兼容PyInstaller环境）
 def get_template_path(filename):
     """获取模板文件路径，支持PyInstaller环境"""
