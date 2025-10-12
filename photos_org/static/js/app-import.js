@@ -3260,6 +3260,53 @@ async function processAIAnalysisInBatches(photoIds, batchCount) {
         // ❌ 分批处理完成，解除AI分析模态框保护
         window.aiModalProtector.unprotect();
 
+        // 关闭AI分析模态框并显示详细结果（与单批次处理保持一致）
+        const modal = bootstrap.Modal.getInstance(document.getElementById('aiModal'));
+        if (modal) {
+            modal.hide();
+
+            // 监听模态框关闭事件
+            document.getElementById('aiModal').addEventListener('hidden.bs.modal', function onModalHidden() {
+                document.getElementById('aiModal').removeEventListener('hidden.bs.modal', onModalHidden);
+
+                try {
+                    // 构造AI分析结果数据用于显示详情
+                    const resultData = {
+                        total_photos: totalPhotosInBatches,
+                        completed_photos: completedPhotos,
+                        failed_photos: 0, // 分批处理模式下暂不支持详细失败统计
+                        successful_photos: completedPhotos
+                    };
+                    showAIProcessDetails(resultData);
+                } catch (error) {
+                    console.error('显示AI分析结果详情失败:', error);
+                    showError('显示处理结果失败: ' + error.message);
+                }
+            }, { once: true });
+        } else {
+            // 如果无法获取模态框实例，直接显示结果详情
+            try {
+                const resultData = {
+                    total_photos: totalPhotosInBatches,
+                    completed_photos: completedPhotos,
+                    failed_photos: 0,
+                    successful_photos: completedPhotos
+                };
+                showAIProcessDetails(resultData);
+            } catch (error) {
+                console.error('显示AI分析结果详情失败:', error);
+                showError('显示处理结果失败: ' + error.message);
+            }
+        }
+
+        // 刷新数据
+        try {
+            if (window.loadPhotos) await window.loadPhotos();
+            if (window.loadStats) await window.loadStats();
+        } catch (error) {
+            console.error('刷新数据失败:', error);
+        }
+
     } catch (error) {
         console.error('显示最终结果失败:', error);
         const statusDiv = document.getElementById('aiBatchStatus');
@@ -3275,6 +3322,12 @@ async function processAIAnalysisInBatches(photoIds, batchCount) {
 
         // ❌ 出错时也要解除保护
         window.aiModalProtector.unprotect();
+
+        // 即使出错也要尝试关闭模态框并显示结果
+        const modal = bootstrap.Modal.getInstance(document.getElementById('aiModal'));
+        if (modal) {
+            modal.hide();
+        }
     }
 }
 
