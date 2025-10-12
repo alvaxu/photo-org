@@ -25,7 +25,7 @@ echo "SUCCESS: Python environment OK"
 if ! python3 -c "import PyInstaller" &> /dev/null; then
     echo "ERROR: PyInstaller not found"
     echo "Installing PyInstaller..."
-    pip3 install pyinstaller
+    python3 -m pip install pyinstaller
     if [ $? -ne 0 ]; then
         echo "ERROR: PyInstaller installation failed"
         exit 1
@@ -45,7 +45,7 @@ echo "Building PhotoSystem Main Executable"
 echo "========================================"
 echo "Building PhotoSystem..."
 
-pyinstaller --clean main_en.spec
+python3 -m PyInstaller --clean main_en.spec
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Build failed"

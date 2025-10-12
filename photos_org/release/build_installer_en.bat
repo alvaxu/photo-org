@@ -43,7 +43,7 @@ echo ========================================
 echo Building PhotoSystem Main Executable
 echo ========================================
 echo DEBUG: Building PhotoSystem.exe...
-pyinstaller --clean --noconfirm main_en.spec
+python -m PyInstaller --clean --noconfirm main_en.spec
 if errorlevel 1 (
     echo ERROR: Failed to build PhotoSystem.exe
     pause
@@ -84,7 +84,7 @@ python -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
     echo ERROR: PyInstaller not found
     echo Installing PyInstaller...
-    pip install pyinstaller
+    python -m pip install pyinstaller
     if errorlevel 1 (
         echo ERROR: PyInstaller installation failed
         pause
@@ -100,7 +100,7 @@ echo.
 
 REM Install dependencies from requirements.txt
 echo Installing dependencies from requirements.txt...
-pip install -r ..\requirements.txt
+python -m pip install -r ..\requirements.txt
 if errorlevel 1 (
     echo ERROR: Failed to install dependencies from requirements.txt
     pause
