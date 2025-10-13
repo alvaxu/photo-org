@@ -71,9 +71,9 @@ class SearchService:
             (照片列表, 总数)
         """
         try:
-            # 构建基础查询 - 搜索所有有效状态的照片
+            # 构建基础查询 - 搜索所有状态的照片（包括error状态）
             query = db.query(Photo).filter(Photo.status.in_([
-                'imported', 'analyzing', 'quality_completed', 'content_completed', 'completed'
+                'imported', 'analyzing', 'quality_completed', 'content_completed', 'completed', 'error'
             ]))
 
             # 关键词搜索

@@ -44,7 +44,10 @@ class PhotoService:
             (照片列表, 总数)
         """
         try:
-            query = db.query(Photo)
+            # 构建基础查询 - 包含所有状态的照片（包括error状态）
+            query = db.query(Photo).filter(Photo.status.in_([
+                'imported', 'analyzing', 'quality_completed', 'content_completed', 'completed', 'error'
+            ]))
 
             # 应用筛选条件
             if filters:

@@ -21,12 +21,13 @@ function initializeUI() {
     // 初始化Bootstrap模态框
     const photoModal = new bootstrap.Modal(elements.photoModal);
     const importModal = new bootstrap.Modal(elements.importModal);
-
+    const batchModal = new bootstrap.Modal(elements.batchModal);
 
     // 存储在全局对象中
     window.modals = {
         photoModal,
-        importModal
+        importModal,
+        batchModal
     };
 
     // 添加全局关闭函数
@@ -59,7 +60,7 @@ function initializeUI() {
     // 添加测试函数
     window.testModalClose = function() {
         // 测试模态框关闭功能
-        const modals = ['importModal', 'photoModal'];
+        const modals = ['importModal', 'batchModal', 'photoModal'];
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (modal) {
@@ -102,6 +103,10 @@ function initializeUI() {
             resetImportModalState();
         }
 
+        // 特别检查batchModal的显示，调用重置函数
+        if (e.target.id === 'batchModal') {
+            resetBatchModalState();
+        }
     });
     
     // 监听模态框隐藏事件
@@ -156,6 +161,11 @@ function showImportModal() {
     console.log('✅ showImportModal 执行完成');
 }
 
+function showBatchModal() {
+    // 使用Bootstrap API显示模态窗口
+    const modal = new bootstrap.Modal(elements.batchModal);
+    modal.show();
+}
 
 // ============ 模态框重置 ============
 

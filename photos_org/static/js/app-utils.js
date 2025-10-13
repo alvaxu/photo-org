@@ -845,16 +845,23 @@ function showAIProcessDetails(detailsData) {
     const totalPhotos = detailsData.total_photos || detailsData.total || detailsData.batch_total_photos || 0;
     const successfulPhotos = detailsData.completed_photos || detailsData.successful_photos || 0;
     const failedPhotos = detailsData.failed_photos || 0;
+    
+    // 计算实际处理数量
+    const processedPhotos = successfulPhotos + failedPhotos;
 
     let icon, alertClass, summaryText;
     if (failedPhotos > 0) {
         icon = '⚠️';
         alertClass = 'alert-warning';
-        summaryText = `AI分析完成：${totalPhotos}张照片中，${successfulPhotos}张成功分析，${failedPhotos}张需要补全`;
-    } else if (successfulPhotos > 0) {
+        summaryText = `AI分析完成：${totalPhotos}张照片中，${successfulPhotos}张成功分析，${failedPhotos}张分析失败`;
+    } else if (successfulPhotos > 0 && processedPhotos === totalPhotos) {
         icon = '✅';
         alertClass = 'alert-success';
         summaryText = `AI分析完成：${totalPhotos}张照片全部成功分析`;
+    } else if (processedPhotos > 0) {
+        icon = 'ℹ️';
+        alertClass = 'alert-info';
+        summaryText = `AI分析完成：${processedPhotos}张照片已处理（${successfulPhotos}张成功，${failedPhotos}张失败）`;
     } else if (totalPhotos > 0) {
         // 有照片但没有成功和失败的，说明所有照片都已完成处理
         icon = '✅';
@@ -875,11 +882,11 @@ function showAIProcessDetails(detailsData) {
                         <div class="alert ${alertClass} mb-4">
                             <i class="bi bi-info-circle me-2"></i>
                             <strong>${icon} ${summaryText}</strong><br>
-                            <small class="text-muted">所有照片已完成AI内容分析和智能分类</small>
+                            ${failedPhotos > 0 ? '' : '<small class="text-muted">所有照片已完成AI内容分析和智能分类</small>'}
                         </div>
 
                         <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="card text-center">
                                     <div class="card-body">
                                         <h5 class="card-title text-primary">${totalPhotos}</h5>
@@ -887,11 +894,19 @@ function showAIProcessDetails(detailsData) {
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="card text-center">
                                     <div class="card-body">
                                         <h5 class="card-title text-success">${successfulPhotos}</h5>
-                                        <p class="card-text">已分析</p>
+                                        <p class="card-text">分析成功</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-danger">${failedPhotos}</h5>
+                                        <p class="card-text">分析失败</p>
                                     </div>
                                 </div>
                             </div>

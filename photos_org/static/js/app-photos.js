@@ -65,7 +65,10 @@ function getProcessingStatus(photo) {
             iconClass: 'bi-exclamation-triangle',
             text: '分析失败',
             className: 'status-error',
-            canProcess: true  // 支持重新处理
+            canProcess: true,  // 支持重新处理
+            showRetryButton: true,  // 显示重试按钮
+            retryAction: 'ai_analysis',  // 重试操作类型
+            errorMessage: photo.analysis?.error || '分析过程中出现错误'  // 显示具体错误信息
         };
     }
 
@@ -1252,24 +1255,14 @@ window.savePhotoEdit = savePhotoEdit;
 // 照片选择相关函数
 window.processSelectedPhotos = () => {
     console.log('processSelectedPhotos函数被调用');
-    console.log('window.batchProcessor是否存在:', !!window.batchProcessor);
-
-    if (window.batchProcessor) {
-        console.log('调用batchProcessor.processSelectedPhotos(true)');
-        // 所有选中的照片都要处理，包括已分析的
-        window.batchProcessor.processSelectedPhotos(true);
-    } else {
-        console.log('batchProcessor不存在，显示警告');
-        showWarning('智能处理功能未初始化');
-    }
+    console.log('智能处理功能已移除，请使用基础分析或AI分析功能');
+    showWarning('智能处理功能已移除，请使用基础分析或AI分析功能');
 };
 
 window.reprocessSelectedPhotos = () => {
-    if (window.batchProcessor) {
-        window.batchProcessor.processSelectedPhotos(true);
-    } else {
-        showWarning('智能处理功能未初始化');
-    }
+    console.log('reprocessSelectedPhotos函数被调用');
+    console.log('智能处理功能已移除，请使用基础分析或AI分析功能');
+    showWarning('智能处理功能已移除，请使用基础分析或AI分析功能');
 };
 
 /**

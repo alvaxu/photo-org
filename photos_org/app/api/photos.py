@@ -617,31 +617,33 @@ async def process_photos_background(photos, enable_ai, enable_quality, enable_cl
                     logger.warning(f"照片不存在: {photo.id}")
                     continue
                 
-                # 更新照片状态为分析中
+                # 记录原始状态并更新为分析中
+                original_status = current_photo.status
                 current_photo.status = 'analyzing'
                 fresh_db.commit()
                 
                 # 执行智能分析
                 try:
-                    # AI内容分析（包含分类服务调用）
+                    # 使用新的分析服务，支持状态管理
+                    analysis_types = []
                     if enable_ai:
-                        await analysis_service.analyze_photo(current_photo.id, fresh_db)
-                    
-                    # 质量评估
+                        analysis_types.append('content')
                     if enable_quality:
-                        quality_service.assess_quality(current_photo.original_path)
+                        analysis_types.append('quality')
+                    
+                    if analysis_types:
+                        await analysis_service.analyze_photo(current_photo.id, analysis_types, fresh_db, original_status)
                     
                     # 如果只启用分类而不启用AI分析，单独调用分类服务
                     if enable_classification and not enable_ai:
                         classification_service.classify_photo(current_photo.id, fresh_db)
                     
-                    # 分析完成后更新状态
-                    current_photo.status = 'completed'
-                    fresh_db.commit()
+                    # 状态更新由analysis_service.analyze_photo自动处理
                     
                 except Exception as analysis_error:
                     logger.error(f"照片 {current_photo.filename} 智能分析失败: {str(analysis_error)}")
-                    current_photo.status = 'error'
+                    # 恢复到原始状态
+                    current_photo.status = original_status
                     fresh_db.commit()
                     continue
                 

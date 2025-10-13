@@ -34,7 +34,7 @@ class AnalysisService:
         # 线程池用于并发处理
         self.executor = ThreadPoolExecutor(max_workers=2)
 
-    async def analyze_photo(self, photo_id: int, analysis_types: List[str] = None, db: Session = None) -> Dict[str, Any]:
+    async def analyze_photo(self, photo_id: int, analysis_types: List[str] = None, db: Session = None, original_status: str = None) -> Dict[str, Any]:
         """
         分析单张照片
 
@@ -99,17 +99,23 @@ class AnalysisService:
 
             if 'content' in task_indices:
                 content_idx = task_indices['content']
-                content_result = results[content_idx] if not isinstance(results[content_idx], Exception) else None
+                if isinstance(results[content_idx], Exception):
+                    # 内容分析失败，抛出异常
+                    raise results[content_idx]
+                content_result = results[content_idx]
 
             if 'quality' in task_indices:
                 quality_idx = task_indices['quality']
-                quality_result = results[quality_idx] if not isinstance(results[quality_idx], Exception) else None
+                if isinstance(results[quality_idx], Exception):
+                    # 质量分析失败，抛出异常
+                    raise results[quality_idx]
+                quality_result = results[quality_idx]
 
             hash_result = None  # 感知哈希已在导入时计算，不再重复计算
 
             # 保存分析结果到数据库
             analysis_result = self._save_analysis_results(
-                photo_id, content_result, quality_result, hash_result, db
+                photo_id, content_result, quality_result, hash_result, db, original_status
             )
 
             self.logger.info(f"照片 {photo_id} 分析完成")
@@ -160,7 +166,7 @@ class AnalysisService:
 
     def _save_analysis_results(self, photo_id: int, content_result: Optional[Dict],
                             quality_result: Optional[Dict], hash_result: Optional[str],
-                            db) -> Dict[str, Any]:
+                            db, original_status: str = None) -> Dict[str, Any]:
         """
         保存分析结果到数据库
 
@@ -240,19 +246,37 @@ class AnalysisService:
                     )
                     db.add(quality_record)
 
-            # 更新照片状态（感知哈希已在导入时保存）
+            # 智能状态更新：根据分析结果和原始状态决定最终状态
             photo = db.query(Photo).filter(Photo.id == photo_id).first()
             if photo:
-                # 根据分析结果设置精确的状态
+                # 使用原始状态而不是当前状态（当前状态是analyzing）
+                base_status = original_status if original_status else photo.status
+                new_status = base_status  # 默认保持原始状态
+                
+                # 根据分析结果决定新状态
                 if quality_result and content_result:
-                    photo.status = 'completed'  # 完整分析完成（质量+内容）
+                    new_status = 'completed'  # 两种分析都成功
                 elif quality_result:
-                    photo.status = 'quality_completed'  # 仅质量分析完成
+                    # 基础分析成功
+                    if base_status == 'content_completed':
+                        new_status = 'completed'  # 之前AI分析已成功，现在基础分析也成功
+                    elif base_status == 'completed':
+                        new_status = 'completed'  # 之前已完成，现在基础分析也成功，保持completed
+                    else:
+                        new_status = 'quality_completed'  # 仅基础分析成功
                 elif content_result:
-                    photo.status = 'content_completed'  # 仅内容分析完成
-                # 如果都没有结果，保持原有状态（理论上不会发生）
-
+                    # AI分析成功
+                    if base_status == 'quality_completed':
+                        new_status = 'completed'  # 之前基础分析已成功，现在AI分析也成功
+                    elif base_status == 'completed':
+                        new_status = 'completed'  # 之前已完成，现在AI分析也成功，保持completed
+                    else:
+                        new_status = 'content_completed'  # 仅AI分析成功
+                
+                # 更新状态
+                photo.status = new_status
                 photo.updated_at = datetime.now()
+                self.logger.info(f"照片 {photo_id} 状态从 {base_status} 更新为: {new_status}")
 
             # 先提交分析结果到数据库
             db.commit()
@@ -334,6 +358,52 @@ class AnalysisService:
             self.logger.error(f"保存分析结果失败 {photo_id}: {str(e)}")
             raise Exception(f"保存分析结果失败: {str(e)}")
 
+    def _save_error_result(self, photo_id: int, error_info: Dict[str, Any], db, original_status: str = None, analysis_type: str = None) -> None:
+        """
+        处理分析失败，只恢复状态，不记录错误信息
+        
+        Args:
+            photo_id: 照片ID
+            error_info: 错误信息字典（保留参数兼容性，但不使用）
+            db: 数据库会话
+            original_status: 原始状态，用于失败时恢复
+            analysis_type: 分析类型（保留参数兼容性，但不使用）
+        """
+        try:
+            self.logger.info(f"处理照片 {photo_id} 分析失败，恢复状态")
+            
+            # 不更新PhotoAnalysis表，保持原有数据完整性
+            # 只处理状态恢复
+            photo = db.query(Photo).filter(Photo.id == photo_id).first()
+            if photo:
+                if original_status:
+                    # 有原始状态，直接恢复
+                    photo.status = original_status
+                    photo.updated_at = datetime.now()
+                    self.logger.info(f"照片 {photo_id} 状态已恢复为: {original_status}")
+                else:
+                    # 没有原始状态，根据分析类型智能恢复
+                    current_status = photo.status
+                    if analysis_type == 'quality':
+                        # 基础分析失败，如果当前是analyzing，恢复为imported
+                        if current_status == 'analyzing':
+                            photo.status = 'imported'
+                            photo.updated_at = datetime.now()
+                            self.logger.info(f"照片 {photo_id} 基础分析失败，状态从 {current_status} 恢复为: imported")
+                    elif analysis_type == 'content':
+                        # AI分析失败，如果当前是analyzing，恢复为imported
+                        if current_status == 'analyzing':
+                            photo.status = 'imported'
+                            photo.updated_at = datetime.now()
+                            self.logger.info(f"照片 {photo_id} AI分析失败，状态从 {current_status} 恢复为: imported")
+
+            db.commit()
+            self.logger.info(f"照片 {photo_id} 状态恢复完成，保持原有分析数据完整性")
+
+        except Exception as e:
+            db.rollback()
+            self.logger.error(f"恢复照片状态失败 {photo_id}: {str(e)}")
+            # 不抛出异常，避免影响主流程
 
     async def batch_analyze_photos(self, photo_ids: List[int], db: Session = None) -> Dict[str, Any]:
         """
@@ -382,6 +452,16 @@ class AnalysisService:
                         self.logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
                         import traceback
                         self.logger.error(f"照片 {photo_id} 详细错误: {traceback.format_exc()}")
+                        
+                        # 存储错误信息到PhotoAnalysis表
+                        error_info = {
+                            "error": str(e),
+                            "error_type": "analysis_error",
+                            "failed_at": datetime.now().isoformat(),
+                            "traceback": traceback.format_exc()
+                        }
+                        self._save_error_result(photo_id, error_info, db)
+                        
                         return {"photo_id": photo_id, "status": "error", "error": str(e)}
 
             # 并发执行分析任务
