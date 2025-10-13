@@ -684,6 +684,41 @@
         </div>
     </div>
 
+    <!-- 智能处理模态框 -->
+    <div class="modal fade" id="batchModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">智能处理</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        智能处理将对所有照片进行AI分析、质量评估和智能分类，提升搜索和管理体验<br>
+                        请确保你已申请并配置了Qwen-vl 大模型的API密钥，<a href="/help-api-key" target="_blank">如有疑问，请点击链接</a>
+                    </div>
+                    
+                    <!-- 照片数量统计 -->
+                    <div class="alert alert-warning" id="photoCountInfo" style="display: none;">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <span id="photoCountText">正在获取照片数量...</span>
+                    </div>
+
+                    <div id="batchProgress" class="d-none mt-3">
+                        <div class="progress mb-2">
+                            <div class="progress-bar" id="batchProgressBar" style="width: 0%"></div>
+                        </div>
+                        <p class="text-center" id="batchStatus">正在处理...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="startBatchBtn">开始处理</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- 基础分析模态框 -->
     <div class="modal fade" id="basicModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -895,6 +930,10 @@
                             <li class="mb-2">
                                 <i class="bi bi-trash me-2 text-danger"></i>
                                 <strong>删除选中：</strong>永久删除所有选中的照片（谨慎操作）
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-robot me-2 text-success"></i>
+                                <strong>智能处理：</strong>对选中的照片进行AI分析，生成描述、标签和智能分类
                             </li>
                         </ul>
                         

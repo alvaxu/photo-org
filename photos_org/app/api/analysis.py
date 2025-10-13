@@ -2,6 +2,7 @@
 家庭版智能照片系统 - 智能分析API
 """
 import asyncio
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -316,6 +317,8 @@ async def get_analysis_queue_status(initial_total: int = None, db: Session = Dep
         imported_photos = db.query(Photo).filter(Photo.status == 'imported').count()
         analyzing_photos = db.query(Photo).filter(Photo.status == 'analyzing').count()
         completed_photos = db.query(Photo).filter(Photo.status == 'completed').count()
+        quality_completed_photos = db.query(Photo).filter(Photo.status == 'quality_completed').count()
+        content_completed_photos = db.query(Photo).filter(Photo.status == 'content_completed').count()
         error_photos = db.query(Photo).filter(Photo.status == 'error').count()
         
         # 计算当前批次需要处理的照片数（imported + error状态的照片）
@@ -350,6 +353,8 @@ async def get_analysis_queue_status(initial_total: int = None, db: Session = Dep
             "imported_photos": imported_photos,
             "analyzing_photos": analyzing_photos,
             "completed_photos": completed_photos,
+            "quality_completed_photos": quality_completed_photos,
+            "content_completed_photos": content_completed_photos,
             "error_photos": error_photos,
             "processing_photos": processing_photos,
             "progress_percentage": round(progress_percentage, 2),
@@ -510,14 +515,18 @@ async def get_ai_pending_photos(db: Session = Depends(get_db)):
     返回没有AI内容分析结果的照片ID
     """
     try:
-        pending_photos = db.query(Photo.id).filter(
+        # 只查找没有content分析记录的照片
+        no_analysis_photos = db.query(Photo.id).filter(
             ~db.query(PhotoAnalysis).filter(
                 PhotoAnalysis.photo_id == Photo.id,
                 PhotoAnalysis.analysis_type == 'content'
             ).exists()
         ).all()
-
-        photo_ids = [photo.id for photo in pending_photos]
+        
+        photo_ids = [photo.id for photo in no_analysis_photos]
+        
+        logger.info(f"AI待处理照片统计: 未处理 {len(photo_ids)} 张")
+        
         return {
             "photo_ids": photo_ids,
             "total_count": len(photo_ids),
@@ -586,9 +595,19 @@ async def start_analysis(request: AnalysisRequest, background_tasks: BackgroundT
 
         logger.info(f"实际需要分析的照片: {len(photos_to_analyze)} 张")
 
-        # 更新照片状态为analyzing
-        db.query(Photo).filter(Photo.id.in_(photos_to_analyze)).update({"status": "analyzing"})
+        # 记录原始状态并设置为analyzing状态
+        original_statuses = {}
+        for photo_id in photos_to_analyze:
+            photo = db.query(Photo).filter(Photo.id == photo_id).first()
+            if photo:
+                original_statuses[photo_id] = photo.status  # 记录原始状态
+                photo.status = 'analyzing'  # 任何分析过程中都设为analyzing
+                logger.info(f"照片 {photo_id} 状态从 {original_statuses[photo_id]} 设为 analyzing")
+        
         db.commit()
+        
+        # 将原始状态传递给后台任务
+        task_original_statuses = original_statuses
 
         # 生成任务ID
         import uuid
@@ -599,7 +618,8 @@ async def start_analysis(request: AnalysisRequest, background_tasks: BackgroundT
             process_analysis_task,
             task_id=task_id,
             photo_ids=photos_to_analyze,
-            analysis_types=request.analysis_types
+            analysis_types=request.analysis_types,
+            original_statuses=task_original_statuses
         )
 
         return {
@@ -807,12 +827,23 @@ async def get_analysis_batch_status(request: BatchStatusRequest, db: Session = D
         raise HTTPException(status_code=500, detail=f"批量查询分析任务状态失败: {str(e)}")
 
 
-async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_types: List[str]):
+async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_types: List[str], original_statuses: Dict[int, str] = None):
     """
     处理分析任务（后台任务）
     """
     logger.info(f"=== 开始处理分析任务 {task_id} ===")
     logger.info(f"照片数量: {len(photo_ids)}, 分析类型: {analysis_types}")
+
+    # 创建数据库会话
+    db = next(get_db())
+
+    # 使用传入的原始状态，如果没有则从数据库获取
+    if original_statuses is None:
+        original_statuses = {}
+        for photo_id in photo_ids:
+            photo = db.query(Photo).filter(Photo.id == photo_id).first()
+            if photo:
+                original_statuses[photo_id] = photo.status
 
     # 初始化任务状态
     analysis_task_status[task_id] = {
@@ -822,20 +853,21 @@ async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_typ
         "failed_photos": 0,
         "progress_percentage": 0.0,
         "start_time": datetime.now().isoformat(),
-        "analysis_types": analysis_types
+        "analysis_types": analysis_types,
+        "error_details": [],  # 新增：记录具体错误信息
+        "original_statuses": original_statuses  # 新增：记录原始状态
     }
 
     try:
         analysis_service = AnalysisService()
-        db = next(get_db())
-
         successful_analyses = 0
         failed_analyses = 0
 
         for i, photo_id in enumerate(photo_ids):
             try:
                 logger.info(f"分析照片 {photo_id}，分析类型: {analysis_types}")
-                result = await analysis_service.analyze_photo(photo_id, analysis_types, db)
+                original_status = original_statuses.get(photo_id, 'imported')
+                result = await analysis_service.analyze_photo(photo_id, analysis_types, db, original_status)
                 logger.info(f"照片 {photo_id} 分析完成")
                 successful_analyses += 1
 
@@ -845,13 +877,33 @@ async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_typ
 
             except Exception as e:
                 logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
-                # 分析失败时不改变照片状态，让用户可以重试
-                # db.query(Photo).filter(Photo.id == photo_id).update({"status": "error"})
-                # db.commit()
                 failed_analyses += 1
+
+                # 记录错误详情
+                analysis_task_status[task_id]["error_details"].append({
+                    "photo_id": photo_id,
+                    "error": str(e),
+                    "error_type": "analysis_error",
+                    "timestamp": datetime.now().isoformat()
+                })
+
+                # 保存错误信息到PhotoAnalysis表并恢复原始状态（混合模式）
+                error_info = {
+                    "error": str(e),
+                    "error_type": "analysis_error",
+                    "failed_at": datetime.now().isoformat()
+                }
+                original_status = original_statuses.get(photo_id, 'imported')  # 获取原始状态
+                logger.info(f"准备保存照片 {photo_id} 的错误信息并恢复状态为: {original_status}")
+                analysis_service._save_error_result(photo_id, error_info, db, original_status, analysis_types[0] if analysis_types else None)
+                logger.info(f"照片 {photo_id} 错误信息已保存，状态已恢复为: {original_status}")
 
                 # 更新失败计数
                 analysis_task_status[task_id]["failed_photos"] = failed_analyses
+                
+                # 重新计算进度百分比（包含成功和失败）
+                total_processed = successful_analyses + failed_analyses
+                analysis_task_status[task_id]["progress_percentage"] = (total_processed / len(photo_ids)) * 100
 
         logger.info(f"=== 分析任务 {task_id} 完成 ===")
         logger.info(f"成功: {successful_analyses}, 失败: {failed_analyses}")
@@ -859,8 +911,10 @@ async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_typ
         # 标记任务完成
         analysis_task_status[task_id].update({
             "status": "completed",
+            "completed_photos": successful_analyses,
+            "failed_photos": failed_analyses,
             "end_time": datetime.now().isoformat(),
-            "progress_percentage": 100.0
+            "progress_percentage": 100.0  # 任务完成时进度为100%
         })
 
         # 延迟清理任务状态，避免内存泄漏
@@ -891,5 +945,4 @@ async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_typ
             pass
 
 
-# 导入必要的模块
-from datetime import datetime
+

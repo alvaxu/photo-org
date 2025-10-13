@@ -80,13 +80,14 @@ function cacheElements() {
 
         // 操作按钮
         importBtn: document.getElementById('importBtn'),
+        batchBtn: document.getElementById('batchBtn'),
 
         // 搜索和筛选
         searchInput: document.getElementById('searchInput'),
         searchBtn: document.getElementById('searchBtn'),
-        searchType: document.getElementById('searchType'),
-        searchScopeHint: document.getElementById('searchScopeHint'),
-        searchSuggestions: document.getElementById('searchSuggestions'),
+    searchType: document.getElementById('searchType'),
+    searchScopeHint: document.getElementById('searchScopeHint'),
+    searchSuggestions: document.getElementById('searchSuggestions'),
         dateFilter: document.getElementById('dateFilter'),
         customDateRange: document.getElementById('customDateRange'),
         startDate: document.getElementById('startDate'),
@@ -123,6 +124,7 @@ function cacheElements() {
         // 模态框
         photoModal: document.getElementById('photoModal'),
         importModal: document.getElementById('importModal'),
+        batchModal: document.getElementById('batchModal'),
 
         // 导入相关
         photoFiles: document.getElementById('photoFiles'),
@@ -147,6 +149,11 @@ function cacheElements() {
         browseFolderBtn: document.getElementById('browseFolderBtn'),
         recursiveScan: document.getElementById('recursiveScan'),
 
+        // 智能处理相关
+        startBatchBtn: document.getElementById('startBatchBtn'),
+        batchProgress: document.getElementById('batchProgress'),
+        batchProgressBar: document.getElementById('batchProgressBar'),
+        batchStatus: document.getElementById('batchStatus')
     };
 }
 
@@ -255,11 +262,15 @@ function setupAutoRefresh() {
 
 // 注意：所有导入相关函数已移至 app-import.js
 
+// ============ 智能处理功能 ============
+
+// 注意：startBatchProcess 函数已移至 app-import.js
 
 // 注意：startFolderImport 函数已移至 app-import.js
 
 // 注意：monitorScanProgress 函数已移至 app-import.js
 
+// 注意：startBatchProcess 函数已移至 app-import.js
 
 // 注意：selectAllPhotos, clearSelection, deleteSelectedPhotos 函数已移至 app-photos.js
 // 注意：switchSection, updateNavigation, showPhotosSection 函数已移至 app-photos.js
