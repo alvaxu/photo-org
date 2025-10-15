@@ -371,9 +371,11 @@ class SearchService:
 
     def _apply_sorting(self, query, sort_by: str, sort_order: str):
         """应用排序"""
-        sort_column = None
-
-        if sort_by == "taken_at":
+        if sort_by == "quality_score":
+            # 质量分数排序需要JOIN PhotoQuality表
+            query = query.join(PhotoQuality, Photo.id == PhotoQuality.photo_id, isouter=True)
+            sort_column = PhotoQuality.quality_score
+        elif sort_by == "taken_at":
             sort_column = Photo.taken_at
         elif sort_by == "filename":
             sort_column = Photo.filename

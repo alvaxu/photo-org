@@ -1088,7 +1088,8 @@ function updateFilterStatus() {
             'taken_at': '拍摄时间',
             'created_at': '导入时间',
             'filename': '文件名',
-            'quality_score': '质量分数'
+            'quality_score': '质量分数',
+            'file_size': '文件大小'
         };
         const orderLabels = {
             'asc': '升序',
