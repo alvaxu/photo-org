@@ -148,6 +148,8 @@ tmp/
 config/*.env
 config/*.key
 config/*.secret
+config_deliver.json
+config_dev_*.json
 
 # Large data files
 data/
