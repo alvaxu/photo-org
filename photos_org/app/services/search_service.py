@@ -33,6 +33,8 @@ class SearchService:
         date_to: Optional[date] = None,
         quality_min: Optional[float] = None,
         quality_level: Optional[str] = None,
+        format_filter: Optional[str] = None,
+        camera_filter: Optional[str] = None,
         tags: Optional[List[str]] = None,
         categories: Optional[List[str]] = None,
         tag_ids: Optional[List[int]] = None,
@@ -85,6 +87,31 @@ class SearchService:
                 query = query.filter(Photo.camera_make == camera_make)
             if camera_model:
                 query = query.filter(Photo.camera_model == camera_model)
+
+            # 格式筛选
+            if format_filter:
+                query = query.filter(Photo.format == format_filter)
+
+            # 相机品牌筛选（用于图表点击筛选）
+            if camera_filter:
+                if camera_filter == 'unknown':
+                    # 特殊处理：筛选无相机信息的照片
+                    query = query.filter(Photo.camera_make.is_(None))
+                elif camera_filter == 'other':
+                    # 特殊处理：筛选其他品牌的照片（不在前9名中）
+                    # 获取前9个品牌的列表
+                    top9_brands = db.query(Photo.camera_make).filter(
+                        Photo.status.in_(['imported', 'quality_completed', 'content_completed', 'completed']),
+                        Photo.camera_make.isnot(None)
+                    ).group_by(Photo.camera_make).order_by(func.count(Photo.id).desc()).limit(9).all()
+                    top9_brand_names = [brand[0] for brand in top9_brands]
+                    query = query.filter(
+                        Photo.camera_make.isnot(None),
+                        Photo.camera_make.notin_(top9_brand_names)
+                    )
+                else:
+                    # 普通相机品牌筛选
+                    query = query.filter(Photo.camera_make == camera_filter)
 
             # 日期筛选
             if date_from == "no_date" and date_to == "no_date":
@@ -520,12 +547,24 @@ class SearchService:
 
         return suggestions
 
-    def get_search_stats(self, db: Session) -> Dict[str, Any]:
+    def get_search_stats(self, db: Session, quality_filter: Optional[str] = None,
+                         year_filter: Optional[str] = None, format_filter: Optional[str] = None,
+                         camera_filter: Optional[str] = None, tag_ids: Optional[List[int]] = None,
+                         category_ids: Optional[List[int]] = None, date_from: Optional[str] = None,
+                         date_to: Optional[str] = None) -> Dict[str, Any]:
         """
         获取搜索统计信息
 
         Args:
             db: 数据库会话
+            quality_filter: 质量筛选
+            year_filter: 年份筛选
+            format_filter: 格式筛选
+            camera_filter: 相机筛选
+            tag_ids: 标签ID列表
+            category_ids: 分类ID列表
+            date_from: 开始日期
+            date_to: 结束日期
 
         Returns:
             统计信息字典
@@ -533,55 +572,302 @@ class SearchService:
         stats = {}
 
         try:
+            # 基础查询：获取有效照片（与search_photos保持一致）
+            base_query = db.query(Photo).filter(Photo.status.in_([
+                'imported', 'analyzing', 'quality_completed', 'content_completed', 'completed', 'error'
+            ]))
+
+            # 应用筛选条件（与search_photos完全相同的顺序和逻辑）
+
+            # 格式筛选（在search_photos中排在前面）
+            if format_filter:
+                base_query = base_query.filter(Photo.format == format_filter)
+
+            # 相机品牌筛选（用于图表点击筛选）
+            if camera_filter:
+                if camera_filter == 'unknown':
+                    # 特殊处理：筛选无相机信息的照片
+                    base_query = base_query.filter(Photo.camera_make.is_(None))
+                elif camera_filter == 'other':
+                    # 特殊处理：筛选其他品牌的照片（不在前9名中）
+                    # 获取前9个品牌的列表
+                    top9_brands = db.query(Photo.camera_make).filter(
+                        Photo.status.in_(['imported', 'analyzing', 'quality_completed', 'content_completed', 'completed', 'error']),
+                        Photo.camera_make.isnot(None)
+                    ).group_by(Photo.camera_make).order_by(func.count(Photo.id).desc()).limit(9).all()
+                    top9_brand_names = [brand[0] for brand in top9_brands]
+                    base_query = base_query.filter(
+                        Photo.camera_make.isnot(None),
+                        Photo.camera_make.notin_(top9_brand_names)
+                    )
+                else:
+                    # 普通相机品牌筛选
+                    base_query = base_query.filter(Photo.camera_make == camera_filter)
+
+            # 日期筛选（与search_photos完全相同）
+            if date_from or date_to:
+                if date_from == "no_date" and date_to == "no_date":
+                    # 特殊处理：筛选无拍摄时间的照片
+                    base_query = base_query.filter(Photo.taken_at.is_(None))
+                elif date_from and date_from != "no_date" and date_to and date_to != "no_date":
+                    # 日期范围查询（同时设置开始和结束日期）
+                    base_query = base_query.filter(Photo.taken_at.between(date_from, date_to))
+                elif date_from and date_from != "no_date":
+                    # 只设置开始日期
+                    base_query = base_query.filter(Photo.taken_at >= date_from)
+                elif date_to and date_to != "no_date":
+                    # 只设置结束日期
+                    base_query = base_query.filter(Photo.taken_at <= date_to)
+
+            # 质量筛选
+            if quality_filter:
+                base_query = self._apply_quality_filter(base_query, None, quality_filter)
+
+            # 标签ID筛选
+            if tag_ids:
+                base_query = self._apply_tag_ids_filter(base_query, tag_ids)
+
+            # 分类ID筛选
+            if category_ids:
+                base_query = self._apply_category_ids_filter(base_query, category_ids)
+
+            # 年份筛选（特殊处理）
+            if year_filter:
+                base_query = base_query.filter(func.strftime('%Y', Photo.taken_at) == year_filter)
+
             # 基本统计
-            stats["total_photos"] = db.query(Photo).filter(Photo.status.in_([
-                'imported', 'analyzing', 'quality_completed', 'content_completed', 'completed'
-            ])).count()
+            stats["total_photos"] = base_query.count()
+            # 注意：total_tags和total_categories应该是全局统计，不随筛选变化
             stats["total_tags"] = db.query(Tag).count()
             stats["total_categories"] = db.query(Category).count()
 
-            # 质量分布
+            # 筛选结果的存储量（GB）
+            total_size_bytes = db.query(func.sum(Photo.file_size)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id))
+            ).scalar() or 0
+            stats["total_storage_gb"] = round(total_size_bytes / (1024 * 1024 * 1024), 1)
+
+            # 筛选结果的时间跨度（年）
+            date_range = db.query(
+                func.min(Photo.taken_at),
+                func.max(Photo.taken_at)
+            ).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.taken_at.isnot(None)
+            ).first()
+
+            if date_range and date_range[0] and date_range[1]:
+                min_year = date_range[0].year
+                max_year = date_range[1].year
+                stats["time_span_years"] = max_year - min_year + 1
+            else:
+                stats["time_span_years"] = 0
+
+            # 筛选结果的平均质量分
+            avg_quality = db.query(func.avg(PhotoQuality.quality_score)).join(
+                Photo, Photo.id == PhotoQuality.photo_id
+            ).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id))
+            ).scalar()
+            stats["avg_quality"] = round(avg_quality, 1) if avg_quality else 0.0
+
+            # 筛选结果的分析状态统计
+            status_counts = db.query(Photo.status, func.count(Photo.id)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id))
+            ).group_by(Photo.status).all()
+
+            # 初始化为0
+            stats["photos_unanalyzed"] = 0
+            stats["photos_basic_analyzed"] = 0
+            stats["photos_ai_analyzed"] = 0
+            stats["photos_fully_analyzed"] = 0
+
+            # 填充实际统计数据
+            for status, count in status_counts:
+                if status == 'imported':
+                    stats["photos_unanalyzed"] = count
+                elif status == 'quality_completed':
+                    stats["photos_basic_analyzed"] = count
+                elif status == 'content_completed':
+                    stats["photos_ai_analyzed"] = count
+                elif status == 'completed':
+                    stats["photos_fully_analyzed"] = count
+
+            # 筛选结果的GPS统计
+            stats["photos_with_gps"] = db.query(func.count(Photo.id)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.location_lat.isnot(None),
+                Photo.location_lng.isnot(None)
+            ).scalar()
+
+            stats["photos_geocoded"] = db.query(func.count(Photo.id)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.location_name.isnot(None)
+            ).scalar()
+
+            # 质量分布图表数据（基于筛选结果）
             quality_stats = db.query(
                 PhotoQuality.quality_level,
                 func.count(PhotoQuality.id)
+            ).join(Photo, Photo.id == PhotoQuality.photo_id).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id))
             ).group_by(PhotoQuality.quality_level).all()
 
-            stats["quality_distribution"] = {
-                level: count for level, count in quality_stats
+            # 转换为图表格式
+            quality_level_map = {
+                '优秀': {'order': 0, 'color': '#28a745'},
+                '良好': {'order': 1, 'color': '#20c997'},
+                '一般': {'order': 2, 'color': '#ffc107'},
+                '较差': {'order': 3, 'color': '#fd7e14'},
+                '很差': {'order': 4, 'color': '#dc3545'}
             }
 
-            # 时间分布（按年份）
+            quality_data = []
+            quality_labels = []
+            quality_colors = []
+
+            for level, count in quality_stats:
+                if level in quality_level_map:
+                    quality_data.append(count)
+                    quality_labels.append(level)
+                    quality_colors.append(quality_level_map[level]['color'])
+
+            # 按质量等级排序
+            sorted_indices = sorted(range(len(quality_labels)),
+                                  key=lambda i: quality_level_map[quality_labels[i]]['order'])
+
+            stats["charts"] = {
+                "quality": {
+                    "labels": [quality_labels[i] for i in sorted_indices],
+                    "data": [quality_data[i] for i in sorted_indices],
+                    "colors": [quality_colors[i] for i in sorted_indices]
+                }
+            }
+
+            # 年份分布图表数据（基于筛选结果）
             year_stats = db.query(
                 func.strftime('%Y', Photo.taken_at),
                 func.count(Photo.id)
             ).filter(
-                Photo.status.in_([
-                    'imported', 'quality_completed', 'content_completed', 'completed'
-                ]),
+                Photo.id.in_(base_query.with_entities(Photo.id)),
                 Photo.taken_at.isnot(None)
-            ).group_by(func.strftime('%Y', Photo.taken_at)).all()
+            ).group_by(func.strftime('%Y', Photo.taken_at)).order_by(func.strftime('%Y', Photo.taken_at)).all()
 
-            stats["year_distribution"] = {
-                year: count for year, count in year_stats
+            # 获取无拍摄时间的照片数量（基于筛选结果）
+            no_date_count = db.query(func.count(Photo.id)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.taken_at.is_(None)
+            ).scalar()
+
+            # 合并年份统计和无拍摄时间统计
+            year_labels = [year for year, count in year_stats]
+            year_data = [count for year, count in year_stats]
+
+            # 如果有无拍摄时间的照片，添加到统计中
+            if no_date_count > 0:
+                year_labels.append('无拍摄时间')
+                year_data.append(no_date_count)
+
+            stats["charts"]["year"] = {
+                "labels": year_labels,
+                "data": year_data,
+                "colors": ['#007bff'] * len(year_stats) + (['#dc3545'] if no_date_count > 0 else [])
             }
 
-            # 相机统计
+            # 格式分布图表数据（基于筛选结果）
+            format_stats = db.query(
+                Photo.format,
+                func.count(Photo.id)
+            ).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id))
+            ).group_by(Photo.format).all()
+
+            format_colors = {
+                'JPG': '#28a745', 'JPEG': '#28a745',
+                'PNG': '#007bff',
+                'HEIC': '#6f42c1', 'HEIF': '#6f42c1',
+                'TIFF': '#fd7e14', 'TIF': '#fd7e14',
+                'BMP': '#dc3545',
+                'WEBP': '#20c997',
+                'GIF': '#ffc107'
+            }
+
+            stats["charts"]["format"] = {
+                "labels": [fmt.upper() for fmt, count in format_stats],
+                "data": [count for fmt, count in format_stats],
+                "colors": [format_colors.get(fmt.upper(), '#6c757d') for fmt, count in format_stats]
+            }
+
+            # 相机分布图表数据（前9个品牌 + 其他品牌 + 未知相机，基于筛选结果）
             camera_stats = db.query(
                 Photo.camera_make,
                 func.count(Photo.id)
             ).filter(
-                Photo.status.in_([
-                    'imported', 'quality_completed', 'content_completed', 'completed'
-                ]),
+                Photo.id.in_(base_query.with_entities(Photo.id)),
                 Photo.camera_make.isnot(None)
-            ).group_by(Photo.camera_make).all()
+            ).group_by(Photo.camera_make).order_by(func.count(Photo.id).desc()).limit(9).all()
 
-            stats["camera_distribution"] = {
-                make: count for make, count in camera_stats
+            # 获取其他品牌的照片数量（第10名及以后，基于筛选结果）
+            other_camera_count = db.query(func.count(Photo.id)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.camera_make.isnot(None),
+                Photo.camera_make.notin_([make for make, count in camera_stats])
+            ).scalar()
+
+            # 获取未知相机的照片数量（基于筛选结果）
+            unknown_camera_count = db.query(func.count(Photo.id)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.camera_make.is_(None)
+            ).scalar()
+
+            # 合并相机统计
+            camera_labels = [make for make, count in camera_stats]
+            camera_data = [count for make, count in camera_stats]
+
+            # 添加其他品牌统计（放在倒数第二）
+            if other_camera_count > 0:
+                camera_labels.append('其他品牌')
+                camera_data.append(other_camera_count)
+
+            # 添加未知相机统计（放在最后）
+            if unknown_camera_count > 0:
+                camera_labels.append('未知相机')
+                camera_data.append(unknown_camera_count)
+
+            # 设置颜色：前9个品牌紫色，其他品牌橙色，未知相机红色
+            colors = (['#6f42c1'] * len(camera_stats) +
+                     (['#fd7e14'] if other_camera_count > 0 else []) +
+                     (['#dc3545'] if unknown_camera_count > 0 else []))
+
+            stats["charts"]["camera"] = {
+                "labels": camera_labels,
+                "data": camera_data,
+                "colors": colors
             }
 
         except Exception as e:
             self.logger.error(f"获取搜索统计失败: {e}")
+            # 返回基本统计作为fallback
+            stats = {
+                "total_photos": 0,
+                "total_tags": 0,
+                "total_categories": 0,
+                "total_storage_gb": 0,
+                "time_span_years": 0,
+                "avg_quality": 0.0,
+                "photos_unanalyzed": 0,
+                "photos_basic_analyzed": 0,
+                "photos_ai_analyzed": 0,
+                "photos_fully_analyzed": 0,
+                "photos_with_gps": 0,
+                "photos_geocoded": 0,
+                "charts": {
+                    "quality": {"labels": [], "data": [], "colors": []},
+                    "year": {"labels": [], "data": [], "colors": []},
+                    "format": {"labels": [], "data": [], "colors": []},
+                    "camera": {"labels": [], "data": [], "colors": []}
+                }
+            }
 
         return stats
 

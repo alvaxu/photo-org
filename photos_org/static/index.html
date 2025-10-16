@@ -123,13 +123,16 @@
                     <div class="card-body">
                         <!-- 列模式布局：第一列快速搜索，第二列筛选条件 -->
                         <div class="row">
-                            <!-- 第一列：快速搜索（窄） -->
-                            <div class="col-md-3">
+                            <!-- 第一列：快速搜索 -->
+                            <div class="col-lg-4 col-md-12 mb-3 mb-lg-0">
                                 <!-- 第一行：搜索标题 -->
-                                <div class="mb-3">
-                                    <label class="form-label fw-bold text-primary">
+                                <div class="mb-3 d-flex justify-content-between align-items-center">
+                                    <label class="form-label fw-bold text-primary mb-0">
                                         <i class="bi bi-search me-1"></i>快速搜索
                                     </label>
+                                    <button class="btn btn-sm btn-outline-info" onclick="toggleSearchHelp()">
+                                        <i class="bi bi-question-circle"></i> 搜索技巧
+                                    </button>
                                 </div>
                                 
                                 <!-- 第二行：搜索输入框 -->
@@ -160,30 +163,14 @@
                                         <!-- 内容将由JavaScript动态设置 -->
                                     </small>
                                 </div>
-                                
-                                <!-- 搜索语法提示 -->
-                                <div class="search-syntax mt-2" id="searchSyntax" style="display: none;">
-                                    <div class="alert alert-info alert-sm py-2 d-flex align-items-center justify-content-between">
-                                        <div class="d-flex align-items-center flex-wrap">
-                                            <i class="bi bi-lightbulb me-1"></i>
-                                            <strong class="me-2">搜索技巧：</strong>
-                                            <span class="me-2">多词：</span><code class="me-2">花朵 盆栽</code>
-                                            <span class="me-2">精确：</span><code class="me-2">"Apple iPhone"</code>
-                                            <span class="me-2">前缀：</span><code class="me-2">花朵%</code>
-                                        </div>
-                                        <button class="btn btn-sm btn-outline-info" onclick="toggleSearchHelp()">
-                                            <i class="bi bi-question-circle"></i> 更多帮助
-                                        </button>
-                                    </div>
-                                </div>
-                                
                             </div>
                             
-                            <!-- 第二列：筛选条件（宽） -->
-                            <div class="col-md-9">
-                                <!-- 第一行：所有筛选条件 -->
+                            <!-- 第二列：筛选条件 -->
+                            <div class="col-lg-8 col-md-12">
+                                <!-- 筛选条件区域 -->
                                 <div class="row mb-3">
-                                    <div class="col" id="tagFilter">
+                                    <!-- 标签筛选 -->
+                                    <div class="col-6 col-lg-3 mb-3 mb-lg-0" id="tagFilter">
                                         <label class="form-label">标签筛选</label>
                                         <div class="dropdown">
                                             <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
@@ -200,8 +187,9 @@
                                             </div>
                                         </div>
                                     </div>
-                                    
-                                    <div class="col" id="categoryFilter">
+
+                                    <!-- 分类筛选 -->
+                                    <div class="col-6 col-lg-3 mb-3 mb-lg-0" id="categoryFilter">
                                         <label class="form-label">分类筛选</label>
                                         <div class="dropdown">
                                             <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
@@ -218,49 +206,41 @@
                                             </div>
                                         </div>
                                     </div>
-                                    
-                                    <div class="col">
-                                <label class="form-label">拍摄日期</label>
-                                <select class="form-select" id="dateFilter">
-                                            <option value="" selected>全部时间</option>
-                                    <option value="today">今天</option>
-                                    <option value="yesterday">昨天</option>
-                                    <option value="last_7_days">最近7天</option>
-                                    <option value="last_30_days">最近30天</option>
-                                    <option value="last_month">上个月</option>
-                                    <option value="this_year">今年</option>
-                                    <option value="last_year">去年</option>
-                                    <option value="no_date">无拍摄时间</option>
-                                    <option value="custom">自定义范围</option>
-                                </select>
-                            </div>
 
-                                    <div class="col">
-                                <label class="form-label">质量等级</label>
-                                <select class="form-select" id="qualityFilter">
-                                            <option value="" selected>全部质量</option>
-                                    <option value="excellent">优秀</option>
-                                    <option value="good">良好</option>
-                                    <option value="average">一般</option>
-                                    <option value="poor">较差</option>
-                                    <option value="bad">很差</option>
-                                </select>
-                            </div>
+                                    <!-- 基础筛选（动态切换） -->
+                                    <div class="col-6 col-lg-3 mb-3 mb-lg-0">
+                                        <label class="form-label">基础筛选</label>
+                                        <div class="d-flex gap-2">
+                                            <!-- 筛选模式选择器 -->
+                                            <select class="form-select" id="advancedFilterMode" style="flex: 0 0 120px;">
+                                                <option value="date" selected>📅 日期</option>
+                                                <option value="quality">⭐ 质量</option>
+                                                <option value="format">📄 格式</option>
+                                                <option value="camera">📷 相机</option>
+                                            </select>
 
-                                    <div class="col">
-                                <label class="form-label">排序方式</label>
+                                            <!-- 筛选选项容器 -->
+                                            <div id="advancedFilterOptions" style="flex: 1;">
+                                                <!-- 筛选选项将通过JavaScript动态生成 -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 排序方式 -->
+                                    <div class="col-6 col-lg-3">
+                                        <label class="form-label">排序方式</label>
                                         <div class="d-flex gap-1">
                                             <select class="form-select" id="sortBy" style="flex: 2;">
-                                    <option value="taken_at" selected>拍摄时间</option>
+                                                <option value="taken_at" selected>拍摄时间</option>
                                                 <option value="quality_score">质量分数</option>
-                                    <option value="created_at">导入时间</option>
-                                    <option value="filename">文件名</option>
-                                    <option value="file_size">文件大小</option>
+                                                <option value="created_at">导入时间</option>
+                                                <option value="filename">文件名</option>
+                                                <option value="file_size">文件大小</option>
                                             </select>
                                             <select class="form-select" id="sortOrder" style="flex: 1;">
                                                 <option value="desc" selected>降序</option>
                                                 <option value="asc">升序</option>
-                                </select>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -303,19 +283,197 @@
             </div>
         </div>
 
-        <!-- 统计信息顶部横条 -->
+        <!-- 统计信息面板 -->
         <div class="row mb-3">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">
-                            <i class="bi bi-bar-chart me-1"></i>
-                            统计信息
-                        </h6>
-                        <div class="d-flex align-items-center" id="statsRow">
-                            <!-- 统计信息将通过JavaScript动态生成 -->
+                        <div class="d-flex align-items-center">
+                            <h6 class="mb-0 me-3">
+                                <i class="bi bi-bar-chart me-1"></i>
+                                统计信息
+                            </h6>
+                            <div class="stats-header-icons" id="statsHeaderIcons">
+                                <!-- 统计图标将通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" id="toggleStatsPanel">
+                            <i class="bi bi-chevron-down" id="statsToggleIcon"></i>
+                            详细统计
+                        </button>
+                    </div>
+
+                    <!-- 可折叠的统计面板 -->
+                    <div class="collapse" id="statsPanel">
+                        <div class="card-body">
+                            <!-- 概览卡片区域 -->
+                            <div class="row mb-4">
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-primary">📸 总照片</h5>
+                                            <h3 class="text-primary" id="totalPhotosCount">-</h3>
+                                            <small class="text-muted">张照片</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-success">💾 存储量</h5>
+                                            <h3 class="text-success" id="totalStorageSize">-</h3>
+                                            <small class="text-muted">GB</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-info">📅 时间跨度</h5>
+                                            <h3 class="text-info" id="timeSpan">-</h3>
+                                            <small class="text-muted">年</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-warning">⭐ 平均质量</h5>
+                                            <h3 class="text-warning" id="avgQuality">-</h3>
+                                            <small class="text-muted">分</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 分析状态卡片区域 -->
+                            <div class="row mb-4">
+                                <div class="col-md-2 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-secondary">🔄 未分析</h5>
+                                            <h3 class="text-secondary" id="photosUnanalyzed">-</h3>
+                                            <small class="text-muted">张照片</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-info">📊 仅基础分析完成</h5>
+                                            <h3 class="text-info" id="photosBasicAnalyzed">-</h3>
+                                            <small class="text-muted">张照片</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-warning">🤖 仅AI分析完成</h5>
+                                            <h3 class="text-warning" id="photosAiAnalyzed">-</h3>
+                                            <small class="text-muted">张照片</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-success">✅ 全部完成</h5>
+                                            <h3 class="text-success" id="photosFullyAnalyzed">-</h3>
+                                            <small class="text-muted">张照片</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-primary">📍 有GPS</h5>
+                                            <h3 class="text-primary" id="photosWithGps">-</h3>
+                                            <small class="text-muted">张照片</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 col-sm-6 mb-3">
+                                    <div class="card bg-light h-100 stats-overview-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title text-info">🏠 已转地址</h5>
+                                            <h3 class="text-info" id="photosGeocoded">-</h3>
+                                            <small class="text-muted">张照片</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 图表区域 -->
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">质量分布</h6>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="statsPanel.filterByQuality('all')">
+                                                查看全部
+                                            </button>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="stats-chart-container">
+                                                <canvas id="qualityChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">年度分布</h6>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="statsPanel.filterByYear('all')">
+                                                查看全部
+                                            </button>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="stats-chart-container">
+                                                <canvas id="yearChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 格式和相机分布 -->
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">格式分布</h6>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="statsPanel.filterByFormat('all')">
+                                                查看全部
+                                            </button>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="formatList" class="stats-chart-container">
+                                                <!-- 格式列表将通过JavaScript动态生成 -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">相机分布</h6>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="statsPanel.filterByCamera('all')">
+                                                查看全部
+                                            </button>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="cameraList" class="stats-chart-container">
+                                                <!-- 相机列表将通过JavaScript动态生成 -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
@@ -987,6 +1145,9 @@
         </div>
     </div>
 
+    <!-- Chart.js -->
+    <script src="lib/chart.js/chart.umd.js"></script>
+
     <!-- Bootstrap JS - 优先使用本地版本 -->
     <script src="lib/bootstrap/js/bootstrap.bundle.min.js"></script>
     
@@ -1105,6 +1266,7 @@
             <script src="js/hybrid-interaction.js?v=20250120_01"></script>
             <script src="js/app-utils.js?v=20250120_02"></script>
             <script src="js/app-data.js?v=20250120_01"></script>
+            <script src="js/stats-panel.js?v=20250120_01"></script>
             <script src="js/app-ui.js?v=20250120_01"></script>
             <script src="js/app-events.js?v=20250120_01"></script>
             <script src="js/app-import.js?v=20250120_31"></script>
