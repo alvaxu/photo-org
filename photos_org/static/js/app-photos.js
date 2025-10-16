@@ -576,6 +576,7 @@ async function deletePhoto(photoId) {
         if (response.ok) {
             // 删除成功，重新加载照片
             loadPhotos();
+            loadStats();
             alert('照片删除成功');
         } else {
             const error = await response.json();
@@ -990,10 +991,11 @@ async function savePhotoEdit() {
             // 保存成功，关闭模态框并重新加载照片
             const modal = bootstrap.Modal.getInstance(document.getElementById('photoEditModal'));
             modal.hide();
-            
+
             // 重新加载照片
             loadPhotos();
-            
+            loadStats();
+
             alert('照片信息更新成功');
         } else {
             const error = await response.json();

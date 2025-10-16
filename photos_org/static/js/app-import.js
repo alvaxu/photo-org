@@ -1300,9 +1300,10 @@ async function monitorScanProgress(taskId, totalFiles) {
                     
                     // 直接显示导入结果详情模态框
                     showImportDetails(statusData);
-                    
+
                     // 重新加载照片列表
                     await loadPhotos();
+                    await loadStats();
                     
                     // 关闭导入模态框
                     const modal = bootstrap.Modal.getInstance(elements.importModal);
@@ -1529,6 +1530,7 @@ function monitorImportProgress(taskId, totalFiles) {
 
                             // 重新加载照片列表
                             loadPhotos();
+                            loadStats();
                         } catch (error) {
                             console.error('显示导入结果详情失败:', error);
                             showError('显示结果失败: ' + error.message);
@@ -1539,6 +1541,7 @@ function monitorImportProgress(taskId, totalFiles) {
                     console.warn('找不到导入模态框实例，直接显示结果');
                     showImportDetails(detailsData);
                     loadPhotos();
+                    loadStats();
                 }
                 // 直接返回，避免继续执行后续的状态检查逻辑
                 return;
@@ -1698,6 +1701,7 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = [], startTime
 
                             // 重新加载照片列表
                             loadPhotos();
+                            loadStats();
                         } catch (error) {
                             console.error('显示批次处理结果详情失败:', error);
                             showError('显示结果失败: ' + error.message);
@@ -1708,6 +1712,7 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = [], startTime
                     console.warn('找不到导入模态框实例，直接显示批次处理结果');
                     showImportDetails(detailsData);
                     loadPhotos();
+                    loadStats();
                 }
                 // 直接返回，避免继续执行后续的状态检查逻辑
                 return;
@@ -3508,6 +3513,7 @@ async function startBatchGpsToAddress() {
             setTimeout(() => {
                 if (typeof loadPhotos === 'function') {
                     loadPhotos();
+                    loadStats();
                 }
             }, 1000);
 

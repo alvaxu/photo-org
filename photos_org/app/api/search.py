@@ -32,6 +32,8 @@ async def search_photos(
     quality_min: Optional[float] = Query(None, ge=0, le=100, description="最低质量分数"),
     quality_level: Optional[str] = Query(None, description="质量等级"),
     quality_filter: Optional[str] = Query(None, description="质量筛选"),
+    format_filter: Optional[str] = Query(None, description="格式筛选"),
+    camera_filter: Optional[str] = Query(None, description="相机筛选"),
     tags: Optional[List[str]] = Query(None, description="标签列表"),
     categories: Optional[List[str]] = Query(None, description="分类列表"),
     tag_ids: Optional[str] = Query(None, description="标签ID列表(逗号分隔)"),
@@ -136,6 +138,8 @@ async def search_photos(
             date_to=processed_date_to,
             quality_min=quality_min,
             quality_level=processed_quality_level,
+            format_filter=format_filter,
+            camera_filter=camera_filter,
             tags=tags,
             categories=categories,
             tag_ids=processed_tag_ids,
@@ -193,7 +197,17 @@ async def get_search_suggestions(
 
 
 @router.get("/stats", response_model=SearchStatsResponse)
-async def get_search_stats(db: Session = Depends(get_db)):
+async def get_search_stats(
+    quality_filter: Optional[str] = Query(None, description="质量筛选"),
+    year_filter: Optional[str] = Query(None, description="年份筛选"),
+    format_filter: Optional[str] = Query(None, description="格式筛选"),
+    camera_filter: Optional[str] = Query(None, description="相机筛选"),
+    tag_ids: Optional[str] = Query(None, description="标签ID列表，逗号分隔"),
+    category_ids: Optional[str] = Query(None, description="分类ID列表，逗号分隔"),
+    date_from: Optional[str] = Query(None, description="开始日期"),
+    date_to: Optional[str] = Query(None, description="结束日期"),
+    db: Session = Depends(get_db)
+):
     """
     获取搜索统计信息
 
@@ -201,12 +215,27 @@ async def get_search_stats(db: Session = Depends(get_db)):
     - 照片总数
     - 标签总数
     - 分类总数
-    - 质量分布
-    - 时间分布
-    - 相机分布
+    - 总存储量(MB)
+    - 时间跨度(年)
+    - 平均质量分
+    - 图表数据（质量分布、年度分布、格式分布、相机分布）
     """
     try:
-        stats = search_service.get_search_stats(db=db)
+        # 解析标签和分类ID列表
+        tag_ids_list = [int(id) for id in tag_ids.split(',')] if tag_ids else None
+        category_ids_list = [int(id) for id in category_ids.split(',')] if category_ids else None
+
+        stats = search_service.get_search_stats(
+            db=db,
+            quality_filter=quality_filter,
+            year_filter=year_filter,
+            format_filter=format_filter,
+            camera_filter=camera_filter,
+            tag_ids=tag_ids_list,
+            category_ids=category_ids_list,
+            date_from=date_from,
+            date_to=date_to
+        )
 
         return SearchStatsResponse(
             success=True,

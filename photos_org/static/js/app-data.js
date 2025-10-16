@@ -30,6 +30,8 @@ const AppState = {
         searchType: 'all',
         dateFilter: '',
         qualityFilter: '',
+        formatFilter: '',
+        cameraFilter: '',
         sortBy: 'taken_at',
         sortOrder: 'desc',
         selectedTags: [],
@@ -366,6 +368,7 @@ async function initSearchMultiSelect() {
                 AppState.searchFilters.selectedTags = selectedIds;
                 AppState.currentPage = 1;
                 loadPhotos(1);
+                loadStats();
                 updateFilterStatus();
             });
             // 设置为全局变量供查找函数使用
@@ -383,6 +386,7 @@ async function initSearchMultiSelect() {
                 AppState.searchFilters.selectedCategories = selectedIds;
                 AppState.currentPage = 1;
                 loadPhotos(1);
+                loadStats();
                 updateFilterStatus();
             });
             // 设置为全局变量供查找函数使用
@@ -403,7 +407,84 @@ async function initSearchMultiSelect() {
 
 async function loadStats() {
     try {
-        const response = await fetch(`${CONFIG.API_BASE_URL}/search/stats`);
+        // 构建筛选参数，与 loadPhotos 保持一致
+        const params = new URLSearchParams();
+
+        // 添加基本筛选参数
+        if (AppState.searchFilters.qualityFilter) {
+            params.append('quality_filter', AppState.searchFilters.qualityFilter);
+        }
+        if (AppState.searchFilters.formatFilter) {
+            params.append('format_filter', AppState.searchFilters.formatFilter);
+        }
+        if (AppState.searchFilters.cameraFilter) {
+            params.append('camera_filter', AppState.searchFilters.cameraFilter);
+        }
+
+        // 添加标签筛选参数
+        if (AppState.searchFilters.selectedTags.length > 0) {
+            params.append('tag_ids', AppState.searchFilters.selectedTags.join(','));
+        }
+
+        // 添加分类筛选参数
+        if (AppState.searchFilters.selectedCategories.length > 0) {
+            params.append('category_ids', AppState.searchFilters.selectedCategories.join(','));
+        }
+
+        // 添加日期筛选参数
+        if (AppState.searchFilters.dateFilter === 'custom') {
+            if (elements.startDate && elements.startDate.value) {
+                params.append('date_from', elements.startDate.value);
+            }
+            if (elements.endDate && elements.endDate.value) {
+                params.append('date_to', elements.endDate.value);
+            }
+        } else if (AppState.searchFilters.dateFilter && AppState.searchFilters.dateFilter !== '') {
+            // 对于预设的日期筛选，可以转换为日期范围
+            const now = new Date();
+            let dateFrom = null;
+            let dateTo = now.toISOString().split('T')[0]; // 今天
+
+            switch (AppState.searchFilters.dateFilter) {
+                case 'today':
+                    dateFrom = dateTo;
+                    break;
+                case 'yesterday':
+                    const yesterday = new Date(now);
+                    yesterday.setDate(now.getDate() - 1);
+                    dateFrom = dateTo;
+                    dateTo = yesterday.toISOString().split('T')[0];
+                    [dateFrom, dateTo] = [dateTo, dateFrom]; // 交换
+                    break;
+                case 'last_7_days':
+                    const weekAgo = new Date(now);
+                    weekAgo.setDate(now.getDate() - 7);
+                    dateFrom = weekAgo.toISOString().split('T')[0];
+                    break;
+                case 'last_30_days':
+                    const monthAgo = new Date(now);
+                    monthAgo.setDate(now.getDate() - 30);
+                    dateFrom = monthAgo.toISOString().split('T')[0];
+                    break;
+                case 'this_year':
+                    dateFrom = `${now.getFullYear()}-01-01`;
+                    break;
+                case 'last_year':
+                    dateFrom = `${now.getFullYear() - 1}-01-01`;
+                    dateTo = `${now.getFullYear() - 1}-12-31`;
+                    break;
+            }
+
+            if (dateFrom) params.append('date_from', dateFrom);
+            if (dateTo) params.append('date_to', dateTo);
+        }
+
+        const url = params.toString()
+            ? `${CONFIG.API_BASE_URL}/search/stats?${params}`
+            : `${CONFIG.API_BASE_URL}/search/stats`;
+
+        console.log('加载统计信息:', url);
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.success) {
@@ -433,7 +514,9 @@ async function loadPhotos(page = 1) {
             keyword: AppState.searchFilters.keyword,
             search_type: AppState.searchFilters.searchType,
             date_filter: AppState.searchFilters.dateFilter,
-            quality_filter: AppState.searchFilters.qualityFilter
+            quality_filter: AppState.searchFilters.qualityFilter,
+            format_filter: AppState.searchFilters.formatFilter,
+            camera_filter: AppState.searchFilters.cameraFilter
         });
 
         // 添加标签筛选参数
@@ -498,33 +581,61 @@ async function loadPhotos(page = 1) {
 
 function renderStats() {
     const stats = AppState.stats;
-    const statsHtml = `
-        <div class="stats-item">
-            <i class="bi bi-images text-primary me-1"></i>
-            <span class="stats-value">${stats.total_photos || 0}</span>
-            <span class="stats-label">照片</span>
-        </div>
-        <div class="stats-divider"></div>
-        <div class="stats-item">
-            <i class="bi bi-tags text-success me-1"></i>
-            <span class="stats-value">${stats.total_tags || 0}</span>
-            <span class="stats-label">标签</span>
-        </div>
-        <div class="stats-divider"></div>
-        <div class="stats-item">
-            <i class="bi bi-collection text-info me-1"></i>
-            <span class="stats-value">${stats.total_categories || 0}</span>
-            <span class="stats-label">分类</span>
-        </div>
-        <div class="stats-divider"></div>
-        <div class="stats-item">
-            <i class="bi bi-star text-warning me-1"></i>
-            <span class="stats-value">${Object.keys(stats.quality_distribution || {}).length}</span>
-            <span class="stats-label">质量等级</span>
-        </div>
-    `;
+    if (window.statsPanel) {
+        window.statsPanel.data = stats;
+        window.statsPanel.renderStats();
+    }
 
-    elements.statsRow.innerHTML = statsHtml;
+    // 填充相机筛选器选项
+    populateCameraFilterOptions(stats);
+
+    // 如果StatsPanel不存在，输出警告但不显示降级内容
+    if (!window.statsPanel) {
+        console.warn('StatsPanel not available, skipping stats rendering');
+    }
+}
+
+// 填充相机筛选器选项
+function populateCameraFilterOptions(stats) {
+    if (!elements.cameraFilter) return;
+
+    // 保存当前选中的值
+    const currentValue = elements.cameraFilter.value;
+
+    // 清空现有选项，保留"全部相机"选项
+    elements.cameraFilter.innerHTML = '<option value="">全部相机</option>';
+
+    if (stats && stats.charts && stats.charts.camera && stats.charts.camera.labels) {
+        const cameraLabels = stats.charts.camera.labels;
+
+        // 添加相机品牌选项（跳过特殊类别）
+        for (const label of cameraLabels) {
+            if (label !== '其他品牌' && label !== '未知相机') {
+                const option = document.createElement('option');
+                option.value = label;
+                option.textContent = label;
+                elements.cameraFilter.appendChild(option);
+            }
+        }
+
+        // 添加特殊选项
+        if (cameraLabels.includes('其他品牌')) {
+            const otherOption = document.createElement('option');
+            otherOption.value = 'other';
+            otherOption.textContent = '其他品牌';
+            elements.cameraFilter.appendChild(otherOption);
+        }
+
+        if (cameraLabels.includes('未知相机')) {
+            const unknownOption = document.createElement('option');
+            unknownOption.value = 'unknown';
+            unknownOption.textContent = '未知相机';
+            elements.cameraFilter.appendChild(unknownOption);
+        }
+    }
+
+    // 恢复之前选中的值
+    elements.cameraFilter.value = currentValue;
 }
 
 function renderPhotos() {
@@ -810,6 +921,7 @@ function handleSearch() {
     AppState.searchFilters.keyword = keyword;
     AppState.currentPage = 1;
     loadPhotos(1);
+    loadStats();
     updateFilterStatus();
 }
 
@@ -853,6 +965,7 @@ function handleSearchTypeChange() {
     if (AppState.searchFilters.keyword) {
         AppState.currentPage = 1;
         loadPhotos(1);
+        loadStats();
     }
     
     updateFilterStatus();
@@ -903,6 +1016,7 @@ function searchSuggestion(text) {
         AppState.searchFilters.keyword = text;
         AppState.currentPage = 1;
         loadPhotos(1);
+        loadStats();
         hideSearchHelp();
     }
 }
@@ -919,18 +1033,19 @@ function updateSearchSuggestions(searchType) {
 function selectSuggestion(text) {
     // 设置搜索框内容
     elements.searchInput.value = text;
-    
+
     // 触发搜索
     AppState.searchFilters.keyword = text;
     AppState.currentPage = 1;
     loadPhotos(1);
+    loadStats();
     updateFilterStatus();
 }
 
 function handleDateFilterChange() {
     const dateFilter = elements.dateFilter.value;
     AppState.searchFilters.dateFilter = dateFilter;
-    
+
     // 显示或隐藏自定义日期范围
     if (dateFilter === 'custom') {
         elements.customDateRange.style.display = 'block';
@@ -940,24 +1055,26 @@ function handleDateFilterChange() {
         elements.startDate.value = '';
         elements.endDate.value = '';
     }
-    
+
     AppState.currentPage = 1;
     loadPhotos(1);
+    loadStats();
     updateFilterStatus();
 }
 
 function handleCustomDateChange() {
     const startDate = elements.startDate.value;
     const endDate = elements.endDate.value;
-    
+
     // 验证日期范围
     if (startDate && endDate && startDate > endDate) {
         showWarning('开始日期不能晚于结束日期');
         return;
     }
-    
+
     AppState.currentPage = 1;
     loadPhotos(1);
+    loadStats();
     updateFilterStatus();
 }
 
@@ -965,6 +1082,7 @@ function handleFilterChange() {
     AppState.searchFilters.qualityFilter = elements.qualityFilter.value;
     AppState.currentPage = 1;
     loadPhotos(1);
+    loadStats();
     updateFilterStatus();
 }
 
@@ -973,6 +1091,7 @@ function handleSortChange() {
     AppState.searchFilters.sortOrder = elements.sortOrder.value;
     AppState.currentPage = 1;
     loadPhotos(1);
+    loadStats();
     updateFilterStatus();
 }
 
@@ -983,6 +1102,8 @@ function clearAllFilters() {
         searchType: 'all',
         dateFilter: '',
         qualityFilter: '',
+        formatFilter: '',
+        cameraFilter: '',
         sortBy: 'taken_at',
         sortOrder: 'desc',
         selectedTags: [],
@@ -992,8 +1113,13 @@ function clearAllFilters() {
     // 重置所有筛选条件
     elements.searchInput.value = '';
     elements.searchType.value = 'all';
-    elements.dateFilter.value = '';
-    elements.qualityFilter.value = '';
+
+    // 重置基础筛选模式
+    if (elements.advancedFilterMode) {
+        elements.advancedFilterMode.value = 'date';
+        switchAdvancedFilterMode('date');
+    }
+
     elements.sortBy.value = 'taken_at';
     elements.sortOrder.value = 'desc';
     elements.startDate.value = '';
@@ -1016,9 +1142,10 @@ function clearAllFilters() {
     if (categoryMultiSelect) {
         categoryMultiSelect.clearSelection();
     }
-    
+
     AppState.currentPage = 1;
     loadPhotos(1);
+    loadStats();
     updateFilterStatus();
 }
 
@@ -1070,6 +1197,22 @@ function updateFilterStatus() {
         };
         statusParts.push(`质量: ${qualityLabels[filters.qualityFilter] || filters.qualityFilter}`);
     }
+
+    if (filters.formatFilter) {
+        // 格式筛选显示大写格式
+        statusParts.push(`格式: ${filters.formatFilter}`);
+    }
+
+    if (filters.cameraFilter) {
+        // 相机筛选处理特殊情况
+        if (filters.cameraFilter === 'unknown') {
+            statusParts.push('相机: 未知相机');
+        } else if (filters.cameraFilter === 'other') {
+            statusParts.push('相机: 其他品牌');
+        } else {
+            statusParts.push(`相机: ${filters.cameraFilter}`);
+        }
+    }
     
     // 显示选中的标签
     if (filters.selectedTags.length > 0) {
@@ -1088,7 +1231,8 @@ function updateFilterStatus() {
             'taken_at': '拍摄时间',
             'created_at': '导入时间',
             'filename': '文件名',
-            'quality_score': '质量分数'
+            'quality_score': '质量分数',
+            'file_size': '文件大小'
         };
         const orderLabels = {
             'asc': '升序',
@@ -1137,5 +1281,108 @@ window.handleDateFilterChange = handleDateFilterChange;
 window.handleCustomDateChange = handleCustomDateChange;
 window.handleFilterChange = handleFilterChange;
 window.handleSortChange = handleSortChange;
+// 基础筛选模式切换函数
+window.switchAdvancedFilterMode = function(mode) {
+    const optionsContainer = window.elements.advancedFilterOptions;
+
+    // 清空容器
+    optionsContainer.innerHTML = '';
+
+    // 移除之前的事件监听器
+    if (window.elements.dateFilter) window.elements.dateFilter.removeEventListener('change', handleDateFilterChange);
+    if (window.elements.qualityFilter) window.elements.qualityFilter.removeEventListener('change', handleFilterChange);
+
+    // 根据模式添加对应筛选器
+    switch(mode) {
+        case 'date':
+            optionsContainer.innerHTML = `
+                <select class="form-select" id="dateFilter">
+                    <option value="" selected>全部时间</option>
+                    <option value="today">今天</option>
+                    <option value="yesterday">昨天</option>
+                    <option value="last_7_days">最近7天</option>
+                    <option value="last_30_days">最近30天</option>
+                    <option value="last_month">上个月</option>
+                    <option value="this_year">今年</option>
+                    <option value="last_year">去年</option>
+                    <option value="no_date">无拍摄时间</option>
+                    <option value="custom">自定义范围</option>
+                </select>
+            `;
+            // 重新获取元素引用并绑定事件
+            window.elements.dateFilter = document.getElementById('dateFilter');
+            window.elements.dateFilter.addEventListener('change', handleDateFilterChange);
+            break;
+
+        case 'quality':
+            optionsContainer.innerHTML = `
+                <select class="form-select" id="qualityFilter">
+                    <option value="" selected>全部质量</option>
+                    <option value="excellent">优秀</option>
+                    <option value="good">良好</option>
+                    <option value="average">一般</option>
+                    <option value="poor">较差</option>
+                    <option value="bad">很差</option>
+                </select>
+            `;
+            window.elements.qualityFilter = document.getElementById('qualityFilter');
+            window.elements.qualityFilter.addEventListener('change', handleFilterChange);
+            break;
+
+        case 'format':
+            optionsContainer.innerHTML = `
+                <select class="form-select" id="formatFilter">
+                    <option value="" selected>全部格式</option>
+                    <option value="JPEG">JPEG</option>
+                    <option value="PNG">PNG</option>
+                    <option value="HEIF">HEIF</option>
+                    <option value="HEIC">HEIC</option>
+                    <option value="TIFF">TIFF</option>
+                    <option value="BMP">BMP</option>
+                    <option value="GIF">GIF</option>
+                    <option value="WEBP">WEBP</option>
+                </select>
+            `;
+            window.elements.formatFilter = document.getElementById('formatFilter');
+            window.elements.formatFilter.addEventListener('change', () => {
+                AppState.searchFilters.formatFilter = window.elements.formatFilter.value;
+                loadPhotos(1);
+                loadStats();
+                updateFilterStatus();
+            });
+            break;
+
+        case 'camera':
+            optionsContainer.innerHTML = `
+                <select class="form-select" id="cameraFilter">
+                    <option value="" selected>全部相机</option>
+                    <!-- 相机选项将通过JavaScript动态生成 -->
+                </select>
+            `;
+            window.elements.cameraFilter = document.getElementById('cameraFilter');
+            window.elements.cameraFilter.addEventListener('change', () => {
+                const cameraValue = window.elements.cameraFilter.value;
+                if (cameraValue === 'unknown') {
+                    AppState.searchFilters.cameraFilter = 'unknown';
+                } else if (cameraValue === 'other') {
+                    AppState.searchFilters.cameraFilter = 'other';
+                } else {
+                    AppState.searchFilters.cameraFilter = cameraValue;
+                }
+                loadPhotos(1);
+                loadStats();
+                updateFilterStatus();
+            });
+            // 填充相机选项
+            populateCameraFilterOptions(AppState.stats);
+            break;
+
+        default:
+            // 默认显示日期筛选
+            // 这里不应该被调用，因为所有选项都有对应的case
+            break;
+    }
+};
+
 window.clearAllFilters = clearAllFilters;
 window.updateFilterStatus = updateFilterStatus;

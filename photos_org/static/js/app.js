@@ -92,6 +92,10 @@ function cacheElements() {
         startDate: document.getElementById('startDate'),
         endDate: document.getElementById('endDate'),
         qualityFilter: document.getElementById('qualityFilter'),
+        formatFilter: document.getElementById('formatFilter'),
+        cameraFilter: document.getElementById('cameraFilter'),
+        advancedFilterMode: document.getElementById('advancedFilterMode'),
+        advancedFilterOptions: document.getElementById('advancedFilterOptions'),
         sortBy: document.getElementById('sortBy'),
         sortOrder: document.getElementById('sortOrder'),
         clearFiltersSmall: document.getElementById('clearFiltersSmall'),
@@ -163,8 +167,13 @@ function bindEvents() {
     elements.searchInput.addEventListener('input', debounce(handleSearch, CONFIG.DEBOUNCE_DELAY));
     elements.searchBtn.addEventListener('click', handleSearch);
     elements.searchType.addEventListener('change', handleSearchTypeChange);
-    elements.dateFilter.addEventListener('change', handleDateFilterChange);
-    elements.qualityFilter.addEventListener('change', handleFilterChange);
+    // 基础筛选模式切换
+    elements.advancedFilterMode.addEventListener('change', () => {
+        switchAdvancedFilterMode(elements.advancedFilterMode.value);
+    });
+
+    // 初始化基础筛选模式（默认日期筛选）
+    switchAdvancedFilterMode('date');
     elements.sortBy.addEventListener('change', handleSortChange);
     elements.sortOrder.addEventListener('change', handleSortChange);
     elements.startDate.addEventListener('change', handleCustomDateChange);
@@ -209,6 +218,7 @@ function bindEvents() {
         });
     }
 }
+
 
 // 注意：initializeUI 函数已移至 app-ui.js
 

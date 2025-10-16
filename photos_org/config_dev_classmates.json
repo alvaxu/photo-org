@@ -6,7 +6,7 @@
     "temp_file_max_age": 24
   },
   "database": {
-    "path": "F:/photo-instance/familyphotoselect/PhotoSystem/photo_db/photos.db" 
+    "path": "F:/photo-instance/photoClassMates/PhotoSystem/photo_db/photos.db" 
   },
   "dashscope": {
     "api_key": "sk-9ade5a04da1a46c998a203db3ccd70fe",
@@ -34,7 +34,7 @@
     "max_retry_count": 3
   },
   "storage": {
-    "base_path": "F:/photo-instance/familyphotoselect/PhotoSystem/storage",  
+    "base_path": "F:/photo-instance/photoClassMates/PhotoSystem/storage",  
     "originals_path": "originals",
     "thumbnails_path": "thumbnails",
     "temp_path": "temp",

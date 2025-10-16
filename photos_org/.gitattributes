@@ -1,0 +1,5 @@
+# 设置默认行为
+* text=auto
+
+# 批处理文件使用CRLF换行符
+*.bat text eol=crlf
