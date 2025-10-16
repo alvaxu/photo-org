@@ -6,6 +6,7 @@ __pycache__/
 .Python
 abandon/
 1.prepare/
+doc/
 build/
 venv/
 develop-eggs/
