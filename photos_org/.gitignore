@@ -1,19 +1,11 @@
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *$py.class
 *.so
 .Python
-abandon/
-1.prepare/
-doc/
-build/
 venv/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
 lib/
 lib64/
 parts/
@@ -120,9 +112,7 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
-*.jpg
 *.jpeg
-*.png
 *.gif
 *.bmp
 *.tiff
@@ -163,12 +153,15 @@ models/
 *.zip
 
 # Photesystem files
-PhotoSystem/
-release_install_version/
+doc/
+logs/
+photo_db/
+photos_system.egg-info/
 build/
 dist/
+release_install_version/
 storage/
-photo_db
+temp/
 
 
 # Node.js / Frontend
