@@ -25,7 +25,7 @@
 
 ### 🪟 Windows 用户
 
-1. 下载 `PhotoSystem-Portable.zip`
+1. 扫码本文档下方百度云共享链接，下载 **最新版**`PhotoSystem-Portable.zip`
 2. 解压到一个**足够存储家庭照片**的目录
 3. **双击运行 `PhotoSystem.exe`** 直接启动
 4. 或者运行 `startup.bat` 获得更好的用户体验
@@ -358,7 +358,7 @@
 
 <img src="images/baidushare.png" alt="百度分享" width="200" height="200" />
 
-*让更多人享受到智能照片管理带来的便利*
+*请扫码下载最新版软件分享，让更多人享受到智能照片管理带来的便利*
 
 ### ❤️ 支持我们
 
