@@ -21,22 +21,6 @@ if exist test_redirect.txt (
     exit /b 1
 )
 
-REM Generate README.html from README.md
-echo DEBUG: Generating README.html...
-python generate_readme_html.py
-if errorlevel 1 (
-    echo ERROR: Failed to generate README.html
-    pause
-    exit /b 1
-)
-if exist README.html (
-    echo DEBUG: README.html generated successfully
-) else (
-    echo ERROR: README.html not found after generation
-    pause
-    exit /b 1
-)
-
 REM Build main PhotoSystem executable
 echo.
 echo ========================================
