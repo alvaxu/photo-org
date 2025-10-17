@@ -238,6 +238,28 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo DEBUG: Copying images directory...
+if exist "images" (
+    echo DEBUG: Creating images directory in distribution...
+    if not exist "!DIST_DIR!\images" mkdir "!DIST_DIR!\images"
+    if errorlevel 1 (
+        echo ERROR: Failed to create images directory
+        pause
+        exit /b 1
+    )
+    
+    echo DEBUG: Copying all files from images directory...
+    xcopy "images\*" "!DIST_DIR!\images\" /E /I /H /Y >nul
+    if errorlevel 1 (
+        echo ERROR: Failed to copy images directory
+        pause
+        exit /b 1
+    )
+    echo DEBUG: Images directory copied successfully
+) else (
+    echo WARNING: images directory not found, skipping...
+)
+
 echo DEBUG: Skipping installer scripts - using direct execution mode
 
 echo DEBUG: Creating launcher scripts...
