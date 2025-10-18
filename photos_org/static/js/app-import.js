@@ -1457,25 +1457,8 @@ function monitorImportProgress(taskId, totalFiles) {
             // 更新状态文本
             elements.importStatus.textContent = `正在处理: ${statusData.processed_files || 0}/${totalFiles} (${progress}%)`;
 
-            // 显示统计信息
-            if (statusData.processed_files > 0) {
-                elements.importStats.style.display = 'flex';
-                elements.processedCount.textContent = statusData.processed_files || 0;
-                elements.importedCount.textContent = statusData.imported_count || 0;
-                elements.skippedCount.textContent = statusData.skipped_count || 0;
-                elements.failedCount.textContent = statusData.failed_count || 0;
-
-                // 更新详情文本
-                const imported = statusData.imported_count || 0;
-                const skipped = statusData.skipped_count || 0;
-                const failed = statusData.failed_count || 0;
-                const totalProcessed = imported + skipped + failed;
-
-                if (totalProcessed > 0) {
-                    const successRate = ((imported / totalProcessed) * 100).toFixed(1);
-                    elements.importDetails.textContent = `成功率: ${successRate}% | 导入: ${imported}, 跳过: ${skipped}, 失败: ${failed}`;
-                }
-            }
+            // 处理过程中始终隐藏统计面板，避免显示混乱
+            elements.importStats.style.display = 'none';
             
             // 检查是否完成
             if (statusData.status === 'completed') {
@@ -1495,13 +1478,7 @@ function monitorImportProgress(taskId, totalFiles) {
                 const totalProcessed = imported + skipped + failed;
                 const successRate = totalProcessed > 0 ? ((imported / totalProcessed) * 100).toFixed(1) : '0.0';
 
-                elements.importDetails.textContent = `最终结果: 成功率 ${successRate}% | 导入: ${imported}, 跳过: ${skipped}, 失败: ${failed}`;
-
-                // 更新统计信息
-                elements.processedCount.textContent = statusData.processed_files || 0;
-                elements.importedCount.textContent = imported;
-                elements.skippedCount.textContent = skipped;
-                elements.failedCount.textContent = failed;
+                elements.importDetails.textContent = `处理完成，准备显示结果详情...`;
 
                 // 转换数据格式以匹配showImportDetails的期望
                 const detailsData = {
@@ -1518,11 +1495,17 @@ function monitorImportProgress(taskId, totalFiles) {
                     modal.hide();
 
                     // 监听模态框关闭事件，确保模态框完全消失后才显示结果
-                    elements.importModal.addEventListener('hidden.bs.modal', function onModalHidden() {
+                    // 使用全局变量确保事件监听器能被正确移除
+                    if (window.importModalCloseHandler) {
+                        elements.importModal.removeEventListener('hidden.bs.modal', window.importModalCloseHandler);
+                    }
+                    
+                    window.importModalCloseHandler = function() {
                         console.log('导入模态框已完全关闭，准备显示结果详情...');
 
                         // 移除事件监听器，避免重复执行
-                        elements.importModal.removeEventListener('hidden.bs.modal', onModalHidden);
+                        elements.importModal.removeEventListener('hidden.bs.modal', window.importModalCloseHandler);
+                        window.importModalCloseHandler = null;
 
                         try {
                             // 显示导入结果详情
@@ -1535,7 +1518,9 @@ function monitorImportProgress(taskId, totalFiles) {
                             console.error('显示导入结果详情失败:', error);
                             showError('显示结果失败: ' + error.message);
                         }
-                    });
+                    };
+                    
+                    elements.importModal.addEventListener('hidden.bs.modal', window.importModalCloseHandler);
                 } else {
                     // 如果找不到模态框实例，直接显示结果（降级处理）
                     console.warn('找不到导入模态框实例，直接显示结果');
