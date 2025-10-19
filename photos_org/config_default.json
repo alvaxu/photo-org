@@ -45,10 +45,10 @@
   "analysis": {
     "duplicate_threshold": 5,
     "quality_threshold": 0,
-    "concurrent": 5,
+    "concurrent": 3,
     "timeout": 30,
-    "batch_size": 500,
-    "batch_threshold": 200
+    "batch_size": 600,
+    "batch_threshold": 300
   },
   "logging": {
     "level": "INFO",
@@ -136,9 +136,9 @@
       ".heic",
       ".heif"
     ],
-    "max_upload_files": 20000,
-    "scan_batch_size": 1000,
-    "batch_threshold": 200
+    "max_upload_files": 50000,
+    "scan_batch_size": 600,
+    "batch_threshold": 300
   },
   "quality": {
     "weights": {
@@ -162,7 +162,7 @@
     "rate_limit": 180,
     "cache_enabled": true,
     "cache_ttl": 86400,
-    "batch_size": 10,
+    "batch_size": 50,
     "configured": false
   }
 }

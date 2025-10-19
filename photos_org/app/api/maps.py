@@ -259,7 +259,7 @@ async def get_gps_photo_stats(db: Session = Depends(get_db)):
 
 @router.post("/photos/batch-convert-gps-address")
 async def batch_convert_gps_address(
-    limit: int = 50,  # 最多处理多少张照片
+    limit: int = None,  # 🔥 改为可选参数
     db: Session = Depends(get_db)
 ):
     """批量转换GPS为地址"""
@@ -272,6 +272,11 @@ async def batch_convert_gps_address(
             detail="请先配置高德地图API Key",
             headers={"X-Help-Page": "/help-gaode-api-key"}
         )
+
+    # 🔥 如果没有传入limit，使用配置的batch_size
+    if limit is None:
+        limit = current_settings.maps.batch_size
+        print(f"使用配置的批次大小: {limit}")
 
     # 获取需要转换的照片（有GPS但没有地址的照片）
     photos_to_convert = db.query(Photo).filter(
