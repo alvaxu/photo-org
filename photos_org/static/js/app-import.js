@@ -1839,75 +1839,216 @@ async function processBasicAnalysisSingleBatch(photoIds) {
 }
 
 /**
- * 分批处理基础分析
+ * 分批处理基础分析 - 使用分阶段启动和并发控制
  * @param {Array} photoIds - 所有需要分析的照片ID
  * @param {number} batchSize - 每批大小
  */
 async function processBasicAnalysisInBatches(photoIds, batchSize) {
     const totalPhotos = photoIds.length;
     const totalBatches = Math.ceil(totalPhotos / batchSize);
-    const batchInfo = []; // 保存每个批次的信息
-
-    // 基础分析分批处理
+    
+    // 🔥 新增：从配置读取最大并发批次数
+    const maxConcurrentBatches = CONFIG.analysisConfig?.concurrent || 3;
+    
+    console.log(`分批处理基础分析：${totalPhotos}张照片，分为${totalBatches}批，最多${maxConcurrentBatches}批并发`);
 
     // 禁用开始按钮，防止重复点击
     document.getElementById('startBasicBtn').disabled = true;
 
     // 显示分批处理状态
-    document.getElementById('basicStatus').textContent = `准备分批分析 ${totalPhotos} 张照片，共${totalBatches}批...`;
+    document.getElementById('basicStatus').textContent = `准备分批分析 ${totalPhotos} 张照片，共${totalBatches}批，最多${maxConcurrentBatches}批并发...`;
 
     try {
-        // 分批启动分析任务
+        // 🔥 新增：准备所有批次信息
+        const allBatchTasks = [];  // 所有批次任务信息
+        const activeTasks = new Map();  // 当前活跃任务 Map<taskId, batchInfo>
+        let nextBatchIndex = 0;
+        
+        // 准备所有批次信息
         for (let i = 0; i < totalBatches; i++) {
             const start = i * batchSize;
             const end = Math.min(start + batchSize, totalPhotos);
             const batchPhotoIds = photoIds.slice(start, end);
-
-            // 更新当前批次状态
-            const currentBatch = i + 1;
-            document.getElementById('basicStatus').textContent =
-                `正在启动第${currentBatch}/${totalBatches}批分析 (${batchPhotoIds.length}张照片)...`;
-
-            // 启动单批分析
-            const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    photo_ids: batchPhotoIds,
-                    analysis_types: ['quality']
-                })
+            
+            allBatchTasks.push({
+                batchIndex: i + 1,
+                photoIds: batchPhotoIds,
+                taskId: null,
+                status: 'pending'
             });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`第${currentBatch}批启动失败: ${errorData.detail || response.statusText}`);
-            }
-
-            const data = await response.json();
-
-            // 保存批次信息，包括照片数量
-            batchInfo.push({
-                taskId: data.task_id,
-                photoCount: batchPhotoIds.length,
-                batchIndex: currentBatch
-            });
-
-            // 第${currentBatch}批分析任务已启动
         }
-
-        // 所有批次启动完成，开始监控
-        // 所有基础分析批次已启动，开始监控聚合进度
-        document.getElementById('basicStatus').textContent =
-            `所有${totalBatches}批分析任务已启动，正在后台处理...`;
-
-        // 监控所有批次的聚合进度
-        await monitorBasicAnalysisBatches(batchInfo, totalPhotos);
+        
+        // 🔥 新增：分阶段启动批次
+        await processBasicAnalysisWithConcurrency(allBatchTasks, activeTasks, maxConcurrentBatches, totalPhotos);
 
     } catch (error) {
         console.error('基础分析分批处理失败:', error);
         showError('基础分析分批处理失败: ' + error.message);
         document.getElementById('startBasicBtn').disabled = false;
     }
+}
+
+/**
+ * 🔥 新增：带并发控制的基础分析分批处理
+ * @param {Array} allBatchTasks - 所有批次任务信息
+ * @param {Map} activeTasks - 当前活跃任务
+ * @param {number} maxConcurrentBatches - 最大并发批次数
+ * @param {number} totalPhotos - 总照片数
+ */
+async function processBasicAnalysisWithConcurrency(allBatchTasks, activeTasks, maxConcurrentBatches, totalPhotos) {
+    let nextBatchIndex = 0;
+    
+    // 第一阶段：启动初始并发批次
+    const initialBatches = Math.min(maxConcurrentBatches, allBatchTasks.length);
+    console.log(`启动初始${initialBatches}个批次`);
+    
+    for (let i = 0; i < initialBatches; i++) {
+        await startNextBatch(allBatchTasks, activeTasks, nextBatchIndex++);
+    }
+    
+    // 第二阶段：监控并动态扩容
+    await monitorAndScaleConcurrentBatches(allBatchTasks, activeTasks, maxConcurrentBatches, totalPhotos);
+}
+
+/**
+ * 🔥 新增：启动下一个批次
+ * @param {Array} allBatchTasks - 所有批次任务信息
+ * @param {Map} activeTasks - 当前活跃任务
+ * @param {number} batchIndex - 批次索引
+ */
+async function startNextBatch(allBatchTasks, activeTasks, batchIndex) {
+    if (batchIndex >= allBatchTasks.length) {
+        return;
+    }
+    
+    const batchTask = allBatchTasks[batchIndex];
+    const currentBatch = batchIndex + 1;
+    
+    // 更新状态显示
+    document.getElementById('basicStatus').textContent = 
+        `正在启动第${currentBatch}批分析 (${batchTask.photoIds.length}张照片)...`;
+    
+    try {
+        // 启动单批分析
+        const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                photo_ids: batchTask.photoIds,
+                analysis_types: ['quality']
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`第${currentBatch}批启动失败: ${errorData.detail || response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        // 更新批次信息
+        batchTask.taskId = data.task_id;
+        batchTask.status = 'active';
+        
+        // 添加到活跃任务列表
+        activeTasks.set(data.task_id, {
+            batchIndex: currentBatch,
+            photoCount: batchTask.photoIds.length,
+            startTime: Date.now()
+        });
+        
+        console.log(`第${currentBatch}批分析任务已启动，任务ID: ${data.task_id}`);
+        
+    } catch (error) {
+        console.error(`第${currentBatch}批启动失败:`, error);
+        batchTask.status = 'failed';
+        throw error;
+    }
+}
+
+/**
+ * 🔥 新增：监控活跃批次并动态扩容
+ * @param {Array} allBatchTasks - 所有批次任务信息
+ * @param {Map} activeTasks - 当前活跃任务
+ * @param {number} maxConcurrentBatches - 最大并发批次数
+ * @param {number} totalPhotos - 总照片数
+ */
+async function monitorAndScaleConcurrentBatches(allBatchTasks, activeTasks, maxConcurrentBatches, totalPhotos) {
+    let nextBatchIndex = maxConcurrentBatches; // 从已启动的批次后开始
+    let completedBatches = 0;
+    
+    return new Promise((resolve) => {
+        const checkInterval = setInterval(async () => {
+            try {
+                // 1. 检查已完成的批次
+                const completedTaskIds = await checkCompletedBatches(activeTasks);
+                
+                // 2. 从活跃列表中移除已完成的批次
+                completedTaskIds.forEach(taskId => {
+                    const batchInfo = activeTasks.get(taskId);
+                    if (batchInfo) {
+                        completedBatches++;
+                        console.log(`第${batchInfo.batchIndex}批分析完成`);
+                    }
+                    activeTasks.delete(taskId);
+                });
+                
+                // 3. 启动新的批次补充到最大并发数
+                while (activeTasks.size < maxConcurrentBatches && nextBatchIndex < allBatchTasks.length) {
+                    await startNextBatch(allBatchTasks, activeTasks, nextBatchIndex++);
+                }
+                
+                // 4. 更新进度显示
+                const totalCompleted = completedBatches;
+                const progressPercentage = Math.round((totalCompleted / allBatchTasks.length) * 100);
+                document.getElementById('basicStatus').textContent = 
+                    `已完成${totalCompleted}/${allBatchTasks.length}批，活跃批次: ${activeTasks.size}/${maxConcurrentBatches}`;
+                document.getElementById('basicProgressBar').style.width = `${progressPercentage}%`;
+                document.getElementById('basicProgressBar').setAttribute('aria-valuenow', progressPercentage);
+                
+                // 5. 检查是否全部完成
+                if (activeTasks.size === 0 && nextBatchIndex >= allBatchTasks.length) {
+                    clearInterval(checkInterval);
+                    console.log('所有批次分析完成');
+                    document.getElementById('basicStatus').textContent = 
+                        `所有${allBatchTasks.length}批分析任务已完成`;
+                    document.getElementById('basicProgressBar').style.width = '100%';
+                    document.getElementById('basicProgressBar').setAttribute('aria-valuenow', 100);
+                    resolve();
+                }
+                
+            } catch (error) {
+                console.error('批次监控失败:', error);
+                clearInterval(checkInterval);
+                resolve();
+            }
+        }, 2000); // 每2秒检查一次
+    });
+}
+
+/**
+ * 🔥 新增：检查已完成的批次
+ * @param {Map} activeTasks - 当前活跃任务
+ * @returns {Array} 已完成的任务ID列表
+ */
+async function checkCompletedBatches(activeTasks) {
+    const completedTaskIds = [];
+    
+    for (const [taskId, batchInfo] of activeTasks) {
+        try {
+            const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/task-status/${taskId}`);
+            if (response.ok) {
+                const statusData = await response.json();
+                if (statusData.status === 'completed' || statusData.status === 'failed') {
+                    completedTaskIds.push(taskId);
+                }
+            }
+        } catch (error) {
+            console.error(`检查任务${taskId}状态失败:`, error);
+        }
+    }
+    
+    return completedTaskIds;
 }
 
 /**
@@ -3475,10 +3616,11 @@ async function startBatchGpsToAddress() {
         if (!confirmed) return;
 
         // 启动批量转换
+        const batchSize = CONFIG.mapsConfig?.batch_size || 50; // 🔥 使用配置参数，默认50
         const convertResponse = await fetch('/api/maps/photos/batch-convert-gps-address', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({limit: 50}) // 每次最多处理50张
+            body: JSON.stringify({limit: batchSize}) // 🔥 使用配置的批次大小
         });
 
         const result = await convertResponse.json();

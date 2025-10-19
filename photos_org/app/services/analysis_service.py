@@ -70,7 +70,7 @@ class AnalysisService:
             if not full_path.exists():
                 raise Exception(f"照片文件不存在: {full_path}")
 
-            self.logger.info(f"开始分析照片 {photo_id}: {photo.filename}, 分析类型: {analysis_types}")
+            # self.logger.info(f"开始分析照片 {photo_id}: {photo.filename}, 分析类型: {analysis_types}")
 
             # 根据分析类型有条件地执行分析
             tasks = []
@@ -118,7 +118,7 @@ class AnalysisService:
                 photo_id, content_result, quality_result, hash_result, db, original_status
             )
 
-            self.logger.info(f"照片 {photo_id} 分析完成")
+            # self.logger.info(f"照片 {photo_id} 分析完成")
             return analysis_result
 
         except Exception as e:
@@ -407,7 +407,8 @@ class AnalysisService:
 
     async def batch_analyze_photos(self, photo_ids: List[int], db: Session = None) -> Dict[str, Any]:
         """
-        批量分析照片
+        批量分析照片 - 备用接口，主要用于直接调用场景
+        注意：此函数现在主要用于兼容性，实际并发处理在API层
 
         Args:
             photo_ids: 照片ID列表
@@ -417,7 +418,7 @@ class AnalysisService:
             批量分析结果
         """
         try:
-            self.logger.info(f"开始批量分析 {len(photo_ids)} 张照片")
+            self.logger.info(f"开始批量分析 {len(photo_ids)} 张照片（备用接口）")
             
             # 验证输入参数
             if not photo_ids:
@@ -439,54 +440,24 @@ class AnalysisService:
                 "errors": []
             }
 
-            # 限制并发数量，避免资源耗尽
-            semaphore = asyncio.Semaphore(2)
-            # 设置并发限制
-
-            async def analyze_with_semaphore(photo_id: int):
-                async with semaphore:
-                    try:
-                        result = await self.analyze_photo(photo_id, db)
-                        return {"photo_id": photo_id, "status": "success", "result": result}
-                    except Exception as e:
-                        self.logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
-                        import traceback
-                        self.logger.error(f"照片 {photo_id} 详细错误: {traceback.format_exc()}")
-                        
-                        # 存储错误信息到PhotoAnalysis表
-                        error_info = {
-                            "error": str(e),
-                            "error_type": "analysis_error",
-                            "failed_at": datetime.now().isoformat(),
-                            "traceback": traceback.format_exc()
-                        }
-                        self._save_error_result(photo_id, error_info, db)
-                        
-                        return {"photo_id": photo_id, "status": "error", "error": str(e)}
-
-            # 并发执行分析任务
-            # 开始并发执行分析任务
-            try:
-                tasks = [analyze_with_semaphore(photo_id) for photo_id in photo_ids]
-                
-                task_results = await asyncio.gather(*tasks)
-                
-            except Exception as e:
-                self.logger.error(f"并发执行任务时出错: {str(e)}")
-                import traceback
-                self.logger.error(f"并发执行详细错误: {traceback.format_exc()}")
-                raise
-
-            # 处理结果
-            # 处理任务结果
-            for result in task_results:
-                if result["status"] == "success":
+            # 🔥 简化：移除重复的并发逻辑，专注于单张照片分析
+            for photo_id in photo_ids:
+                try:
+                    result = await self.analyze_photo(photo_id, db)
                     results["successful_analyses"] += 1
-                    results["results"].append(result)
-                else:
+                    results["results"].append({
+                        "photo_id": photo_id,
+                        "status": "success",
+                        "result": result
+                    })
+                except Exception as e:
+                    self.logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
                     results["failed_analyses"] += 1
-                    results["errors"].append(result)
-                    self.logger.error(f"照片 {result['photo_id']} 分析失败: {result['error']}")
+                    results["errors"].append({
+                        "photo_id": photo_id,
+                        "status": "error",
+                        "error": str(e)
+                    })
 
             results["completed_at"] = datetime.now().isoformat()
 

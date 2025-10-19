@@ -345,6 +345,57 @@ class ImportService:
         except (TypeError, ValueError, ZeroDivisionError):
             return None
 
+    def _fix_image_orientation(self, img: Image.Image) -> Image.Image:
+        """
+        根据EXIF方向信息修复图片方向
+        
+        :param img: PIL Image对象
+        :return: 修复方向后的Image对象
+        """
+        try:
+            # 获取EXIF数据
+            exif = img.getexif()
+            if not exif:
+                return img
+            
+            # 获取方向信息
+            orientation = exif.get(274)  # Orientation标签ID
+            if not orientation:
+                return img
+            
+            # 根据方向值旋转图片
+            if orientation == 1:
+                # 正常方向，无需旋转
+                return img
+            elif orientation == 2:
+                # 水平翻转
+                return img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            elif orientation == 3:
+                # 旋转180度
+                return img.transpose(Image.Transpose.ROTATE_180)
+            elif orientation == 4:
+                # 垂直翻转
+                return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+            elif orientation == 5:
+                # 水平翻转 + 逆时针90度
+                return img.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_90)
+            elif orientation == 6:
+                # 顺时针90度
+                return img.transpose(Image.Transpose.ROTATE_270)
+            elif orientation == 7:
+                # 水平翻转 + 顺时针90度
+                return img.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_270)
+            elif orientation == 8:
+                # 逆时针90度
+                return img.transpose(Image.Transpose.ROTATE_90)
+            else:
+                # 未知方向，返回原图
+                return img
+                
+        except Exception as e:
+            print(f"修复图片方向失败: {str(e)}")
+            return img
+
     def generate_thumbnail(self, source_path: str, max_size: int = None, file_hash: str = None) -> Optional[str]:
         """
         生成缩略图
@@ -359,6 +410,9 @@ class ImportService:
 
         try:
             with Image.open(source_path) as img:
+                # 🔥 修复：根据EXIF方向信息旋转图片
+                img = self._fix_image_orientation(img)
+                
                 # 计算缩略图尺寸
                 img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
 

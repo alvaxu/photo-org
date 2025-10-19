@@ -829,7 +829,8 @@ async def get_analysis_batch_status(request: BatchStatusRequest, db: Session = D
 
 async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_types: List[str], original_statuses: Dict[int, str] = None):
     """
-    处理分析任务（后台任务）
+    处理分析任务（后台任务）- 使用asyncio并发处理
+    支持两种模式：导航栏批次处理和选中照片单次处理
     """
     logger.info(f"=== 开始处理分析任务 {task_id} ===")
     logger.info(f"照片数量: {len(photo_ids)}, 分析类型: {analysis_types}")
@@ -860,62 +861,78 @@ async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_typ
 
     try:
         analysis_service = AnalysisService()
+        
+        # 🔥 关键改进：使用现有配置的并发数
+        from app.core.config import settings
+        max_concurrent = settings.analysis.concurrent  # 使用现有的concurrent配置
+        semaphore = asyncio.Semaphore(max_concurrent)
+        
+        async def analyze_single_photo_with_semaphore(photo_id: int):
+            """使用信号量控制并发处理单张照片"""
+            async with semaphore:
+                try:
+                    # logger.info(f"开始分析照片 {photo_id}")
+                    original_status = original_statuses.get(photo_id, 'imported')
+                    result = await analysis_service.analyze_photo(
+                        photo_id, analysis_types, db, original_status
+                    )
+                    # logger.info(f"照片 {photo_id} 分析完成")
+                    return {"photo_id": photo_id, "status": "success", "result": result}
+                    
+                except Exception as e:
+                    logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
+                    
+                    # 保存错误信息并恢复原始状态
+                    error_info = {
+                        "error": str(e),
+                        "error_type": "analysis_error",
+                        "failed_at": datetime.now().isoformat()
+                    }
+                    original_status = original_statuses.get(photo_id, 'imported')
+                    analysis_service._save_error_result(
+                        photo_id, error_info, db, original_status, 
+                        analysis_types[0] if analysis_types else None
+                    )
+                    
+                    return {"photo_id": photo_id, "status": "error", "error": str(e)}
+        
+        # 🔥 关键改进：并发执行所有分析任务
+        logger.info(f"开始并发分析 {len(photo_ids)} 张照片，最大并发数: {max_concurrent}")
+        tasks = [analyze_single_photo_with_semaphore(photo_id) for photo_id in photo_ids]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 处理结果和更新状态
         successful_analyses = 0
         failed_analyses = 0
-
-        for i, photo_id in enumerate(photo_ids):
-            try:
-                logger.info(f"分析照片 {photo_id}，分析类型: {analysis_types}")
-                original_status = original_statuses.get(photo_id, 'imported')
-                result = await analysis_service.analyze_photo(photo_id, analysis_types, db, original_status)
-                logger.info(f"照片 {photo_id} 分析完成")
-                successful_analyses += 1
-
-                # 更新任务状态
-                analysis_task_status[task_id]["completed_photos"] = successful_analyses
-                analysis_task_status[task_id]["progress_percentage"] = (successful_analyses / len(photo_ids)) * 100
-
-            except Exception as e:
-                logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
+        
+        for result in results:
+            if isinstance(result, Exception):
                 failed_analyses += 1
-
-                # 记录错误详情
+                logger.error(f"任务执行异常: {str(result)}")
+                continue
+                
+            if result["status"] == "success":
+                successful_analyses += 1
+            else:
+                failed_analyses += 1
                 analysis_task_status[task_id]["error_details"].append({
-                    "photo_id": photo_id,
-                    "error": str(e),
+                    "photo_id": result["photo_id"],
+                    "error": result["error"],
                     "error_type": "analysis_error",
                     "timestamp": datetime.now().isoformat()
                 })
 
-                # 保存错误信息到PhotoAnalysis表并恢复原始状态（混合模式）
-                error_info = {
-                    "error": str(e),
-                    "error_type": "analysis_error",
-                    "failed_at": datetime.now().isoformat()
-                }
-                original_status = original_statuses.get(photo_id, 'imported')  # 获取原始状态
-                logger.info(f"准备保存照片 {photo_id} 的错误信息并恢复状态为: {original_status}")
-                analysis_service._save_error_result(photo_id, error_info, db, original_status, analysis_types[0] if analysis_types else None)
-                logger.info(f"照片 {photo_id} 错误信息已保存，状态已恢复为: {original_status}")
-
-                # 更新失败计数
-                analysis_task_status[task_id]["failed_photos"] = failed_analyses
-                
-                # 重新计算进度百分比（包含成功和失败）
-                total_processed = successful_analyses + failed_analyses
-                analysis_task_status[task_id]["progress_percentage"] = (total_processed / len(photo_ids)) * 100
-
-        logger.info(f"=== 分析任务 {task_id} 完成 ===")
-        logger.info(f"成功: {successful_analyses}, 失败: {failed_analyses}")
-
-        # 标记任务完成
+        # 更新最终状态
         analysis_task_status[task_id].update({
             "status": "completed",
             "completed_photos": successful_analyses,
             "failed_photos": failed_analyses,
             "end_time": datetime.now().isoformat(),
-            "progress_percentage": 100.0  # 任务完成时进度为100%
+            "progress_percentage": 100.0
         })
+
+        logger.info(f"=== 分析任务 {task_id} 完成 ===")
+        logger.info(f"成功: {successful_analyses}, 失败: {failed_analyses}")
 
         # 延迟清理任务状态，避免内存泄漏
         async def cleanup_task_status():
