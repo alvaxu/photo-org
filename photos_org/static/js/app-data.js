@@ -34,6 +34,7 @@ const AppState = {
         cameraFilter: '',
         sortBy: 'taken_at',
         sortOrder: 'desc',
+        person_filter: 'all',
         selectedTags: [],
         selectedCategories: []
     },
@@ -517,7 +518,8 @@ async function loadPhotos(page = 1) {
             date_filter: AppState.searchFilters.dateFilter,
             quality_filter: AppState.searchFilters.qualityFilter,
             format_filter: AppState.searchFilters.formatFilter,
-            camera_filter: AppState.searchFilters.cameraFilter
+            camera_filter: AppState.searchFilters.cameraFilter,
+            person_filter: AppState.searchFilters.person_filter || 'all'
         });
 
         // 添加标签筛选参数
@@ -1107,6 +1109,7 @@ function clearAllFilters() {
         cameraFilter: '',
         sortBy: 'taken_at',
         sortOrder: 'desc',
+        person_filter: 'all',
         selectedTags: [],
         selectedCategories: []
     };
@@ -1142,6 +1145,11 @@ function clearAllFilters() {
     }
     if (categoryMultiSelect) {
         categoryMultiSelect.clearSelection();
+    }
+    
+    // 清除肖像筛选面板的选中状态
+    if (window.portraitFilterPanel) {
+        window.portraitFilterPanel.clearFilter();
     }
 
     AppState.currentPage = 1;
@@ -1225,6 +1233,17 @@ function updateFilterStatus() {
     if (filters.selectedCategories.length > 0) {
         const selectedCategoryNames = filters.selectedCategories.map(id => findCategoryName(id));
         statusParts.push(`分类: ${selectedCategoryNames.join(', ')}`);
+    }
+    
+    // 显示人物筛选
+    if (filters.person_filter && filters.person_filter !== 'all') {
+        if (filters.person_filter === 'unlabeled') {
+            statusParts.push('人物: 未标记人物');
+        } else {
+            // 尝试获取人物名称
+            const personName = getPersonNameById(filters.person_filter);
+            statusParts.push(`人物: ${personName || '未知人物'}`);
+        }
     }
     
     if (filters.sortBy !== 'taken_at' || filters.sortOrder !== 'desc') {
@@ -1383,6 +1402,18 @@ window.switchAdvancedFilterMode = function(mode) {
             // 这里不应该被调用，因为所有选项都有对应的case
             break;
     }
+}
+
+// 获取人物名称的辅助函数
+function getPersonNameById(clusterId) {
+    // 从肖像筛选面板获取人物名称
+    if (window.portraitFilterPanel && window.portraitFilterPanel.clusters) {
+        const cluster = window.portraitFilterPanel.clusters.find(c => c.cluster_id === clusterId);
+        if (cluster) {
+            return cluster.person_name || '未命名人物';
+        }
+    }
+    return null;
 };
 
 window.clearAllFilters = clearAllFilters;

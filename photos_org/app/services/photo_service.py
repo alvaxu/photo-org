@@ -28,7 +28,8 @@ class PhotoService:
 
     def get_photos(self, db: Session, skip: int = 0, limit: int = 50,
                    filters: Optional[Dict[str, Any]] = None,
-                   sort_by: str = "created_at", sort_order: str = "desc") -> Tuple[List[Photo], int]:
+                   sort_by: str = "created_at", sort_order: str = "desc",
+                   person_filter: str = "all") -> Tuple[List[Photo], int]:
         """
         获取照片列表
 
@@ -52,6 +53,10 @@ class PhotoService:
             # 应用筛选条件
             if filters:
                 query = self._apply_filters(query, filters)
+
+            # 应用人物筛选
+            if person_filter != "all":
+                query = self._apply_person_filter(query, person_filter)
 
             # 获取总数
             total = query.count()
@@ -577,4 +582,36 @@ class PhotoService:
 
         except Exception as e:
             self.logger.error(f"应用筛选条件失败: {str(e)}")
+            return query
+
+    def _apply_person_filter(self, query, person_filter: str):
+        """
+        应用人物筛选条件
+        
+        Args:
+            query: SQLAlchemy查询对象
+            person_filter: 人物筛选条件
+            
+        Returns:
+            修改后的查询对象
+        """
+        try:
+            from app.models.face import FaceDetection, FaceClusterMember, FaceCluster
+            
+            if person_filter == "unlabeled":
+                # 查询未标记人物的照片
+                query = query.join(FaceDetection, Photo.id == FaceDetection.photo_id)\
+                           .join(FaceClusterMember, FaceDetection.face_id == FaceClusterMember.face_id)\
+                           .join(FaceCluster, FaceClusterMember.cluster_id == FaceCluster.cluster_id)\
+                           .filter(FaceCluster.is_labeled == False)
+            else:
+                # 查询特定聚类的照片
+                query = query.join(FaceDetection, Photo.id == FaceDetection.photo_id)\
+                           .join(FaceClusterMember, FaceDetection.face_id == FaceClusterMember.face_id)\
+                           .filter(FaceClusterMember.cluster_id == person_filter)
+            
+            return query
+
+        except Exception as e:
+            self.logger.error(f"应用人物筛选条件失败: {str(e)}")
             return query

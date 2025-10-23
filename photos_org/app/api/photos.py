@@ -76,6 +76,7 @@ async def get_photos(
     sort_by: str = Query("created_at", description="排序字段"),
     sort_order: str = Query("desc", description="排序顺序"),
     filters: Optional[str] = Query(None, description="筛选条件JSON字符串"),
+    person_filter: str = Query("all", description="人物筛选"),
     db: Session = Depends(get_db)
 ):
     """
@@ -103,7 +104,7 @@ async def get_photos(
         if search:
             photos, total = photo_service.search_photos(db, search, skip, limit)
         else:
-            photos, total = photo_service.get_photos(db, skip, limit, filter_dict, sort_by, sort_order)
+            photos, total = photo_service.get_photos(db, skip, limit, filter_dict, sort_by, sort_order, person_filter)
 
         # 转换为响应格式
         photo_list = []

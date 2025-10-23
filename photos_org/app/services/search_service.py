@@ -35,6 +35,7 @@ class SearchService:
         quality_level: Optional[str] = None,
         format_filter: Optional[str] = None,
         camera_filter: Optional[str] = None,
+        person_filter: str = "all",
         tags: Optional[List[str]] = None,
         categories: Optional[List[str]] = None,
         tag_ids: Optional[List[int]] = None,
@@ -112,6 +113,10 @@ class SearchService:
                 else:
                     # 普通相机品牌筛选
                     query = query.filter(Photo.camera_make == camera_filter)
+
+            # 人物筛选
+            if person_filter != "all":
+                query = self._apply_person_filter(query, person_filter)
 
             # 日期筛选
             if date_from == "no_date" and date_to == "no_date":
@@ -889,3 +894,35 @@ class SearchService:
         except Exception as e:
             self.logger.error(f"检查FTS表存在性失败: {e}")
             return False
+
+    def _apply_person_filter(self, query, person_filter: str):
+        """
+        应用人物筛选条件
+        
+        Args:
+            query: SQLAlchemy查询对象
+            person_filter: 人物筛选条件
+            
+        Returns:
+            修改后的查询对象
+        """
+        try:
+            from app.models.face import FaceDetection, FaceClusterMember, FaceCluster
+            
+            if person_filter == "unlabeled":
+                # 查询未标记人物的照片
+                query = query.join(FaceDetection, Photo.id == FaceDetection.photo_id)\
+                           .join(FaceClusterMember, FaceDetection.face_id == FaceClusterMember.face_id)\
+                           .join(FaceCluster, FaceClusterMember.cluster_id == FaceCluster.cluster_id)\
+                           .filter(FaceCluster.is_labeled == False)
+            else:
+                # 查询特定聚类的照片
+                query = query.join(FaceDetection, Photo.id == FaceDetection.photo_id)\
+                           .join(FaceClusterMember, FaceDetection.face_id == FaceClusterMember.face_id)\
+                           .filter(FaceClusterMember.cluster_id == person_filter)
+            
+            return query
+
+        except Exception as e:
+            self.logger.error(f"应用人物筛选条件失败: {str(e)}")
+            return query
