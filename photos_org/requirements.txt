@@ -14,6 +14,11 @@ scikit-image>=0.21.0
 # AI Services
 dashscope==1.14.0
 
+# Face Recognition
+insightface>=0.7.0
+opencv-python>=4.8.0
+onnxruntime>=1.15.0
+
 # Text Processing
 jieba==0.42.1
 scikit-learn==1.7.2

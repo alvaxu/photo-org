@@ -69,6 +69,7 @@ async function loadUserConfig() {
             const result = await response.json();
             if (result.success) {
                 userConfig = result.data;
+                window.userConfig = result.data;  // 设置全局变量
                 // 更新全局配置
                 CONFIG.PAGE_SIZE = userConfig.ui?.photos_per_page || 12;
                 CONFIG.importConfig = userConfig.import || {};

@@ -157,12 +157,32 @@
   },
   "maps": {
     "provider": "amap",
-    "api_key": "",
+    "api_key": "f7ed013ec2d45e241d79a883ba96483c",
     "timeout": 10,
     "rate_limit": 180,
     "cache_enabled": true,
     "cache_ttl": 86400,
     "batch_size": 500,
-    "configured": false
+    "configured": true
+  },
+  "face_recognition": {
+    "enabled": true,
+    "model": "buffalo_l",
+    "detection_threshold": 0.6,
+    "similarity_threshold": 0.7,
+    "max_faces_per_photo": 10,
+    "batch_size": 20,
+    "batch_threshold": 10,
+    "max_concurrent_batches": 3,
+    "max_concurrent_photos": 3,
+    "max_clusters": 20,
+    "min_cluster_size": 2,
+    "auto_cluster": true,
+    "cluster_quality_threshold": 0.8,
+    "person_photos_pagination": {
+      "page_size": 12,
+      "max_pages_shown": 5,
+      "loading_delay": 300
+    }
   }
 }

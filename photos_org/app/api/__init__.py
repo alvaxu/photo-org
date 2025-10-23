@@ -19,6 +19,8 @@ from .storage import router as storage_router
 from .search import router as search_router
 from .enhanced_search import router as enhanced_search_router
 from .config import router as config_router
+from .face import router as face_router
+from .person_management import router as person_management_router
 
 # 创建主API路由
 router = APIRouter()
@@ -34,5 +36,7 @@ router.include_router(storage_router, prefix="/storage", tags=["storage"])
 router.include_router(search_router, prefix="/search", tags=["search"])
 router.include_router(enhanced_search_router, prefix="/enhanced-search", tags=["enhanced-search"])
 router.include_router(config_router, prefix="/config", tags=["config"])
+router.include_router(face_router, tags=["face_recognition"])
+router.include_router(person_management_router, tags=["person_management"])
 
 __all__ = ["router"]

@@ -207,6 +207,9 @@ a = Analysis(
         'opencv-python',    # Computer vision library
         'pillow',           # Image processing library
         'numpy',            # Numerical computing library
+        'insightface',      # Face recognition library
+        'onnx',             # ONNX for InsightFace
+        'onnxruntime',      # ONNX Runtime for InsightFace
     ],
     excludes=[  # Excluded modules (reduce package size)
         # Python cache and temporary files
@@ -243,7 +246,7 @@ a = Analysis(
         
         # GUI and plotting libraries
         'tkinter',         # GUI library
-        'matplotlib',      # Plotting library
+        # 'matplotlib',      # Plotting library - MAY BE NEEDED for InsightFace
         'IPython',         # Jupyter related
         'jupyter',         # Jupyter related
         'notebook',        # Jupyter related
@@ -273,11 +276,11 @@ a = Analysis(
         'pandas',          # Pandas (large, not used)
         'pandas.*',        # All Pandas submodules
         
-        # Deep Learning and AI (not needed for photo management)
-        'onnx',            # ONNX
-        'onnx.*',          # All ONNX submodules
-        'onnxruntime',     # ONNX Runtime (13MB+)
-        'onnxruntime.*',   # All ONNX Runtime submodules
+        # Deep Learning and AI (needed for face recognition)
+        # 'onnx',            # ONNX - NEEDED for InsightFace
+        # 'onnx.*',          # All ONNX submodules - NEEDED for InsightFace
+        # 'onnxruntime',     # ONNX Runtime - NEEDED for InsightFace
+        # 'onnxruntime.*',   # All ONNX Runtime submodules - NEEDED for InsightFace
         'faiss',           # Facebook AI Similarity Search
         'faiss.*',         # All FAISS submodules
         'stablehlo',       # StableHLO
@@ -293,7 +296,7 @@ a = Analysis(
         
         # Unused dependencies
         'requests',        # HTTP client (using httpx instead)
-        'tqdm',            # Progress bar (not used in core functionality)
+        # 'tqdm',            # Progress bar - MAY BE NEEDED for InsightFace
     ],
 
 # Windows specific options
