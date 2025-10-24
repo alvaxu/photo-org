@@ -58,6 +58,14 @@ a = Analysis(
         # ===== Documentation =====
         # Essential documentation only
         (str(ROOT_DIR / 'release' / 'README.md'), '.'),
+        
+        # ===== OpenCV Data Files =====
+        # OpenCV cascade classifiers and data files (required for image processing)
+        (str(VENV_DIR / 'Lib' / 'site-packages' / 'cv2' / 'data'), 'cv2/data'),
+        
+        # ===== InsightFace Data Files =====
+        # InsightFace model data files (required for face recognition)
+        (str(VENV_DIR / 'Lib' / 'site-packages' / 'insightface' / 'data'), 'insightface/data'),
 
         # ===== Important Notes =====
         # [OK] config.json      - User configuration file (required)
@@ -192,11 +200,115 @@ a = Analysis(
         'app.api.health',
         'app.api.enhanced_search',
         'app.api.import_photos',
+        'app.api.maps',
+        'app.api.person_management',
+        'app.api.face',
+        
+        # Face recognition modules
+        'insightface',
+        'insightface.app',
+        'insightface.app.face_analysis',
+        'insightface.data',
+        'insightface.model_zoo',
+        'insightface.model_zoo.landmark',
+        'insightface.model_zoo.arcface_onnx',
+        'insightface.model_zoo.retinaface',
+        'insightface.utils',
+        'insightface.utils.transform',
+        'onnx',
+        'onnxruntime',
+        'onnxruntime.capi',
+        'onnxruntime.capi.onnxruntime_inference_collection',
+        'sklearn.cluster',
+        'sklearn.metrics',
+        'sklearn.metrics.pairwise',
+        'tqdm',
+        
+        # HTTP client for InsightFace
+        'requests',
+        'requests.adapters',
+        'requests.auth',
+        'requests.cookies',
+        'requests.exceptions',
+        'requests.models',
+        'requests.sessions',
+        'requests.utils',
+        'urllib3',
+        
+        # ===== NumPy Core Modules Only =====
+        # Essential numpy modules for debugging
+        'numpy.core._multiarray_umath',      # Core array operations
+        'numpy.core._internal',              # Internal array functions
+        'numpy.core._methods',               # Array methods
+        'numpy.core._exceptions',            # NumPy exceptions
+        
+        # ===== NumPy Linear Algebra Modules =====
+        # Required for InsightFace transform.py estimate_affine_matrix_3d23d
+        'numpy.linalg',                      # Linear algebra module
+        'numpy.linalg.lapack_lite',          # LAPACK functions
+        'numpy.linalg._umath_linalg',        # Linear algebra ufuncs
+        'numpy.linalg._linalg',              # Core linear algebra
+        'numpy.linalg.linalg',               # Linear algebra functions
+        'numpy.linalg._solve_triangular',   # Triangular solver
+        'numpy.linalg._solve_utils',         # Solve utilities
+        
+        # ===== Additional NumPy Modules =====
+        # Required for array operations in transform.py
+        'numpy.lib.stride_tricks',           # Array stride tricks
+        'numpy.lib.function_base',           # Function base utilities
+        'numpy.lib.mixins',                  # Array mixins
+        'numpy.lib.npyio',                   # Array I/O
+        'numpy.lib.utils',                   # Array utilities
+        
+        # ===== NumPy Array Creation =====
+        # Required for np.ones, np.hstack in transform.py
+        'numpy.core.fromnumeric',            # Array creation functions
+        'numpy.core.defchararray',           # Character arrays
+        'numpy.core.records',                # Record arrays
+        
+        # ===== Additional Critical NumPy Modules =====
+        # Force import all critical numpy components
+        'numpy.core._dtype_ctypes',          # Data type ctypes
+        'numpy.core._ufunc_config',          # Ufunc configuration
+        'numpy.core._asarray',               # Array conversion
+        'numpy.core._multiarray_tests',      # Multiarray tests
+        'numpy.core._operand_flag_tests',    # Operand flag tests
+        'numpy.core._struct_ufunc_tests',    # Struct ufunc tests
+        'numpy.core._umath_tests',           # Umath tests
+        'numpy.core.arrayprint',             # Array printing
+        'numpy.core.defchararray',           # Character arrays
+        'numpy.core.einsumfunc',             # Einsum functions
+        'numpy.core.function_base',          # Function base
+        'numpy.core.getlimits',              # Get limits
+        'numpy.core.machar',                 # Machine characteristics
+        'numpy.core.memmap',                 # Memory mapping
+        'numpy.core.multiarray',             # Multiarray
+        'numpy.core.numeric',                # Numeric functions
+        'numpy.core.overrides',              # Overrides
+        'numpy.core.shape_base',             # Shape base
+        'numpy.core.umath',                  # Universal math functions
+        
+        # ===== NumPy Array Functions =====
+        # Required for transform.py functions
+        'numpy.core._multiarray_umath',      # Multiarray umath
+        'numpy.core._internal',              # Internal functions
+        'numpy.core._methods',                # Array methods
+        'numpy.core._exceptions',             # NumPy exceptions
+        
+        # ===== NumPy Linear Algebra Extensions =====
+        # Additional linalg functions used in transform.py
+        'numpy.linalg._solve_triangular',    # Triangular solver
+        'numpy.linalg._solve_utils',         # Solve utilities
+        'numpy.linalg.linalg',               # Linear algebra functions
     ],
 
     hookspath=[],  # Hook paths
     runtime_hooks=[],  # Runtime hooks
     collect_all=[  # Force collect all dependencies for these packages
+        'numpy',            # Numerical computing library (ALL modules)
+        'numpy.linalg',    # Linear algebra (force collect all)
+        'numpy.core',      # Core numpy modules (force collect all)
+        'numpy.lib',       # NumPy library modules (force collect all)
         'sklearn',          # Machine learning library
         'scipy',            # Scientific computing library
         'chinese_calendar', # Chinese holiday detection
@@ -207,6 +319,9 @@ a = Analysis(
         'opencv-python',    # Computer vision library
         'pillow',           # Image processing library
         'numpy',            # Numerical computing library
+        # 'insightface',      # Face recognition library - NEEDED for face recognition
+        # 'onnx',             # ONNX for InsightFace - NEEDED for face recognition
+        # 'onnxruntime',     # ONNX Runtime for InsightFace - NEEDED for face recognition
     ],
     excludes=[  # Excluded modules (reduce package size)
         # Python cache and temporary files
@@ -243,7 +358,7 @@ a = Analysis(
         
         # GUI and plotting libraries
         'tkinter',         # GUI library
-        'matplotlib',      # Plotting library
+        # 'matplotlib',      # Plotting library - MAY BE NEEDED for InsightFace
         'IPython',         # Jupyter related
         'jupyter',         # Jupyter related
         'notebook',        # Jupyter related
@@ -273,11 +388,11 @@ a = Analysis(
         'pandas',          # Pandas (large, not used)
         'pandas.*',        # All Pandas submodules
         
-        # Deep Learning and AI (not needed for photo management)
-        'onnx',            # ONNX
-        'onnx.*',          # All ONNX submodules
-        'onnxruntime',     # ONNX Runtime (13MB+)
-        'onnxruntime.*',   # All ONNX Runtime submodules
+        # Deep Learning and AI (needed for face recognition)
+        # 'onnx',            # ONNX - NEEDED for InsightFace
+        # 'onnx.*',          # All ONNX submodules - NEEDED for InsightFace
+        # 'onnxruntime',     # ONNX Runtime - NEEDED for InsightFace
+        # 'onnxruntime.*',   # All ONNX Runtime submodules - NEEDED for InsightFace
         'faiss',           # Facebook AI Similarity Search
         'faiss.*',         # All FAISS submodules
         'stablehlo',       # StableHLO
@@ -292,8 +407,8 @@ a = Analysis(
         'libx265',         # libx265
         
         # Unused dependencies
-        'requests',        # HTTP client (using httpx instead)
-        'tqdm',            # Progress bar (not used in core functionality)
+        # 'requests',        # HTTP client - NEEDED for InsightFace
+        # 'tqdm',            # Progress bar - MAY BE NEEDED for InsightFace
     ],
 
 # Windows specific options

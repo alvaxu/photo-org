@@ -36,6 +36,22 @@ from app.core.config import settings
 from app.core.logging import setup_logging
 from app.db.session import engine
 from app.models import base
+# 导入所有模型以确保表被创建
+from app.models import (
+    Photo,
+    PhotoAnalysis,
+    PhotoQuality,
+    Tag,
+    Category,
+    PhotoTag,
+    PhotoCategory,
+    DuplicateGroup,
+    DuplicateGroupPhoto,
+    FaceDetection,
+    FaceCluster,
+    FaceClusterMember,
+    Person,
+)
 from app.services.storage_service import StorageService
 
 import warnings
@@ -227,6 +243,11 @@ async def help_gaode_api_key_page():
     """高德地图API配置帮助页面"""
     return FileResponse(get_template_path("help_gaode_api_key.html"))
 
+@app.get("/people")
+async def people_management_page():
+    """人物管理页面"""
+    return FileResponse(get_template_path("people-management.html"))
+
 # 健康检查接口
 @app.get("/health")
 async def health_check():
@@ -281,6 +302,12 @@ if __name__ == "__main__":
     print("🗄️  正在创建数据库表...")
     base.Base.metadata.create_all(bind=engine)
     print("✅ 数据库表创建完成")
+
+    # 优化人脸识别数据库（添加索引和清理无效数据）
+    print("🔧 正在优化人脸识别数据库...")
+    from app.services.face_database_optimization_service import optimize_face_recognition_database
+    optimize_face_recognition_database()
+    print("✅ 人脸识别数据库优化完成")
 
     # 初始化系统分类
     print("🏷️  正在初始化系统分类...")
@@ -380,6 +407,29 @@ if __name__ == "__main__":
     print(f"🔑 API_KEY状态: {api_key_status}")
     if api_key_warning:
         print(f"   {api_key_warning}")
+
+    # 启动定期缓存清理任务
+    print("🧹 启动定期缓存清理任务...")
+    import threading
+    import time
+    from app.services.face_crop_service import face_crop_service
+    
+    def periodic_cache_cleanup():
+        """定期清理过期缓存（同步版本）"""
+        while True:
+            try:
+                # 每24小时清理一次过期缓存
+                time.sleep(24 * 60 * 60)  # 24小时
+                cleaned_count = face_crop_service.cleanup_old_cache(max_age_days=30)
+                if cleaned_count > 0:
+                    print(f"🧹 自动清理了 {cleaned_count} 个过期的人脸裁剪缓存文件")
+            except Exception as e:
+                print(f"❌ 定期缓存清理失败: {e}")
+    
+    # 在后台线程启动定期清理任务
+    cleanup_thread = threading.Thread(target=periodic_cache_cleanup, daemon=True)
+    cleanup_thread.start()
+    print("✅ 定期缓存清理任务已启动")
 
     # ===== 启动服务器 =====
     # 获取本机IP地址用于显示

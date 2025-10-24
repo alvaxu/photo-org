@@ -75,6 +75,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="/people" id="navPeople" data-section="people">
+                            <i class="bi bi-people"></i> 人脸识别
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="/settings" id="navSettings" data-section="settings">
                             <i class="bi bi-gear"></i> 系统配置
                         </a>
@@ -117,7 +122,7 @@
     <!-- 主内容区域 -->
     <div class="container-fluid mt-4">
         <!-- 搜索和筛选栏 -->
-        <div class="row mb-4">
+        <div class="row mb-4" id="searchFilterPanel">
             <div class="col-12">
                 <div class="card">
                     <div class="card-body">
@@ -283,15 +288,61 @@
             </div>
         </div>
 
+        <!-- 按肖像筛选面板 -->
+        <div class="row mb-3" id="portraitFilterPanel">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <h6 class="mb-0 me-3">
+                                <i class="bi bi-person-circle me-1"></i>
+                                人脸筛选
+                            </h6>
+                            <!-- 人物统计信息（始终显示） -->
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="stat-item">
+                                    <span class="stat-number" id="totalPeopleCount">-</span>
+                                    <span class="stat-label">总人物</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number" id="labeledPeopleCount">-</span>
+                                    <span class="stat-label">已标记</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number" id="unlabeledPeopleCount">-</span>
+                                    <span class="stat-label">未标记</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number" id="totalFacesCount">-</span>
+                                    <span class="stat-label">总人脸</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" id="portraitFilterToggle">
+                            <i class="bi bi-chevron-down"></i>
+                            点击展开
+                        </button>
+                    </div>
+                    
+                    <!-- 肖像选择区域（可展开） -->
+                    <div class="card-body collapse" id="portraitFilterContent">
+                        <div class="row g-2" id="portraitFilterGrid">
+                            <!-- 动态加载的肖像卡片 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 统计信息面板 -->
-        <div class="row mb-3">
+        <div class="row mb-3" id="photoStatsPanel">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <div class="d-flex align-items-center">
                             <h6 class="mb-0 me-3">
                                 <i class="bi bi-bar-chart me-1"></i>
-                                统计信息
+                               基础筛选与统计
                             </h6>
                             <div class="stats-header-icons" id="statsHeaderIcons">
                                 <!-- 统计图标将通过JavaScript动态生成 -->
@@ -299,7 +350,7 @@
                         </div>
                         <button class="btn btn-sm btn-outline-primary" id="toggleStatsPanel">
                             <i class="bi bi-chevron-down" id="statsToggleIcon"></i>
-                            详细统计
+                            点击展开
                         </button>
                     </div>
 
@@ -1271,6 +1322,7 @@
             <script src="js/app-events.js?v=20250120_01"></script>
             <script src="js/app-import.js?v=20250120_31"></script>
             <script src="js/app-photos.js?v=20250120_02"></script>
+            <script src="js/portrait-filter.js?v=20250120_01"></script>
             <script src="js/search-multiselect.js?v=20250120_01"></script>
             <script src="js/app.js?v=20250120_01"></script>
             <script src="js/photo-manager.js?v=20250120_01"></script>

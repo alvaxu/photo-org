@@ -260,6 +260,38 @@ if exist "images" (
     echo WARNING: images directory not found, skipping...
 )
 
+echo DEBUG: Copying models directory...
+if exist "..\models" (
+    echo DEBUG: Creating models directory in distribution...
+    if not exist "!DIST_DIR!\models" mkdir "!DIST_DIR!\models"
+    if errorlevel 1 (
+        echo ERROR: Failed to create models directory
+        pause
+        exit /b 1
+    )
+    
+    echo DEBUG: Copying all files from models directory...
+    xcopy "..\models\*" "!DIST_DIR!\models\" /E /I /H /Y >nul
+    if errorlevel 1 (
+        echo ERROR: Failed to copy models directory
+        pause
+        exit /b 1
+    )
+    echo DEBUG: Models directory copied successfully
+    
+    REM Show models directory size for verification
+    echo DEBUG: Verifying models directory contents...
+    if exist "!DIST_DIR!\models\buffalo_l" (
+        echo DEBUG: buffalo_l model directory found
+        dir "!DIST_DIR!\models\buffalo_l" /s | find "File(s)"
+    ) else (
+        echo WARNING: buffalo_l model directory not found in distribution
+    )
+) else (
+    echo WARNING: models directory not found, skipping...
+    echo WARNING: Face recognition may not work without local models
+)
+
 echo DEBUG: Skipping installer scripts - using direct execution mode
 
 echo DEBUG: Creating launcher scripts...
@@ -374,13 +406,15 @@ echo    2. Users extract and run "PhotoSystem.exe" directly
 echo    3. Or run "startup.bat" for better user experience
 echo.
 echo New features:
-echo    - Optimized package size (excluded TensorFlow, PyTorch, OpenCV)
+echo    - Optimized package size (excluded TensorFlow, PyTorch)
 echo    - Single file executable mode for better compatibility
 echo    - Fixed Python DLL loading issues
 echo    - Improved shortcut icon handling
 echo    - Added "startup.bat" startup script
 echo    - Streamlined package structure
 echo    - Removed redundant installation files
+echo    - Local face recognition models included (offline capability)
+echo    - Face recognition models: buffalo_l (~325MB)
 echo.
 
 pause

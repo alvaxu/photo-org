@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <!-- Edge浏览器兼容性修复 -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="msapplication-TileColor" content="#0d6efd">
+    <meta name="theme-color" content="#0d6efd">
+    <title>人物管理 - 家庭版智能照片系统</title>
+
+    <!-- Bootstrap CSS - 优先使用本地版本 -->
+    <link href="/static/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/lib/bootstrap-icons/css/bootstrap-icons.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons 字体修复 -->
+    <style>
+        @font-face {
+            font-display: block;
+            font-family: "bootstrap-icons";
+            src: url("/static/lib/bootstrap-icons/fonts/bootstrap-icons.woff2?2ab2cbbe07fcebb53bdaa7313bb290f2") format("woff2"),
+                 url("/static/lib/bootstrap-icons/fonts/bootstrap-icons.woff?2ab2cbbe07fcebb53bdaa7313bb290f2") format("woff");
+        }
+    </style>
+    
+    <!-- CDN备用加载 -->
+    <script>
+        // 如果本地资源加载失败，尝试CDN
+        setTimeout(function() {
+            const links = document.querySelectorAll('link[href*="/static/lib/"]');
+            links.forEach(link => {
+                if (!link.sheet) {
+                    console.warn('本地资源加载失败，尝试CDN:', link.href);
+                    if (link.href.includes('bootstrap.min.css')) {
+                        link.href = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css';
+                    } else if (link.href.includes('bootstrap-icons.min.css')) {
+                        link.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css';
+                    }
+                }
+            });
+        }, 2000);
+    </script>
+    
+    <!-- 自定义样式 -->
+    <link href="/static/css/style.css?v=20250120_01" rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/images/xuwh.ico">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <img src="/static/images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
+                智能照片系统
+                <small class="ms-2 text-light opacity-75">2025.10.01</small>
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="bi bi-grid-3x3-gap"></i> 照片库
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/people">
+                            <i class="bi bi-people"></i> 人脸识别
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/settings">
+                            <i class="bi bi-gear"></i> 系统配置
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/help-overview" target="_blank">
+                            <i class="bi bi-info-circle"></i> 功能说明
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/help-api-key" target="_blank">
+                            <i class="bi bi-key"></i> API密钥帮助
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/help-gaode-api-key" target="_blank">
+                            <i class="bi bi-geo-alt"></i> 高德API配置
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <div class="container-fluid mt-4">
+        <!-- 人物管理页面 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-people me-2"></i>人物管理
+                            <small class="text-muted ms-2">
+                                <span id="peopleCount">0</span> 个人物
+                            </small>
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" id="refreshPeopleBtn">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" id="startFaceRecognitionBtn">
+                                <i class="bi bi-camera"></i> 开始人脸识别
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- 人物统计信息 -->
+                        <div class="row mb-4">
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title text-primary">👥 总人物</h5>
+                                        <h3 class="text-primary" id="totalPeopleCount">-</h3>
+                                        <small class="text-muted">个人物</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title text-success">🏷️ 已标记</h5>
+                                        <h3 class="text-success" id="labeledPeopleCount">-</h3>
+                                        <small class="text-muted">个聚类</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title text-warning">❓ 未标记</h5>
+                                        <h3 class="text-warning" id="unlabeledPeopleCount">-</h3>
+                                        <small class="text-muted">个聚类</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title text-info">📸 总人脸</h5>
+                                        <h3 class="text-info" id="totalFacesCount">-</h3>
+                                        <small class="text-muted">个人脸</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 人物列表 -->
+                        <div id="peopleList" class="row g-3">
+                            <!-- 人物卡片将通过JavaScript动态生成 -->
+                        </div>
+
+                        <!-- 空状态 -->
+                        <div id="peopleEmptyState" class="text-center py-5 d-none">
+                            <i class="bi bi-people display-1 text-muted"></i>
+                            <h4 class="mt-3 text-muted">暂无人物数据</h4>
+                            <p class="text-muted">请先进行人脸识别分析</p>
+                            <button class="btn btn-primary" id="startFaceRecognitionFirstBtn">
+                                <i class="bi bi-camera me-2"></i>开始人脸识别
+                            </button>
+                        </div>
+
+                        <!-- 加载状态 -->
+                        <div id="peopleLoadingState" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-3 text-muted">正在加载人物数据...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS - 优先使用本地版本 -->
+    <script src="/static/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- CDN备用加载 -->
+    <script>
+        // 如果本地Bootstrap JS加载失败，尝试CDN
+        setTimeout(function() {
+            if (typeof bootstrap === 'undefined') {
+                console.warn('本地Bootstrap JS加载失败，尝试CDN');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js';
+                script.onload = function() {
+                    console.log('CDN Bootstrap JS加载成功');
+                };
+                document.head.appendChild(script);
+            }
+        }, 2000);
+    </script>
+    
+    <!-- 浏览器兼容性修复 -->
+    <script>
+        // 浏览器兼容性检测和修复
+        function detectBrowser() {
+            const userAgent = navigator.userAgent;
+            const isEdge = userAgent.indexOf('Edg') > -1;
+            const isChrome = userAgent.indexOf('Chrome') > -1 && !isEdge;
+            const isFirefox = userAgent.indexOf('Firefox') > -1;
+            const isSafari = userAgent.indexOf('Safari') > -1 && !isChrome && !isEdge;
+            
+            return { isEdge, isChrome, isFirefox, isSafari };
+        }
+        
+        const browser = detectBrowser();
+        
+        // 只对Edge浏览器应用特定的修复
+        if (browser.isEdge) {
+            // 添加Edge浏览器特定的CSS类
+            document.documentElement.classList.add('edge-browser');
+            
+            // 修复Edge浏览器的Flexbox问题
+            if (!CSS.supports('display', 'flex')) {
+                document.documentElement.classList.add('no-flexbox');
+            }
+            
+            // 修复Edge浏览器的Grid问题
+            if (!CSS.supports('display', 'grid')) {
+                document.documentElement.classList.add('no-grid');
+            }
+            
+            // 修复Edge浏览器的CSS变量问题
+            if (!CSS.supports('color', 'var(--test)')) {
+                document.documentElement.classList.add('no-css-vars');
+            }
+        }
+        
+        // 确保Bootstrap 5在所有浏览器中正常工作
+        document.addEventListener('DOMContentLoaded', function() {
+            // 只在Edge浏览器中应用特定的修复
+            if (browser.isEdge) {
+                // 修复Edge浏览器的模态框问题
+                var modals = document.querySelectorAll('.modal');
+                modals.forEach(function(modal) {
+                    modal.addEventListener('shown.bs.modal', function() {
+                        // 确保模态框在Edge浏览器中正确显示
+                        this.style.display = 'block';
+                    });
+                });
+                
+                // 修复Edge浏览器的表单控件问题
+                var formControls = document.querySelectorAll('.form-control, .form-select');
+                formControls.forEach(function(control) {
+                    control.addEventListener('focus', function() {
+                        this.style.borderColor = '#0d6efd';
+                        this.style.boxShadow = '0 0 0 0.2rem rgba(13, 110, 253, 0.25)';
+                    });
+                    control.addEventListener('blur', function() {
+                        this.style.borderColor = '#ced4da';
+                        this.style.boxShadow = 'none';
+                    });
+                });
+            }
+            
+            // 通用修复：确保所有浏览器的下拉菜单正常工作
+            var dropdowns = document.querySelectorAll('.dropdown-toggle');
+            dropdowns.forEach(function(dropdown) {
+                // 移除可能冲突的事件监听器
+                dropdown.removeEventListener('click', handleDropdownClick);
+                
+                // 添加新的事件监听器
+                dropdown.addEventListener('click', handleDropdownClick);
+            });
+            
+            function handleDropdownClick(e) {
+                // 让Bootstrap 5处理下拉菜单，不要阻止默认行为
+                // 只在必要时进行干预
+                var menu = this.nextElementSibling;
+                if (menu && menu.classList.contains('dropdown-menu')) {
+                    // 确保菜单有正确的z-index
+                    if (!menu.style.zIndex) {
+                        menu.style.zIndex = '9999';
+                    }
+                }
+            }
+            
+            // 通用修复：确保所有浏览器的基本功能正常
+            console.log('浏览器检测结果:', browser);
+        });
+    </script>
+
+    <!-- 人脸识别模态框 -->
+    <div class="modal fade" id="faceRecognitionModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">人脸识别分析</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        人脸识别将分析所有照片中的人脸，进行聚类和标记<br>
+                        此功能需要InsightFace模型，处理时间较长
+                    </div>
+
+                    <!-- 照片数量统计 -->
+                    <div class="alert alert-warning" id="facePhotoCountInfo" style="display: none;">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <span id="facePhotoCountText">正在获取照片数量...</span>
+                    </div>
+
+                    <div id="faceProgress" class="d-none mt-3">
+                        <div class="progress mb-2">
+                            <div class="progress-bar" id="faceProgressBar" style="width: 0%"></div>
+                        </div>
+                        <p class="text-center" id="faceStatus">正在处理...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="startFaceBtn">开始人脸识别</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 应用脚本 -->
+    <script src="/static/js/app-data.js?v=20250120_01"></script>
+    <script src="/static/js/people-management-standalone.js?v=20250120_01"></script>
+</body>
+</html>
