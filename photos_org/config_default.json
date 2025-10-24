@@ -6,7 +6,7 @@
     "temp_file_max_age": 24
   },
   "database": {
-    "path": "./photo_db/photos.db" 
+    "path": "./photo_db/photos.db"
   },
   "dashscope": {
     "api_key": "",
@@ -34,7 +34,7 @@
     "max_retry_count": 3
   },
   "storage": {
-    "base_path": "./storage",  
+    "base_path": "./storage",
     "originals_path": "originals",
     "thumbnails_path": "thumbnails",
     "temp_path": "temp",
@@ -77,10 +77,10 @@
   },
   "similarity": {
     "first_layer_weights": {
-      "perceptual_hash": 0.30,
-      "time": 0.20,
+      "perceptual_hash": 0.3,
+      "time": 0.2,
       "location": 0.15,
-      "camera": 0.10,
+      "camera": 0.1,
       "basic_tags": 0.15,
       "ai_scene": 0.03,
       "ai_objects": 0.02,
@@ -164,5 +164,28 @@
     "cache_ttl": 86400,
     "batch_size": 500,
     "configured": false
+  },
+  "face_recognition": {
+    "enabled": true,
+    "model": "buffalo_l",
+    "use_local_model": true,
+    "models_base_path": "./models",
+    "detection_threshold": 0.6,
+    "similarity_threshold": 0.7,
+    "max_faces_per_photo": 10,
+    "batch_size": 500,
+    "batch_threshold": 200,
+    "max_concurrent_batches": 3,
+    "max_concurrent_photos": 6,
+    "max_progress_checks": 36000,
+    "max_clusters": 100,
+    "min_cluster_size": 3,
+    "auto_cluster": true,
+    "cluster_quality_threshold": 0.8,
+    "person_photos_pagination": {
+      "page_size": 12,
+      "max_pages_shown": 5,
+      "loading_delay": 300
+    }
   }
 }

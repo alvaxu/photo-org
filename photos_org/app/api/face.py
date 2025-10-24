@@ -408,11 +408,16 @@ async def get_face_recognition_task_status_api(
     try:
         status = get_face_recognition_task_status(task_id)
         
-        return {
-            "success": True,
-            "task_id": task_id,
-            "status": status
-        }
+        # 🔥 修复：直接返回状态数据，与基础分析保持一致
+        if status.get("status") == "not_found":
+            return {
+                "task_id": task_id,
+                "status": "not_found",
+                "message": "任务不存在或已过期"
+            }
+        
+        # 直接返回状态数据，不包装
+        return status
         
     except Exception as e:
         logger.error(f"获取任务状态失败: {str(e)}")

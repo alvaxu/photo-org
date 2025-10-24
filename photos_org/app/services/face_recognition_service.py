@@ -69,11 +69,33 @@ class FaceRecognitionService:
                 
             logger.info("正在初始化人脸识别模型...")
             
-            # 初始化InsightFace应用
-            self.app = FaceAnalysis(name=self.config.model)
-            self.app.prepare(ctx_id=0, det_size=(640, 640))
+            # 根据配置决定使用本地模型还是在线模型
+            if self.config.use_local_model:
+                # 使用本地模型路径（参考存储服务的路径处理方式）
+                models_base_path = Path(self.config.models_base_path).resolve()
+                model_path = models_base_path / self.config.model
+                logger.info(f"使用本地模型路径: {model_path}")
+                
+                if not model_path.exists():
+                    logger.error(f"本地模型路径不存在: {model_path}")
+                    return False
+                
+                # 初始化InsightFace应用（使用绝对路径）
+                self.app = FaceAnalysis(name=str(model_path))
+            else:
+                # 使用在线模型（默认行为）
+                logger.info(f"使用在线模型: {self.config.model}")
+                self.app = FaceAnalysis(name=self.config.model)
             
-            logger.info("✅ 人脸识别模型初始化成功")
+            # 🔥 质量优化：调整检测参数
+            # 使用适中的检测尺寸以平衡质量和速度
+            det_size = (640, 640)  # 恢复到640x640以提高检测精度
+            logger.info(f"设置检测尺寸: {det_size}")
+            
+            # 准备模型，使用CPU上下文
+            self.app.prepare(ctx_id=0, det_size=det_size)
+            
+            logger.info("人脸识别模型初始化成功")
             self.is_initialized = True
             return True
             
@@ -93,47 +115,113 @@ class FaceRecognitionService:
             return []
             
         try:
-            # 读取图片
-            img = cv2.imread(photo_path)
-            if img is None:
-                logger.warning(f"无法读取图片: {photo_path}")
-                return []
-                
-            # 检测人脸
-            faces = self.app.get(img)
+            # 检查文件路径
+            import os
+            file_exists = os.path.exists(photo_path)
             
+            if not file_exists:
+                logger.error(f"文件不存在: {photo_path}")
+                return []
+            
+            # 读取图像
+            img = cv2.imread(photo_path)
+            
+            if img is None:
+                # 尝试其他方法读取
+                try:
+                    with open(photo_path, 'rb') as f:
+                        img_data = f.read()
+                    import numpy as np
+                    nparr = np.frombuffer(img_data, np.uint8)
+                    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    if img is None:
+                        return []
+                except Exception as e:
+                    logger.error(f"图像读取失败: {e}")
+                    return []
+            
+            # 🔥 质量优化：使用原始图像进行人脸检测
+            # 移除图像缩放，确保坐标一致性
+            height, width = img.shape[:2]
+            # logger.info(f"使用原始图像进行人脸检测: {width}x{height}")
+            
+            try:
+                # 🔥 性能优化：设置检测阈值
+                # 使用更高的检测阈值，减少低质量人脸的检测
+                detection_threshold = self.config.detection_threshold
+                
+                # 临时设置检测阈值
+                original_thresh = self.app.det_thresh
+                self.app.det_thresh = detection_threshold
+                
+                # 🔥 真正的并发：将同步调用包装成异步
+                faces = await asyncio.get_event_loop().run_in_executor(
+                    None,  # 使用默认线程池
+                    self.app.get,  # 同步方法
+                    img  # 参数
+                )
+                
+                # 恢复原始阈值
+                self.app.det_thresh = original_thresh
+                
+            except Exception as e:
+                logger.error(f"InsightFace检测失败: {e}")
+                raise e
+            
+            # 🔥 性能优化：限制处理的人脸数量
+            max_faces = self.config.max_faces_per_photo
+            if len(faces) > max_faces:
+                # 按检测分数排序，只处理前N个最高分的人脸
+                faces = sorted(faces, key=lambda f: f.det_score, reverse=True)[:max_faces]
+                logger.info(f"限制人脸数量: 从 {len(faces)} 个减少到 {max_faces} 个")
+            
+            # 处理检测到的人脸
             results = []
             for i, face in enumerate(faces):
-                if face.det_score < self.config.detection_threshold:
-                    continue
+                try:
+                    det_score = face.det_score
+                    bbox = face.bbox
+                    embedding = face.embedding
                     
+                    # 检查关键属性
+                    if bbox is None or embedding is None:
+                        continue
+                        
+                except Exception as e:
+                    logger.error(f"处理人脸 {i+1} 失败: {e}")
+                    continue
+                
+                if det_score < self.config.detection_threshold:
+                    continue
+                
                 # 生成人脸唯一ID
                 face_id = f"face_{photo_id}_{i}_{int(datetime.now().timestamp())}"
                 
                 # 提取人脸特征
-                face_features = face.embedding.tolist()
+                face_features = embedding.tolist()
                 
                 # 获取人脸位置
-                bbox = face.bbox.astype(int)
-                face_rectangle = [int(bbox[0]), int(bbox[1]), int(bbox[2] - bbox[0]), int(bbox[3] - bbox[1])]
+                bbox_int = bbox.astype(int)
+                face_rectangle = [int(bbox_int[0]), int(bbox_int[1]), int(bbox_int[2] - bbox_int[0]), int(bbox_int[3] - bbox_int[1])]
                 
                 result = {
                     'face_id': face_id,
                     'photo_id': photo_id,
                     'face_rectangle': face_rectangle,
-                    'confidence': float(face.det_score),
+                    'confidence': float(det_score),
                     'face_features': face_features,
                     'age_estimate': int(face.age) if hasattr(face, 'age') else None,
                     'gender_estimate': face.sex if hasattr(face, 'sex') else None
                 }
                 results.append(result)
                 
-            logger.info(f"照片 {photo_id} 检测到 {len(results)} 个人脸")
+            # 🔥 优化：简化日志输出
+            logger.info(f"照片 {photo_id} 处理完成: 检测到 {len(results)} 个人脸")
             return results
             
         except Exception as e:
             logger.error(f"人脸检测失败 {photo_path}: {e}")
-            return []
+            raise e
     
     async def save_face_detections(self, detections: List[Dict], db: Session) -> bool:
         """
@@ -255,7 +343,7 @@ class FaceRecognitionService:
                     db.add(member)
             
             db.commit()
-            logger.info(f"✅ 人脸聚类完成，创建了 {len(unique_labels)} 个聚类")
+            logger.info(f"人脸聚类完成，创建了 {len(unique_labels)} 个聚类")
             return True
             
         except Exception as e:
@@ -318,11 +406,82 @@ class FaceRecognitionService:
                     db.add(processed_record)
             
             db.commit()
-            logger.info(f"✅ 标记了 {len(photo_ids)} 张照片为已处理")
+            logger.info(f"标记了 {len(photo_ids)} 张照片为已处理")
             
         except Exception as e:
             logger.error(f"标记照片处理状态失败: {e}")
             db.rollback()
+
+    async def batch_save_face_detections(self, all_detections: List[Dict], db: Session) -> bool:
+        """
+        批量保存人脸检测结果到数据库（不提交事务）
+        :param all_detections: 所有人脸检测结果列表
+        :param db: 数据库会话
+        :return: 是否保存成功
+        """
+        try:
+            if not all_detections:
+                return True
+            
+            for detection in all_detections:
+                face_detection = FaceDetection(
+                    photo_id=detection['photo_id'],
+                    face_id=detection['face_id'],
+                    face_rectangle=detection['face_rectangle'],
+                    confidence=detection['confidence'],
+                    face_features=detection['face_features'],
+                    age_estimate=detection.get('age_estimate'),
+                    gender_estimate=detection.get('gender_estimate'),
+                    created_at=datetime.now()
+                )
+                db.add(face_detection)
+            
+            logger.info(f"准备批量保存 {len(all_detections)} 个人脸检测结果")
+            return True
+            
+        except Exception as e:
+            logger.error(f"批量保存人脸检测结果失败: {e}")
+            return False
+
+    async def batch_mark_photos_as_processed(self, all_processed_photos: set, db: Session) -> bool:
+        """
+        批量标记照片为已处理（不提交事务）
+        :param all_processed_photos: 已处理的照片ID集合
+        :param db: 数据库会话
+        :return: 是否保存成功
+        """
+        try:
+            if not all_processed_photos:
+                return True
+            
+            for photo_id in all_processed_photos:
+                # 检查是否已经有处理记录
+                existing_record = db.query(FaceDetection).filter(
+                    FaceDetection.photo_id == photo_id,
+                    FaceDetection.face_id.like(f"processed_{photo_id}_%")
+                ).first()
+                
+                if not existing_record:
+                    # 创建处理记录（没有检测到人脸的标记）
+                    processed_face_id = f"processed_{photo_id}_{int(datetime.now().timestamp())}"
+                    processed_record = FaceDetection(
+                        face_id=processed_face_id,
+                        photo_id=photo_id,
+                        face_rectangle=[0, 0, 0, 0],  # 空的人脸位置
+                        confidence=0.0,  # 0表示没有检测到人脸
+                        face_features=None,  # 没有特征
+                        age_estimate=None,
+                        gender_estimate=None,
+                        created_at=datetime.now()
+                    )
+                    db.add(processed_record)
+            
+            logger.info(f"准备批量标记 {len(all_processed_photos)} 张照片为已处理")
+            return True
+            
+        except Exception as e:
+            logger.error(f"批量标记照片已处理失败: {e}")
+            return False
 
 # 全局服务实例
 face_service = FaceRecognitionService()

@@ -192,14 +192,17 @@ class FaceRecognitionConfig(BaseSettings):
     """人脸识别配置"""
     enabled: bool = Field(default=True, description="是否启用人脸识别")
     model: str = Field(default="buffalo_l", description="人脸识别模型")
+    use_local_model: bool = Field(default=True, description="是否使用本地模型")
+    models_base_path: str = Field(default="./models", description="模型文件基础路径")
     detection_threshold: float = Field(default=0.6, description="人脸检测置信度阈值")
     similarity_threshold: float = Field(default=0.7, description="人脸相似度阈值")
     max_faces_per_photo: int = Field(default=10, description="每张照片最大检测人脸数")
-    batch_size: int = Field(default=20, description="人脸识别批次大小")
-    batch_threshold: int = Field(default=50, description="分批处理阈值")
+    batch_size: int = Field(default=30, description="人脸识别批次大小")
+    batch_threshold: int = Field(default=10, description="分批处理阈值")
     max_concurrent_batches: int = Field(default=3, description="最大并发批次")
     max_concurrent_photos: int = Field(default=3, description="单批次内最大并发照片数")
-    max_clusters: int = Field(default=20, description="最大聚类数量（Top N）")
+    max_progress_checks: int = Field(default=1800, description="最大进度检查次数")
+    max_clusters: int = Field(default=60, description="最大聚类数量（Top N）")
     min_cluster_size: int = Field(default=2, description="最小聚类大小")
     auto_cluster: bool = Field(default=True, description="是否自动聚类")
     cluster_quality_threshold: float = Field(default=0.8, description="聚类质量阈值")
@@ -361,6 +364,8 @@ class Settings(BaseSettings):
             },
             "face_recognition": {
                 "model": self.face_recognition.model,
+                "use_local_model": self.face_recognition.use_local_model,
+                "models_base_path": self.face_recognition.models_base_path,
                 "detection_threshold": self.face_recognition.detection_threshold,
                 "similarity_threshold": self.face_recognition.similarity_threshold,
                 "max_faces_per_photo": self.face_recognition.max_faces_per_photo,
@@ -368,6 +373,7 @@ class Settings(BaseSettings):
                 "batch_threshold": self.face_recognition.batch_threshold,
                 "max_concurrent_batches": self.face_recognition.max_concurrent_batches,
                 "max_concurrent_photos": self.face_recognition.max_concurrent_photos,
+                "max_progress_checks": self.face_recognition.max_progress_checks,
                 "max_clusters": self.face_recognition.max_clusters,
                 "min_cluster_size": self.face_recognition.min_cluster_size,
                 "auto_cluster": self.face_recognition.auto_cluster,

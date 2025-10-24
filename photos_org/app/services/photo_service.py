@@ -188,6 +188,9 @@ class PhotoService:
             if not photo:
                 return False
 
+            # 🔥 新增：清理人脸识别相关数据
+            self._cleanup_face_recognition_data(db, photo_id)
+
             # 删除物理文件
             if delete_file:
                 try:
@@ -219,6 +222,111 @@ class PhotoService:
             db.rollback()
             self.logger.error(f"删除照片失败 photo_id={photo_id}: {str(e)}")
             return False
+
+    def _cleanup_face_recognition_data(self, db: Session, photo_id: int):
+        """
+        清理照片相关的人脸识别数据
+        
+        Args:
+            db: 数据库会话
+            photo_id: 照片ID
+        """
+        try:
+            from app.models.face import FaceDetection, FaceClusterMember, FaceCluster, Person
+            
+            # 1. 获取该照片的所有人脸检测记录
+            face_detections = db.query(FaceDetection).filter(FaceDetection.photo_id == photo_id).all()
+            face_ids = [fd.face_id for fd in face_detections]
+            
+            if not face_ids:
+                return  # 没有人脸数据，直接返回
+            
+            self.logger.info(f"清理照片 {photo_id} 的人脸识别数据，涉及 {len(face_ids)} 个人脸")
+            
+            # 2. 获取受影响的聚类ID
+            affected_cluster_ids = set()
+            for face_id in face_ids:
+                cluster_members = db.query(FaceClusterMember).filter(FaceClusterMember.face_id == face_id).all()
+                for member in cluster_members:
+                    affected_cluster_ids.add(member.cluster_id)
+            
+            # 3. 删除聚类成员记录
+            deleted_members = db.query(FaceClusterMember).filter(
+                FaceClusterMember.face_id.in_(face_ids)
+            ).delete(synchronize_session=False)
+            
+            if deleted_members > 0:
+                self.logger.info(f"删除了 {deleted_members} 个聚类成员记录")
+            
+            # 4. 处理受影响的聚类
+            for cluster_id in affected_cluster_ids:
+                cluster = db.query(FaceCluster).filter(FaceCluster.cluster_id == cluster_id).first()
+                if not cluster:
+                    continue
+                
+                # 检查聚类是否还有成员
+                remaining_members = db.query(FaceClusterMember).filter(
+                    FaceClusterMember.cluster_id == cluster_id
+                ).count()
+                
+                if remaining_members == 0:
+                    # 聚类为空，删除聚类
+                    self.logger.info(f"删除空聚类: {cluster_id}")
+                    db.delete(cluster)
+                else:
+                    # 更新聚类的人脸数量
+                    cluster.face_count = remaining_members
+                    
+                    # 如果代表人脸被删除，需要重新选择代表人脸
+                    if cluster.representative_face_id in face_ids:
+                        # 选择剩余成员中的第一个作为新的代表人脸
+                        new_representative = db.query(FaceClusterMember).filter(
+                            FaceClusterMember.cluster_id == cluster_id
+                        ).first()
+                        if new_representative:
+                            cluster.representative_face_id = new_representative.face_id
+                            self.logger.info(f"更新聚类 {cluster_id} 的代表人脸为: {new_representative.face_id}")
+            
+            # 5. 删除人脸检测记录
+            deleted_detections = db.query(FaceDetection).filter(
+                FaceDetection.photo_id == photo_id
+            ).delete(synchronize_session=False)
+            
+            if deleted_detections > 0:
+                self.logger.info(f"删除了 {deleted_detections} 个人脸检测记录")
+            
+            # 6. 检查并清理没有聚类的人物记录
+            self._cleanup_orphan_persons(db)
+            
+            self.logger.info(f"照片 {photo_id} 的人脸识别数据清理完成")
+            
+        except Exception as e:
+            self.logger.error(f"清理人脸识别数据失败 photo_id={photo_id}: {str(e)}")
+            raise  # 重新抛出异常，让上层处理
+
+    def _cleanup_orphan_persons(self, db: Session):
+        """
+        清理没有聚类的人物记录
+        
+        Args:
+            db: 数据库会话
+        """
+        try:
+            from app.models.face import Person, FaceCluster
+            
+            # 查找没有聚类的人物
+            orphan_persons = db.query(Person).filter(
+                ~Person.person_id.in_(
+                    db.query(FaceCluster.person_id).filter(FaceCluster.person_id.isnot(None))
+                )
+            ).all()
+            
+            for person in orphan_persons:
+                self.logger.info(f"删除没有聚类的人物: {person.person_name} ({person.person_id})")
+                db.delete(person)
+                
+        except Exception as e:
+            self.logger.error(f"清理孤儿人物记录失败: {str(e)}")
 
     def batch_delete_photos(self, db: Session, photo_ids: List[int], delete_files: bool = True) -> Tuple[int, List[int]]:
         """

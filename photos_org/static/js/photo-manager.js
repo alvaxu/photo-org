@@ -276,6 +276,16 @@ class PhotoManager {
                         window.PhotoApp.loadStats();
                     }
 
+                    // 刷新人脸识别统计（如果人物管理页面已加载）
+                    if (window.peopleManagementStandalone) {
+                        window.peopleManagementStandalone.loadPeopleData();
+                    }
+                    
+                    // 刷新人脸筛选栏统计（如果已加载）
+                    if (window.portraitFilterPanel) {
+                        window.portraitFilterPanel.loadClusters();
+                    }
+
                     // 清空选择
                     this.clearSelection();
 

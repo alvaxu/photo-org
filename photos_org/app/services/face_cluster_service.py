@@ -39,6 +39,87 @@ from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
+
+class PortraitRotationManager:
+    """
+    肖像轮换管理器
+    
+    管理每个聚类的代表人脸轮换状态，支持在前10个优质人脸间轮换
+    """
+    
+    def __init__(self):
+        # 轮换状态: {cluster_id: {'faces': [...], 'index': 0}}
+        self.rotation_state: Dict[str, Dict] = {}
+    
+    def get_next_representative(self, cluster_id: str, top_10_faces: List[Tuple[str, float]]) -> str:
+        """
+        获取下一个代表人脸
+        
+        :param cluster_id: 聚类ID
+        :param top_10_faces: 前10个优质人脸 [(face_id, score), ...]
+        :return: 选择的人脸ID
+        """
+        if not top_10_faces:
+            return ""
+        
+        # 提取人脸ID列表
+        face_ids = [face_id for face_id, _ in top_10_faces]
+        
+        if cluster_id not in self.rotation_state:
+            # 第一次，初始化状态
+            self.rotation_state[cluster_id] = {
+                'faces': face_ids,
+                'index': 0
+            }
+            logger.info(f"初始化聚类 {cluster_id} 的轮换状态，共 {len(face_ids)} 个优质人脸")
+        
+        state = self.rotation_state[cluster_id]
+        
+        # 如果人脸列表发生变化，重新初始化
+        if state['faces'] != face_ids:
+            state['faces'] = face_ids
+            state['index'] = 0
+            logger.info(f"聚类 {cluster_id} 的人脸列表已更新，重新开始轮换")
+        
+        # 选择当前索引的人脸
+        current_index = state['index']
+        selected_face_id = state['faces'][current_index]
+        
+        # 更新索引（循环）
+        state['index'] = (current_index + 1) % len(state['faces'])
+        
+        logger.info(f"聚类 {cluster_id} 选择代表人脸: {selected_face_id} (第 {current_index + 1}/{len(state['faces'])} 个)")
+        
+        return selected_face_id
+    
+    def reset_cluster_rotation(self, cluster_id: str):
+        """
+        重置指定聚类的轮换状态
+        
+        :param cluster_id: 聚类ID
+        """
+        if cluster_id in self.rotation_state:
+            self.rotation_state[cluster_id]['index'] = 0
+            logger.info(f"重置聚类 {cluster_id} 的轮换状态")
+    
+    def get_rotation_info(self, cluster_id: str) -> Optional[Dict]:
+        """
+        获取聚类的轮换信息
+        
+        :param cluster_id: 聚类ID
+        :return: 轮换信息字典
+        """
+        if cluster_id not in self.rotation_state:
+            return None
+        
+        state = self.rotation_state[cluster_id]
+        return {
+            'total_faces': len(state['faces']),
+            'current_index': state['index'],
+            'current_face': state['faces'][state['index']] if state['faces'] else None
+        }
+
+
 class FaceClusterService:
     """人脸聚类服务类"""
     
@@ -49,6 +130,9 @@ class FaceClusterService:
         self.min_cluster_size = self.config.min_cluster_size
         self.similarity_threshold = self.config.similarity_threshold
         self.cluster_quality_threshold = self.config.cluster_quality_threshold
+        
+        # 初始化肖像轮换管理器
+        self.rotation_manager = PortraitRotationManager()
         
     async def cluster_faces(self, db: Session) -> bool:
         """
@@ -127,10 +211,14 @@ class FaceClusterService:
                     
                 # 创建聚类
                 cluster_id = f"cluster_{cluster_label}_{int(datetime.now().timestamp())}"
+                
+                # 🎯 优化：选择最佳代表人脸（聚类时使用传统逻辑）
+                best_representative = self._select_best_representative_face(cluster_faces, faces, db)
+                
                 cluster = FaceCluster(
                     cluster_id=cluster_id,
                     face_count=len(cluster_faces),
-                    representative_face_id=cluster_faces[0],  # 使用第一个作为代表
+                    representative_face_id=best_representative,
                     confidence_score=0.8,  # 默认置信度
                     is_labeled=False,
                     cluster_quality="high" if len(cluster_faces) >= 5 else "medium"
@@ -202,6 +290,157 @@ class FaceClusterService:
         
         return limited_clusters
     
+    def _select_best_representative_face(self, cluster_face_ids: List[str], faces: List, db: Session, cluster_id: str = None) -> str:
+        """
+        选择最佳代表人脸（支持轮换）
+        :param cluster_face_ids: 聚类中的人脸ID列表
+        :param faces: 人脸数据
+        :param db: 数据库会话
+        :param cluster_id: 聚类ID（用于轮换）
+        :return: 最佳代表人脸ID
+        """
+        try:
+            if not cluster_face_ids:
+                return ""
+            
+            # 获取聚类中的人脸数据（FaceDetection对象）
+            cluster_faces = [f for f in faces if f.face_id in cluster_face_ids]
+            
+            if not cluster_faces:
+                return cluster_face_ids[0]  # 回退到第一个
+            
+            # 计算每个人脸的综合质量分数
+            face_scores = []
+            
+            for face_obj in cluster_faces:
+                face_id = face_obj.face_id
+                photo_id = face_obj.photo_id
+                
+                # 1. 人脸检测置信度 (权重: 0.3)
+                confidence_score = face_obj.confidence or 0.0
+                
+                # 2. 照片质量分数 (权重: 0.4)
+                photo_quality_score = self._get_photo_quality_score(photo_id, db)
+                
+                # 3. 人脸大小分数 (权重: 0.2)
+                face_size_score = self._calculate_face_size_score(face_obj)
+                
+                # 4. 人脸角度分数 (权重: 0.1)
+                face_angle_score = self._calculate_face_angle_score(face_obj)
+                
+                # 综合分数计算
+                total_score = (
+                    confidence_score * 0.3 +
+                    photo_quality_score * 0.4 +
+                    face_size_score * 0.2 +
+                    face_angle_score * 0.1
+                )
+                
+                face_scores.append((face_id, total_score, confidence_score, photo_quality_score))
+            
+            # 按综合分数排序
+            face_scores.sort(key=lambda x: x[1], reverse=True)
+            
+            # 🔥 轮换逻辑：如果提供了cluster_id，使用轮换管理器
+            if cluster_id:
+                # 取前10个优质人脸进行轮换，转换为轮换管理器期望的格式
+                top_10_faces = [(face_id, total_score) for face_id, total_score, _, _ in face_scores[:10]]
+                best_face_id = self.rotation_manager.get_next_representative(cluster_id, top_10_faces)
+                
+                # 找到选中人脸的详细信息用于日志
+                selected_info = next((info for info in face_scores if info[0] == best_face_id), None)
+                if selected_info:
+                    logger.info(f"轮换选择代表人脸: {best_face_id}, 分数: {selected_info[1]:.3f} "
+                               f"(置信度: {selected_info[2]:.3f}, 照片质量: {selected_info[3]:.3f})")
+                
+                return best_face_id
+            else:
+                # 传统逻辑：选择分数最高的
+                best_face_id = face_scores[0][0]
+                logger.info(f"选择代表人脸: {best_face_id}, 分数: {face_scores[0][1]:.3f} "
+                           f"(置信度: {face_scores[0][2]:.3f}, 照片质量: {face_scores[0][3]:.3f})")
+                return best_face_id
+            
+        except Exception as e:
+            logger.error(f"选择代表人脸失败: {e}")
+            return cluster_face_ids[0]  # 回退到第一个
+    
+    def _get_photo_quality_score(self, photo_id: int, db: Session) -> float:
+        """
+        获取照片质量分数
+        :param photo_id: 照片ID
+        :param db: 数据库会话
+        :return: 质量分数 (0-1)
+        """
+        try:
+            from app.models.photo import PhotoQuality
+            
+            quality = db.query(PhotoQuality).filter(
+                PhotoQuality.photo_id == photo_id
+            ).first()
+            
+            if quality and quality.quality_score:
+                # 将质量分数标准化到0-1范围
+                return min(quality.quality_score / 100.0, 1.0)
+            else:
+                return 0.5  # 默认中等质量
+                
+        except Exception as e:
+            logger.warning(f"获取照片质量分数失败: {e}")
+            return 0.5
+    
+    def _calculate_face_size_score(self, face_obj) -> float:
+        """
+        计算人脸大小分数
+        :param face_obj: FaceDetection对象
+        :return: 大小分数 (0-1)
+        """
+        try:
+            face_rectangle = face_obj.face_rectangle
+            if not face_rectangle or len(face_rectangle) != 4:
+                return 0.5
+            
+            # 计算人脸区域面积
+            width = face_rectangle[2] - face_rectangle[0]
+            height = face_rectangle[3] - face_rectangle[1]
+            area = width * height
+            
+            # 人脸面积越大分数越高，但不要太小也不要太大
+            # 理想人脸面积范围：1000-10000像素
+            if area < 500:
+                return 0.2
+            elif area < 1000:
+                return 0.4
+            elif area < 5000:
+                return 0.8
+            elif area < 10000:
+                return 1.0
+            else:
+                return 0.6  # 太大的人脸可能失真
+                
+        except Exception as e:
+            logger.warning(f"计算人脸大小分数失败: {e}")
+            return 0.5
+    
+    def _calculate_face_angle_score(self, face_obj) -> float:
+        """
+        计算人脸角度分数
+        :param face_obj: FaceDetection对象
+        :return: 角度分数 (0-1)
+        """
+        try:
+            # 这里可以根据人脸关键点计算角度
+            # 目前简化处理，返回默认分数
+            # 未来可以基于landmark计算人脸偏转角度
+            
+            confidence = face_obj.confidence or 0.0
+            # 置信度越高，通常角度越好
+            return min(confidence, 1.0)
+            
+        except Exception as e:
+            logger.warning(f"计算人脸角度分数失败: {e}")
+            return 0.5
+
     def _calculate_cluster_quality(self, cluster_id: str, face_ids: List[str], faces: List[Dict]) -> float:
         """
         计算聚类质量分数

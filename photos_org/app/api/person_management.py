@@ -267,6 +267,70 @@ async def get_cluster_representative_face(
         logger.error(f"获取代表人脸失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/clusters/{cluster_id}/reselect-representative")
+async def reselect_cluster_representative(
+    cluster_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    重新选择聚类代表人脸
+    :param cluster_id: 聚类ID
+    :param db: 数据库会话
+    :return: 操作结果
+    """
+    try:
+        from app.services.face_cluster_service import cluster_service
+        
+        # 获取聚类信息
+        cluster = db.query(FaceCluster).filter(
+            FaceCluster.cluster_id == cluster_id
+        ).first()
+        
+        if not cluster:
+            raise HTTPException(status_code=404, detail="聚类不存在")
+        
+        # 获取聚类中所有人脸
+        cluster_members = db.query(FaceClusterMember).filter(
+            FaceClusterMember.cluster_id == cluster_id
+        ).all()
+        
+        if not cluster_members:
+            raise HTTPException(status_code=404, detail="聚类中没有成员")
+        
+        # 获取人脸数据（FaceDetection对象）
+        face_ids = [member.face_id for member in cluster_members]
+        faces = []
+        
+        for face_id in face_ids:
+            face_detection = db.query(FaceDetection).filter(
+                FaceDetection.face_id == face_id
+            ).first()
+            
+            if face_detection:
+                faces.append(face_detection)  # 直接传递FaceDetection对象
+        
+        # 重新选择最佳代表人脸（使用轮换逻辑）
+        best_representative = cluster_service._select_best_representative_face(
+            face_ids, faces, db, cluster_id
+        )
+        
+        # 更新聚类代表人脸
+        cluster.representative_face_id = best_representative
+        db.commit()
+        
+        logger.info(f"重新选择代表人脸: {cluster_id} -> {best_representative}")
+        
+        return {
+            "success": True,
+            "message": "代表人脸重新选择成功",
+            "cluster_id": cluster_id,
+            "new_representative_face_id": best_representative
+        }
+        
+    except Exception as e:
+        logger.error(f"重新选择代表人脸失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/clusters/{cluster_id}/photos")
 async def get_cluster_photos(
     cluster_id: str,

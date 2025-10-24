@@ -24,7 +24,7 @@ class PeopleManagementStandalone {
         this.personPhotosState = {
             clusterId: null,
             currentPage: 1,
-            pageSize: 12,
+            pageSize: 12, // 默认值，将在init()中从配置更新
             totalPhotos: 0,
             totalPages: 0
         };
@@ -33,6 +33,9 @@ class PeopleManagementStandalone {
     }
 
     init() {
+        // 🔥 修复：从配置更新分页大小
+        this.personPhotosState.pageSize = this.getPersonPhotosPageSize();
+        
         this.bindEvents();
         this.loadPeopleData();
     }
@@ -181,12 +184,18 @@ class PeopleManagementStandalone {
                                     <button class="btn btn-sm btn-outline-danger flex-fill" onclick="peopleManagement.deletePerson('${cluster.cluster_id}')">
                                         <i class="bi bi-trash"></i>
                                     </button>
-                                </div>` :
+                                </div>
+                                <button class="btn btn-sm btn-outline-warning" onclick="peopleManagement.reselectRepresentativeFace('${cluster.cluster_id}')" title="重新选择最佳代表人脸">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>优化肖像
+                                </button>` :
                                 `<button class="btn btn-sm btn-primary" onclick="peopleManagement.namePerson('${cluster.cluster_id}')">
                                     <i class="bi bi-tag me-1"></i>添加姓名
                                 </button>
                                 <button class="btn btn-sm btn-outline-primary" onclick="peopleManagement.viewPersonPhotos('${cluster.cluster_id}')">
                                     <i class="bi bi-images"></i> 查看照片
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning" onclick="peopleManagement.reselectRepresentativeFace('${cluster.cluster_id}')" title="重新选择最佳代表人脸">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>优化肖像
                                 </button>`
                             }
                         </div>
@@ -288,15 +297,9 @@ class PeopleManagementStandalone {
             console.log(`🔍 调试信息 - 人脸识别分批阈值: ${BATCH_THRESHOLD}, 批次大小: ${BATCH_SIZE}`);
             console.log(`🔍 调试信息 - 照片数量: ${photoIds.length}, 阈值: ${BATCH_THRESHOLD}, 比较结果: ${photoIds.length > BATCH_THRESHOLD}`);
 
-            if (photoIds.length > BATCH_THRESHOLD) {
-                // 分批处理
-                console.log(`人脸识别分批处理：${photoIds.length}张照片超过阈值${BATCH_THRESHOLD}，启用分批处理`);
-                await this.processFaceRecognitionInBatches(photoIds, BATCH_SIZE);
-            } else {
-                // 单批处理
-                console.log(`人脸识别单批处理：${photoIds.length}张照片，使用传统单批处理`);
-                await this.processFaceRecognitionSingleBatch(photoIds);
-            }
+            // 🔥 修复：统一使用单批处理，让后端处理分批逻辑
+            console.log(`人脸识别处理：${photoIds.length}张照片，后端自动分批处理`);
+            await this.processFaceRecognitionSingleBatch(photoIds);
 
         } catch (error) {
             console.error('人脸识别处理失败:', error);
@@ -306,9 +309,14 @@ class PeopleManagementStandalone {
     }
 
     async processFaceRecognitionInBatches(photoIds, batchSize) {
+        // 🔥 修复：确保用户配置已加载
+        if (!window.userConfig) {
+            await loadUserConfig();
+        }
+        
         const totalPhotos = photoIds.length;
         const totalBatches = Math.ceil(totalPhotos / batchSize);
-        const maxConcurrentBatches = 3;  // 最大并发批次数
+        const maxConcurrentBatches = window.userConfig?.face_recognition?.max_concurrent_batches || 3;
         
         console.log(`分批处理人脸识别：${totalPhotos}张照片，分为${totalBatches}批，最多${maxConcurrentBatches}批并发`);
 
@@ -509,22 +517,22 @@ class PeopleManagementStandalone {
                 const progress = batch.progress;
 
                 const batchDetail = {
-                    batch_index: batch.batchIndex,
-                    task_id: batch.taskId,
+                    batch_index: batch.batchIndex || (i + 1),  // 确保有批次索引
+                    task_id: batch.taskId || `batch_${i + 1}`,  // 确保有任务ID
                     completed_photos: progress?.completed_photos || 0,
-                    total_photos: progress?.total_photos || batch.photoIds.length,
-                    status: progress?.status || batch.status,
+                    total_photos: progress?.total_photos || batch.photoIds?.length || 0,
+                    status: progress?.status || batch.status || 'unknown',
                     error: progress?.error || batch.error || null
                 };
 
                 aggregatedResults.batch_details.push(batchDetail);
 
-                if (progress?.status === 'completed') {
+                if (progress?.status === 'completed' || batch.status === 'completed') {
                     aggregatedResults.completed_batches++;
-                    aggregatedResults.processed_photos += progress.completed_photos || 0;
-                } else if (progress?.status === 'failed') {
+                    aggregatedResults.processed_photos += progress?.completed_photos || batch.photoIds?.length || 0;
+                } else if (progress?.status === 'failed' || batch.status === 'failed') {
                     aggregatedResults.failed_batches++;
-                    aggregatedResults.failed_photos += progress.failed_photos || 0;
+                    aggregatedResults.failed_photos += progress?.failed_photos || batch.photoIds?.length || 0;
                 }
             }
 
@@ -717,6 +725,11 @@ class PeopleManagementStandalone {
     async processFaceRecognitionSingleBatch(photoIds) {
         // 单批处理逻辑（简化版）
         try {
+            // 🔥 修复：确保用户配置已加载
+            if (!window.userConfig) {
+                await loadUserConfig();
+            }
+            
             const response = await fetch('/api/v1/face/start-recognition', {
                 method: 'POST',
                 headers: {
@@ -734,8 +747,14 @@ class PeopleManagementStandalone {
             const result = await response.json();
             
             if (result.success && result.task_id) {
-                // 监控进度（单批处理）
-                await this.monitorFaceRecognitionProgress(result.task_id, photoIds.length, 1);
+                // 🔥 修复：计算实际批次数，让后端处理分批逻辑
+                const BATCH_SIZE = window.userConfig?.face_recognition?.batch_size || 20;
+                const totalBatches = Math.ceil(photoIds.length / BATCH_SIZE);
+                
+                console.log(`人脸识别任务启动：${photoIds.length}张照片，后端将分为${totalBatches}批处理`);
+                
+                // 监控进度（传递实际批次数）
+                await this.monitorFaceRecognitionProgress(result.task_id, photoIds.length, totalBatches);
             } else {
                 throw new Error(result.message || '启动人脸识别失败');
             }
@@ -747,8 +766,13 @@ class PeopleManagementStandalone {
     }
 
     async monitorFaceRecognitionProgress(taskId, totalPhotos = null, totalBatches = null) {
+        // 🔥 修复：确保用户配置已加载
+        if (!window.userConfig) {
+            await loadUserConfig();
+        }
+        
         let checkCount = 0;
-        const maxChecks = 1800; // 最多检查1800次，每次1秒，总共30分钟
+        const maxChecks = window.userConfig?.face_recognition?.max_progress_checks || 1800; // 最多检查次数
         let hasShownResults = false; // 添加标志防止重复显示结果
 
         const statusCheckInterval = setInterval(async () => {
@@ -758,12 +782,11 @@ class PeopleManagementStandalone {
                 const statusResponse = await fetch(`/api/v1/face/task-status/${taskId}`);
                 const statusData = await statusResponse.json();
 
-                // 获取实际的状态数据
-                const status = statusData.status;
+                // 🔥 修复：直接使用statusData，不再访问.status属性
+                const status = statusData;
 
                 // 调试信息
                 console.log('人脸识别任务状态:', statusData);
-                console.log('状态数据:', status);
 
                 // 更新进度条和状态文本
                 const progress = Math.min(status.progress_percentage || 0, 95);
@@ -812,10 +835,11 @@ class PeopleManagementStandalone {
                                         total_files: status.total_photos,
                                         processed_photos: status.completed_photos,
                                         failed_photos: status.failed_photos,
-                                        batch_count: 1,
-                                        completed_batches: 1,
-                                        failed_batches: 0,
-                                        batch_details: [{
+                                        // 🔥 修复：使用后端返回的实际批次信息
+                                        batch_count: status.total_batches || 1,
+                                        completed_batches: status.completed_batches || 1,
+                                        failed_batches: status.failed_batches || 0,
+                                        batch_details: status.batch_details || [{
                                             batch_index: 1,
                                             task_id: taskId,
                                             completed_photos: status.completed_photos,
@@ -1242,6 +1266,73 @@ class PeopleManagementStandalone {
         
         document.getElementById('peopleList').innerHTML = errorHtml;
         document.getElementById('peopleList')?.classList.remove('d-none');
+    }
+
+    /**
+     * 重新选择代表人脸
+     * @param {string} clusterId - 聚类ID
+     */
+    async reselectRepresentativeFace(clusterId) {
+        try {
+            const response = await fetch(`/api/v1/face-clusters/clusters/${clusterId}/reselect-representative`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.success) {
+                // 显示成功消息
+                this.showMessage('代表人脸重新选择成功！', 'success');
+                
+                // 重新加载数据
+                await this.loadPeopleData();
+                
+                console.log(`代表人脸重新选择成功: ${clusterId} -> ${result.new_representative_face_id}`);
+            } else {
+                throw new Error(result.message || '重新选择失败');
+            }
+        } catch (error) {
+            console.error('重新选择代表人脸失败:', error);
+            this.showMessage('重新选择代表人脸失败: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * 显示消息提示
+     * @param {string} message - 消息内容
+     * @param {string} type - 消息类型 (success, error, info)
+     */
+    showMessage(message, type = 'info') {
+        // 创建消息元素
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show`;
+        messageDiv.style.position = 'fixed';
+        messageDiv.style.top = '20px';
+        messageDiv.style.right = '20px';
+        messageDiv.style.zIndex = '9999';
+        messageDiv.style.minWidth = '300px';
+        
+        messageDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // 添加到页面
+        document.body.appendChild(messageDiv);
+        
+        // 自动移除
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.parentNode.removeChild(messageDiv);
+            }
+        }, 5000);
     }
 }
 

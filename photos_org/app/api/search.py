@@ -206,6 +206,7 @@ async def get_search_stats(
     camera_filter: Optional[str] = Query(None, description="相机筛选"),
     tag_ids: Optional[str] = Query(None, description="标签ID列表，逗号分隔"),
     category_ids: Optional[str] = Query(None, description="分类ID列表，逗号分隔"),
+    person_filter: Optional[str] = Query(None, description="人物筛选"),
     date_from: Optional[str] = Query(None, description="开始日期"),
     date_to: Optional[str] = Query(None, description="结束日期"),
     db: Session = Depends(get_db)
@@ -235,6 +236,7 @@ async def get_search_stats(
             camera_filter=camera_filter,
             tag_ids=tag_ids_list,
             category_ids=category_ids_list,
+            person_filter=person_filter,
             date_from=date_from,
             date_to=date_to
         )

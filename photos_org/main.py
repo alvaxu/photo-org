@@ -305,7 +305,7 @@ if __name__ == "__main__":
 
     # 优化人脸识别数据库（添加索引和清理无效数据）
     print("🔧 正在优化人脸识别数据库...")
-    from utilities.optimize_face_database import optimize_face_recognition_database
+    from app.services.face_database_optimization_service import optimize_face_recognition_database
     optimize_face_recognition_database()
     print("✅ 人脸识别数据库优化完成")
 

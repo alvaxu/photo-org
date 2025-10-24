@@ -433,6 +433,11 @@ async function loadStats() {
             params.append('category_ids', AppState.searchFilters.selectedCategories.join(','));
         }
 
+        // 添加人物筛选参数
+        if (AppState.searchFilters.person_filter && AppState.searchFilters.person_filter !== 'all') {
+            params.append('person_filter', AppState.searchFilters.person_filter);
+        }
+
         // 添加日期筛选参数
         if (AppState.searchFilters.dateFilter === 'custom') {
             if (elements.startDate && elements.startDate.value) {

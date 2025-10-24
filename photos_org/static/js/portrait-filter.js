@@ -17,7 +17,7 @@ class PortraitFilterPanel {
     
     async init() {
         await this.loadClusters();
-        this.updatePeopleStats();
+        await this.updatePeopleStats();
         this.renderPortraits();
         this.bindEvents();
     }
@@ -27,14 +27,43 @@ class PortraitFilterPanel {
             const response = await fetch('/api/v1/face-clusters/clusters');
             const data = await response.json();
             this.clusters = data.clusters || [];
+            
+            // 🔥 修复：加载聚类数据后，同时刷新统计信息和UI
+            await this.updatePeopleStats();
+            this.renderPortraits();
+            
         } catch (error) {
             console.error('加载聚类数据失败:', error);
             this.clusters = [];
         }
     }
     
-    updatePeopleStats() {
-        // 计算人物统计
+    async updatePeopleStats() {
+        try {
+            // 获取聚类统计信息
+            const clustersResponse = await fetch('/api/v1/face-clusters/statistics');
+            if (clustersResponse.ok) {
+                const clustersData = await clustersResponse.json();
+                const stats = clustersData.statistics;
+                
+                // 使用API返回的准确统计数据
+                document.getElementById('totalPeopleCount').textContent = stats.total_clusters;
+                document.getElementById('labeledPeopleCount').textContent = stats.labeled_clusters;
+                document.getElementById('unlabeledPeopleCount').textContent = stats.unlabeled_clusters;
+                document.getElementById('totalFacesCount').textContent = stats.total_faces;
+            } else {
+                // 如果API失败，回退到本地计算
+                this.updatePeopleStatsLocal();
+            }
+        } catch (error) {
+            console.error('获取统计信息失败:', error);
+            // 如果API失败，回退到本地计算
+            this.updatePeopleStatsLocal();
+        }
+    }
+    
+    updatePeopleStatsLocal() {
+        // 回退方法：使用本地聚类数据计算（可能不准确）
         const totalClusters = this.clusters.length;
         const labeledClusters = this.clusters.filter(c => c.is_labeled).length;
         const unlabeledClusters = totalClusters - labeledClusters;

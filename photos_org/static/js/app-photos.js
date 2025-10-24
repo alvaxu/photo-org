@@ -577,6 +577,17 @@ async function deletePhoto(photoId) {
             // 删除成功，重新加载照片
             loadPhotos();
             loadStats();
+            
+            // 刷新人脸识别统计（如果人物管理页面已加载）
+            if (window.peopleManagementStandalone) {
+                window.peopleManagementStandalone.loadPeopleData();
+            }
+            
+            // 刷新人脸筛选栏统计（如果已加载）
+            if (window.portraitFilterPanel) {
+                window.portraitFilterPanel.loadClusters();
+            }
+            
             alert('照片删除成功');
         } else {
             const error = await response.json();

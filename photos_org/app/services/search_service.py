@@ -555,8 +555,8 @@ class SearchService:
     def get_search_stats(self, db: Session, quality_filter: Optional[str] = None,
                          year_filter: Optional[str] = None, format_filter: Optional[str] = None,
                          camera_filter: Optional[str] = None, tag_ids: Optional[List[int]] = None,
-                         category_ids: Optional[List[int]] = None, date_from: Optional[str] = None,
-                         date_to: Optional[str] = None) -> Dict[str, Any]:
+                         category_ids: Optional[List[int]] = None, person_filter: Optional[str] = None,
+                         date_from: Optional[str] = None, date_to: Optional[str] = None) -> Dict[str, Any]:
         """
         获取搜索统计信息
 
@@ -568,6 +568,7 @@ class SearchService:
             camera_filter: 相机筛选
             tag_ids: 标签ID列表
             category_ids: 分类ID列表
+            person_filter: 人物筛选
             date_from: 开始日期
             date_to: 结束日期
 
@@ -635,6 +636,10 @@ class SearchService:
             # 分类ID筛选
             if category_ids:
                 base_query = self._apply_category_ids_filter(base_query, category_ids)
+
+            # 人物筛选
+            if person_filter and person_filter != 'all':
+                base_query = self._apply_person_filter(base_query, person_filter)
 
             # 年份筛选（特殊处理）
             if year_filter:
