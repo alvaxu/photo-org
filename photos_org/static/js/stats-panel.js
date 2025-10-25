@@ -11,6 +11,7 @@ class StatsPanel {
             avgQuality: document.getElementById('avgQuality'),
             qualityChartCanvas: document.getElementById('qualityChart'),
             yearChartCanvas: document.getElementById('yearChart'),
+            faceCountChartCanvas: document.getElementById('faceCountChart'),
             formatList: document.getElementById('formatList'),
             cameraList: document.getElementById('cameraList')
         };
@@ -52,7 +53,7 @@ class StatsPanel {
         const canvases = [
             this.elements.qualityChartCanvas,
             this.elements.yearChartCanvas,
-            this.elements.formatChartCanvas
+            this.elements.faceCountChartCanvas
         ];
 
         canvases.forEach(canvas => {
@@ -270,6 +271,55 @@ class StatsPanel {
                 }
             }
 
+            // 人脸数分布图表
+            if (chartsData.face_count && this.elements.faceCountChartCanvas) {
+                try {
+                    this.destroyChart('faceCountChart');
+                    const ctx = this.elements.faceCountChartCanvas.getContext('2d');
+                    this.charts.faceCountChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: chartsData.face_count.labels,
+                            datasets: [{
+                                label: '照片数量',
+                                data: chartsData.face_count.data,
+                                backgroundColor: chartsData.face_count.colors
+                            }]
+                        },
+                        options: {
+                            responsive: false,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                },
+                                x: {
+                                    ticks: {
+                                        maxRotation: 45,
+                                        minRotation: 0
+                                    }
+                                }
+                            },
+                            onClick: (event, elements) => {
+                                if (elements.length > 0) {
+                                    const index = elements[0].index;
+                                    const faceCount = chartsData.face_count.labels[index];
+                                    this.filterByFaceCount(faceCount);
+                                }
+                            }
+                        }
+                    });
+                    console.log('StatsPanel: Face count chart created successfully');
+                } catch (error) {
+                    console.error('StatsPanel: Failed to create face count chart:', error);
+                }
+            }
+
             // 格式分布列表 - 两列显示
             if (chartsData.format && this.elements.formatList) {
                 try {
@@ -432,6 +482,21 @@ class StatsPanel {
             AppState.searchFilters.dateFilter = 'custom';
             window.elements.startDate.value = `${year}-01-01`;
             window.elements.endDate.value = `${year}-12-31`;
+        }
+        window.loadPhotos(1);
+        window.loadStats();
+        window.updateFilterStatus();
+    }
+
+    filterByFaceCount(faceCount) {
+        if (faceCount === 'all') {
+            AppState.searchFilters.faceCountFilter = '';
+        } else if (faceCount === '9人以上') {
+            AppState.searchFilters.faceCountFilter = '9+';
+        } else {
+            // 提取数字部分，如 "4人" -> "4"
+            const number = faceCount.replace('人', '');
+            AppState.searchFilters.faceCountFilter = number;
         }
         window.loadPhotos(1);
         window.loadStats();

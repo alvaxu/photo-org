@@ -78,7 +78,11 @@ class PortraitFilterPanel {
     
     renderPortraits() {
         const grid = document.getElementById('portraitFilterGrid');
-        const html = this.clusters.map(cluster => `
+        
+        // 按人脸数量降序排序
+        const sortedClusters = [...this.clusters].sort((a, b) => b.face_count - a.face_count);
+        
+        const html = sortedClusters.map(cluster => `
             <div class="col-auto">
                 <div class="portrait-card" data-cluster-id="${cluster.cluster_id}">
                     <div class="portrait-img-container">

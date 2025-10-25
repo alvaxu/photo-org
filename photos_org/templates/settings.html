@@ -346,6 +346,86 @@
                         </div>
                     </div>
                 </div>
+                </div>
+                
+                <!-- 地理编码设置 -->
+                <div class="col-lg-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-geo-alt me-2"></i>
+                                地址解析设置
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="mb-2">
+                                <label for="defaultGeocodingService" class="form-label small">默认地址解析服务</label>
+                                <select class="form-select form-select-sm" id="defaultGeocodingService">
+                                    <option value="ask">每次都询问</option>
+                                    <option value="amap">高德地图API (推荐)</option>
+                                    <option value="offline">离线数据库</option>
+                                    <option value="nominatim">Nominatim API (需科学上网)</option>
+                                </select>
+                                <div class="form-text small">
+                                    <span class="text-muted">选择默认使用的地址解析服务</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <label for="amapApiKey" class="form-label small">高德地图API密钥</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="password" class="form-control" id="amapApiKey" placeholder="请输入API密钥">
+                                    <button class="btn btn-outline-secondary" type="button" id="testAmapApi">
+                                        <i class="bi bi-check-circle"></i> 测试
+                                    </button>
+                                </div>
+                                <div class="form-text small">
+                                    <span class="text-muted">用于国内地址解析，提高准确性</span>
+                                    <br>
+                                    <span class="text-info">当前值: <span id="amapApiKeyCurrent">未设置</span></span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <label class="form-label small">服务说明</label>
+                                <div class="service-comparison">
+                                    <div class="row">
+                                        <div class="col-4">
+                                            <div class="service-info p-2 border rounded">
+                                                <h6 class="mb-1">🌐 高德地图API</h6>
+                                                <ul class="small mb-0">
+                                                    <li>国内地址详细准确</li>
+                                                    <li>支持中文地址</li>
+                                                    <li>需要网络连接</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="service-info p-2 border rounded">
+                                                <h6 class="mb-1">🏠 离线数据库</h6>
+                                                <ul class="small mb-0">
+                                                    <li>无需网络连接</li>
+                                                    <li>全球主要城市</li>
+                                                    <li>地址信息相对简单</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="service-info p-2 border rounded">
+                                                <h6 class="mb-1">🌍 Nominatim API</h6>
+                                                <ul class="small mb-0">
+                                                    <li>全球地址覆盖</li>
+                                                    <li>免费无需API密钥</li>
+                                                    <li><span class="text-warning">需要科学上网</span></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </form>
 

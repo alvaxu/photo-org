@@ -37,7 +37,7 @@ router = APIRouter(prefix="/face-clusters", tags=["person_management"])
 
 @router.get("/clusters")
 async def get_all_clusters(
-    limit: int = 20,
+    limit: int = None,
     offset: int = 0,
     db: Session = Depends(get_db)
 ):
@@ -49,6 +49,11 @@ async def get_all_clusters(
     :return: 聚类列表
     """
     try:
+        # 如果没有指定limit，使用配置中的max_clusters
+        if limit is None:
+            from app.core.config import settings
+            limit = settings.face_recognition.max_clusters
+        
         clusters = db.query(FaceCluster).offset(offset).limit(limit).all()
         
         result = []
@@ -334,7 +339,7 @@ async def reselect_cluster_representative(
 @router.get("/clusters/{cluster_id}/photos")
 async def get_cluster_photos(
     cluster_id: str,
-    limit: int = 20,
+    limit: int = None,
     offset: int = 0,
     db: Session = Depends(get_db)
 ):
@@ -347,6 +352,11 @@ async def get_cluster_photos(
     :return: 照片列表
     """
     try:
+        # 如果没有指定limit，使用配置中的人物照片分页大小
+        if limit is None:
+            from app.core.config import settings
+            limit = settings.face_recognition.person_photos_pagination.page_size
+        
         # 获取聚类成员
         members = db.query(FaceClusterMember, FaceDetection).join(
             FaceDetection, FaceClusterMember.face_id == FaceDetection.face_id
@@ -470,7 +480,7 @@ async def clear_face_cache(
 
 @router.get("/persons")
 async def get_all_persons(
-    limit: int = 20,
+    limit: int = None,
     offset: int = 0,
     db: Session = Depends(get_db)
 ):
@@ -482,6 +492,11 @@ async def get_all_persons(
     :return: 人物列表
     """
     try:
+        # 如果没有指定limit，使用配置中的max_clusters
+        if limit is None:
+            from app.core.config import settings
+            limit = settings.face_recognition.max_clusters
+        
         persons = db.query(Person).offset(offset).limit(limit).all()
         
         result = []

@@ -62,7 +62,7 @@ async def cluster_faces(
 
 @router.get("/clusters")
 async def get_clusters(
-    limit: int = 20,
+    limit: int = None,
     offset: int = 0,
     db: Session = Depends(get_db)
 ):
@@ -74,6 +74,11 @@ async def get_clusters(
     :return: 聚类列表
     """
     try:
+        # 如果没有指定limit，使用配置中的max_clusters
+        if limit is None:
+            from app.core.config import settings
+            limit = settings.face_recognition.max_clusters
+        
         clusters = db.query(FaceCluster).offset(offset).limit(limit).all()
         
         result = []

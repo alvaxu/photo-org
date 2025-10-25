@@ -1360,6 +1360,50 @@ async function resolvePhotoAddress(photoId, hasExistingAddress) {
     const gpsIcon = document.querySelector(`.gps-icon[data-photo-id="${photoId}"]`);
     if (!gpsIcon) return;
 
+    // 检查用户设置，决定是否显示服务选择
+    const defaultService = localStorage.getItem('defaultGeocodingService') || 'ask';
+    
+    if (defaultService === 'ask') {
+        // 显示服务选择弹窗
+        openGeocodingServiceModal(photoId, hasExistingAddress);
+    } else {
+        // 直接使用默认服务
+        await convertPhotoAddress(photoId, defaultService, hasExistingAddress);
+    }
+}
+
+/**
+ * 打开服务选择弹窗
+ */
+function openGeocodingServiceModal(photoId, hasExistingAddress) {
+    // 存储当前照片信息
+    window.currentGeocodingPhoto = {
+        id: photoId,
+        hasExistingAddress: hasExistingAddress
+    };
+    
+    // 重置选择状态
+    selectedGeocodingService = null;
+    document.getElementById('confirmGeocoding').disabled = true;
+    document.querySelectorAll('.service-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    
+    // 检查服务状态
+    checkServiceStatus();
+    
+    // 显示弹窗
+    const modal = new bootstrap.Modal(document.getElementById('geocodingServiceModal'));
+    modal.show();
+}
+
+/**
+ * 转换照片地址
+ */
+async function convertPhotoAddress(photoId, service, hasExistingAddress) {
+    const gpsIcon = document.querySelector(`.gps-icon[data-photo-id="${photoId}"]`);
+    if (!gpsIcon) return;
+
     const originalClass = gpsIcon.className;
 
     try {
@@ -1372,20 +1416,23 @@ async function resolvePhotoAddress(photoId, hasExistingAddress) {
         const response = await fetch(`/api/maps/photos/${photoId}/convert-gps-address`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({force: force})
+            body: JSON.stringify({
+                service: service,
+                force: force
+            })
         });
 
         const result = await response.json();
 
-        if (response.ok) {
+        if (response.ok && result.success) {
             // 更新UI显示地址和GPS图标状态
             updatePhotoAddress(photoId, result.address);
-            showToast(result.message, 'success');
+            showServiceResult(result.service, result.address, result.cached);
         } else {
             // 恢复原来的状态
             gpsIcon.className = originalClass;
             gpsIcon.title = hasExistingAddress ? '点击重新解析地址' : '点击解析地址';
-            showToast(result.detail || '地址解析失败', 'error');
+            showToast(result.message || '地址解析失败', 'error');
         }
 
     } catch (error) {
@@ -1396,6 +1443,112 @@ async function resolvePhotoAddress(photoId, hasExistingAddress) {
         showToast('地址解析失败，请检查网络连接', 'error');
     }
 }
+
+/**
+ * 显示服务结果
+ */
+function showServiceResult(service, address, cached) {
+    const serviceNames = {
+        'amap': '高德地图API',
+        'offline': '离线数据库',
+        'nominatim': 'Nominatim API',
+        'cache': '缓存'
+    };
+    
+    let message;
+    if (cached) {
+        message = `使用缓存地址 (来源: ${serviceNames[service]})`;
+    } else {
+        message = `地址解析成功！\n服务: ${serviceNames[service]}\n地址: ${address}`;
+    }
+    
+    showToast(message, 'success');
+}
+
+/**
+ * 检查服务状态
+ */
+async function checkServiceStatus() {
+    try {
+        const response = await fetch('/api/maps/service-status');
+        const status = await response.json();
+        
+        // 更新高德API状态
+        const amapStatus = document.getElementById('amap-status');
+        const amapStatusText = document.getElementById('amap-status-text');
+        
+        if (status.amap.available) {
+            amapStatus.className = 'status-indicator ready';
+            amapStatusText.textContent = '服务可用';
+        } else {
+            amapStatus.className = 'status-indicator error';
+            amapStatusText.textContent = status.amap.reason || '服务不可用';
+        }
+        
+        // 更新Nominatim API状态
+        const nominatimStatus = document.getElementById('nominatim-status');
+        const nominatimStatusText = document.getElementById('nominatim-status-text');
+        
+        if (status.nominatim.available) {
+            nominatimStatus.className = 'status-indicator ready';
+            nominatimStatusText.textContent = '服务可用';
+        } else {
+            nominatimStatus.className = 'status-indicator error';
+            nominatimStatusText.textContent = status.nominatim.reason || '服务不可用';
+        }
+    } catch (error) {
+        const amapStatus = document.getElementById('amap-status');
+        const amapStatusText = document.getElementById('amap-status-text');
+        amapStatus.className = 'status-indicator error';
+        amapStatusText.textContent = '检查失败';
+        
+        const nominatimStatus = document.getElementById('nominatim-status');
+        const nominatimStatusText = document.getElementById('nominatim-status-text');
+        nominatimStatus.className = 'status-indicator error';
+        nominatimStatusText.textContent = '检查失败';
+    }
+}
+
+// 全局变量
+let selectedGeocodingService = null;
+
+// 服务选择事件处理
+document.addEventListener('DOMContentLoaded', function() {
+    // 服务选择事件
+    document.querySelectorAll('.service-option').forEach(option => {
+        option.addEventListener('click', function() {
+            // 移除其他选中状态
+            document.querySelectorAll('.service-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            
+            // 添加选中状态
+            this.classList.add('selected');
+            selectedGeocodingService = this.dataset.service;
+            
+            // 启用确认按钮
+            document.getElementById('confirmGeocoding').disabled = false;
+        });
+    });
+
+    // 确认选择
+    document.getElementById('confirmGeocoding').addEventListener('click', async function() {
+        if (!selectedGeocodingService || !window.currentGeocodingPhoto) return;
+        
+        const { id: photoId, hasExistingAddress } = window.currentGeocodingPhoto;
+        await convertPhotoAddress(photoId, selectedGeocodingService, hasExistingAddress);
+        
+        // 关闭弹窗
+        const modal = bootstrap.Modal.getInstance(document.getElementById('geocodingServiceModal'));
+        modal.hide();
+    });
+
+    // 取消选择
+    document.getElementById('geocodingServiceModal').addEventListener('hidden.bs.modal', function() {
+        window.currentGeocodingPhoto = null;
+        selectedGeocodingService = null;
+    });
+});
 
 function updatePhotoAddress(photoId, address) {
     console.log('开始更新照片地址:', photoId, address);

@@ -75,6 +75,7 @@ async function loadUserConfig() {
                 CONFIG.PAGE_SIZE = userConfig.ui?.photos_per_page || 12;
                 CONFIG.importConfig = userConfig.import || {};
                 CONFIG.analysisConfig = userConfig.analysis || {};
+                CONFIG.mapsConfig = userConfig.maps || { batch_size: 500 };
                 // 用户配置加载成功
             }
         }
@@ -84,6 +85,7 @@ async function loadUserConfig() {
         CONFIG.PAGE_SIZE = 12;
         CONFIG.importConfig = { max_upload_files: 50 };
         CONFIG.analysisConfig = { batch_size: 100 };
+        CONFIG.mapsConfig = { batch_size: 500 };
     }
 }
 
@@ -416,6 +418,9 @@ async function loadStats() {
         if (AppState.searchFilters.qualityFilter) {
             params.append('quality_filter', AppState.searchFilters.qualityFilter);
         }
+        if (AppState.searchFilters.faceCountFilter) {
+            params.append('face_count_filter', AppState.searchFilters.faceCountFilter);
+        }
         if (AppState.searchFilters.formatFilter) {
             params.append('format_filter', AppState.searchFilters.formatFilter);
         }
@@ -522,6 +527,7 @@ async function loadPhotos(page = 1) {
             search_type: AppState.searchFilters.searchType,
             date_filter: AppState.searchFilters.dateFilter,
             quality_filter: AppState.searchFilters.qualityFilter,
+            face_count_filter: AppState.searchFilters.faceCountFilter,
             format_filter: AppState.searchFilters.formatFilter,
             camera_filter: AppState.searchFilters.cameraFilter,
             person_filter: AppState.searchFilters.person_filter || 'all'
@@ -1110,6 +1116,7 @@ function clearAllFilters() {
         searchType: 'all',
         dateFilter: '',
         qualityFilter: '',
+        faceCountFilter: '',
         formatFilter: '',
         cameraFilter: '',
         sortBy: 'taken_at',
@@ -1210,6 +1217,26 @@ function updateFilterStatus() {
             'bad': '很差'
         };
         statusParts.push(`质量: ${qualityLabels[filters.qualityFilter] || filters.qualityFilter}`);
+    }
+
+    if (filters.faceCountFilter) {
+        const faceCountLabels = {
+            '0': '无人照片',
+            '1+': '有人',
+            '1': '单人照片',
+            '2': '双人照片',
+            '3': '三人照片',
+            '4': '4人',
+            '5': '5人',
+            '6': '6人',
+            '7': '7人',
+            '8': '8人',
+            '9': '9人',
+            '4-5': '4-5人',
+            '6-9': '6-9人',
+            '9+': '9人以上'
+        };
+        statusParts.push(`人数: ${faceCountLabels[filters.faceCountFilter] || filters.faceCountFilter}`);
     }
 
     if (filters.formatFilter) {
@@ -1352,6 +1379,29 @@ window.switchAdvancedFilterMode = function(mode) {
             `;
             window.elements.qualityFilter = document.getElementById('qualityFilter');
             window.elements.qualityFilter.addEventListener('change', handleFilterChange);
+            break;
+
+        case 'face_count':
+            optionsContainer.innerHTML = `
+                <select class="form-select" id="faceCountFilter">
+                    <option value="" selected>全部人数</option>
+                    <option value="0">无人照片</option>
+                    <option value="1+">有人</option>
+                    <option value="1">单人照片</option>
+                    <option value="2">双人照片</option>
+                    <option value="3">三人照片</option>
+                    <option value="4-5">4-5人</option>
+                    <option value="6-9">6-9人</option>
+                    <option value="9+">9人以上</option>
+                </select>
+            `;
+            window.elements.faceCountFilter = document.getElementById('faceCountFilter');
+            window.elements.faceCountFilter.addEventListener('change', () => {
+                AppState.searchFilters.faceCountFilter = window.elements.faceCountFilter.value;
+                loadPhotos(1);
+                loadStats();
+                updateFilterStatus();
+            });
             break;
 
         case 'format':
