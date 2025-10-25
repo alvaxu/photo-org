@@ -168,12 +168,15 @@ class FaceRecognitionService:
                 logger.error(f"InsightFace检测失败: {e}")
                 raise e
             
+            # 🔥 关键：记录真实检测到的人脸数量
+            real_face_count = len(faces)  # 这是真实检测到的人数！
+            
             # 🔥 性能优化：限制处理的人脸数量
             max_faces = self.config.max_faces_per_photo
             if len(faces) > max_faces:
                 # 按检测分数排序，只处理前N个最高分的人脸
                 faces = sorted(faces, key=lambda f: f.det_score, reverse=True)[:max_faces]
-                logger.info(f"限制人脸数量: 从 {len(faces)} 个减少到 {max_faces} 个")
+                logger.info(f"限制人脸数量: 从 {real_face_count} 个减少到 {max_faces} 个")
             
             # 处理检测到的人脸
             results = []
@@ -216,8 +219,13 @@ class FaceRecognitionService:
                 results.append(result)
                 
             # 🔥 优化：简化日志输出
-            logger.info(f"照片 {photo_id} 处理完成: 检测到 {len(results)} 个人脸")
-            return results
+            logger.info(f"照片 {photo_id} 处理完成: 检测到 {real_face_count} 个人脸，处理了 {len(results)} 个")
+            
+            # 🔥 关键：返回检测结果和真实人数
+            return {
+                'detections': results,
+                'real_face_count': real_face_count  # 真实检测到的人数
+            }
             
         except Exception as e:
             logger.error(f"人脸检测失败 {photo_path}: {e}")
@@ -412,31 +420,51 @@ class FaceRecognitionService:
             logger.error(f"标记照片处理状态失败: {e}")
             db.rollback()
 
-    async def batch_save_face_detections(self, all_detections: List[Dict], db: Session) -> bool:
+    async def batch_save_face_detections(self, all_detection_results: List[Dict], db: Session) -> bool:
         """
-        批量保存人脸检测结果到数据库（不提交事务）
-        :param all_detections: 所有人脸检测结果列表
+        批量保存人脸检测结果到数据库（包含人脸数量）
+        :param all_detection_results: 检测结果列表，包含人数信息
         :param db: 数据库会话
         :return: 是否保存成功
         """
         try:
-            if not all_detections:
+            if not all_detection_results:
                 return True
             
-            for detection in all_detections:
-                face_detection = FaceDetection(
-                    photo_id=detection['photo_id'],
-                    face_id=detection['face_id'],
-                    face_rectangle=detection['face_rectangle'],
-                    confidence=detection['confidence'],
-                    face_features=detection['face_features'],
-                    age_estimate=detection.get('age_estimate'),
-                    gender_estimate=detection.get('gender_estimate'),
-                    created_at=datetime.now()
-                )
-                db.add(face_detection)
+            # 按照片ID分组统计人脸数量
+            photo_face_counts = {}
+            detection_time = datetime.now()  # 检测时间
             
-            logger.info(f"准备批量保存 {len(all_detections)} 个人脸检测结果")
+            for result in all_detection_results:
+                photo_id = result['photo_id']
+                real_face_count = result['real_face_count']
+                detections = result['detections']
+                
+                # 记录人脸数量
+                photo_face_counts[photo_id] = real_face_count
+                
+                # 保存人脸检测记录
+                for detection in detections:
+                    face_detection = FaceDetection(
+                        photo_id=detection['photo_id'],
+                        face_id=detection['face_id'],
+                        face_rectangle=detection['face_rectangle'],
+                        confidence=detection['confidence'],
+                        face_features=detection['face_features'],
+                        age_estimate=detection.get('age_estimate'),
+                        gender_estimate=detection.get('gender_estimate'),
+                        created_at=detection_time
+                    )
+                    db.add(face_detection)
+            
+            # 🔥 关键：在同一个事务中更新Photo表的人脸数量和时间
+            for photo_id, face_count in photo_face_counts.items():
+                photo = db.query(Photo).filter(Photo.id == photo_id).first()
+                if photo:
+                    photo.face_count = face_count  # 保存真实检测到的人数
+                    photo.face_detected_at = detection_time  # 保存检测时间
+            
+            logger.info(f"准备批量保存 {len(all_detection_results)} 个人脸检测结果，更新 {len(photo_face_counts)} 张照片的人脸数量")
             return True
             
         except Exception as e:

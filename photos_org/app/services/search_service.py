@@ -33,6 +33,8 @@ class SearchService:
         date_to: Optional[date] = None,
         quality_min: Optional[float] = None,
         quality_level: Optional[str] = None,
+        face_count_min: Optional[int] = None,
+        face_count_max: Optional[int] = None,
         format_filter: Optional[str] = None,
         camera_filter: Optional[str] = None,
         person_filter: str = "all",
@@ -60,6 +62,8 @@ class SearchService:
             date_to: 结束日期
             quality_min: 最低质量分数
             quality_level: 质量等级
+            face_count_min: 最少人脸数
+            face_count_max: 最多人脸数
             tags: 标签列表
             categories: 分类列表
             location_lat: 纬度
@@ -135,6 +139,10 @@ class SearchService:
             # 质量筛选
             if quality_min or quality_level:
                 query = self._apply_quality_filter(query, quality_min, quality_level)
+
+            # 人脸数量筛选
+            if face_count_min is not None or face_count_max is not None:
+                query = self._apply_face_count_filter(query, face_count_min, face_count_max)
 
             # 标签筛选
             if tags:
@@ -330,6 +338,14 @@ class SearchService:
             subquery = subquery.filter(PhotoQuality.quality_level == chinese_quality_level)
 
         query = query.filter(subquery.exists())
+        return query
+
+    def _apply_face_count_filter(self, query, face_count_min: Optional[int], face_count_max: Optional[int]):
+        """应用人脸数量筛选"""
+        if face_count_min is not None:
+            query = query.filter(Photo.face_count >= face_count_min)
+        if face_count_max is not None:
+            query = query.filter(Photo.face_count <= face_count_max)
         return query
 
     def _apply_tags_filter(self, query, tags: List[str]):
@@ -554,9 +570,10 @@ class SearchService:
 
     def get_search_stats(self, db: Session, quality_filter: Optional[str] = None,
                          year_filter: Optional[str] = None, format_filter: Optional[str] = None,
-                         camera_filter: Optional[str] = None, tag_ids: Optional[List[int]] = None,
-                         category_ids: Optional[List[int]] = None, person_filter: Optional[str] = None,
-                         date_from: Optional[str] = None, date_to: Optional[str] = None) -> Dict[str, Any]:
+                         camera_filter: Optional[str] = None, face_count_filter: Optional[str] = None,
+                         tag_ids: Optional[List[int]] = None, category_ids: Optional[List[int]] = None, 
+                         person_filter: Optional[str] = None, date_from: Optional[str] = None, 
+                         date_to: Optional[str] = None) -> Dict[str, Any]:
         """
         获取搜索统计信息
 
@@ -566,6 +583,7 @@ class SearchService:
             year_filter: 年份筛选
             format_filter: 格式筛选
             camera_filter: 相机筛选
+            face_count_filter: 人脸数量筛选
             tag_ids: 标签ID列表
             category_ids: 分类ID列表
             person_filter: 人物筛选
@@ -628,6 +646,60 @@ class SearchService:
             # 质量筛选
             if quality_filter:
                 base_query = self._apply_quality_filter(base_query, None, quality_filter)
+
+            # 人脸数量筛选
+            if face_count_filter:
+                # 处理预设的人脸数量筛选
+                face_count_min = None
+                face_count_max = None
+                
+                if face_count_filter == "0":
+                    face_count_min = 0
+                    face_count_max = 0
+                elif face_count_filter == "1":
+                    face_count_min = 1
+                    face_count_max = 1
+                elif face_count_filter == "2":
+                    face_count_min = 2
+                    face_count_max = 2
+                elif face_count_filter == "3":
+                    face_count_min = 3
+                    face_count_max = 3
+                elif face_count_filter == "4":
+                    face_count_min = 4
+                    face_count_max = 4
+                elif face_count_filter == "5":
+                    face_count_min = 5
+                    face_count_max = 5
+                elif face_count_filter == "6":
+                    face_count_min = 6
+                    face_count_max = 6
+                elif face_count_filter == "7":
+                    face_count_min = 7
+                    face_count_max = 7
+                elif face_count_filter == "8":
+                    face_count_min = 8
+                    face_count_max = 8
+                elif face_count_filter == "9":
+                    face_count_min = 9
+                    face_count_max = 9
+                elif face_count_filter == "10":
+                    face_count_min = 10
+                    face_count_max = 10
+                elif face_count_filter == "4-5":
+                    face_count_min = 4
+                    face_count_max = 5
+                elif face_count_filter == "6-9":
+                    face_count_min = 6
+                    face_count_max = 9
+                elif face_count_filter == "9+":
+                    face_count_min = 10
+                    face_count_max = None
+                elif face_count_filter == "1+":
+                    face_count_min = 1
+                    face_count_max = None
+                
+                base_query = self._apply_face_count_filter(base_query, face_count_min, face_count_max)
 
             # 标签ID筛选
             if tag_ids:
@@ -752,6 +824,68 @@ class SearchService:
                     "data": [quality_data[i] for i in sorted_indices],
                     "colors": [quality_colors[i] for i in sorted_indices]
                 }
+            }
+
+            # 人脸数量分布图表数据（基于筛选结果）
+            face_count_stats = db.query(
+                Photo.face_count,
+                func.count(Photo.id)
+            ).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.face_count.isnot(None)
+            ).group_by(Photo.face_count).order_by(Photo.face_count).all()
+
+            # 转换为图表格式 - 1-9人分别显示，9人以上合并
+            face_count_labels = []
+            face_count_data = []
+            face_count_colors = []
+
+            # 定义人脸数量范围的颜色
+            face_count_colors_map = {
+                0: '#6c757d',    # 无人 - 灰色
+                1: '#007bff',    # 1人 - 蓝色
+                2: '#28a745',    # 2人 - 绿色
+                3: '#ffc107',    # 3人 - 黄色
+                4: '#fd7e14',    # 4人 - 橙色
+                5: '#dc3545',    # 5人 - 红色
+                6: '#6f42c1',    # 6人 - 紫色
+                7: '#20c997',    # 7人 - 青色
+                8: '#e83e8c',    # 8人 - 粉色
+                9: '#fd7e14'     # 9人 - 橙色
+            }
+
+            # 初始化0-9人的数据
+            face_count_dict = {}
+            for i in range(10):  # 0-9人
+                face_count_dict[i] = 0
+
+            # 填充实际数据
+            for face_count, count in face_count_stats:
+                if face_count <= 9:
+                    face_count_dict[face_count] = count
+                else:
+                    # 9人以上合并（10人及以上）
+                    if 10 not in face_count_dict:
+                        face_count_dict[10] = 0
+                    face_count_dict[10] += count
+
+            # 生成图表数据
+            for i in range(10):  # 0-9人
+                if face_count_dict[i] > 0:
+                    face_count_labels.append(f"{i}人")
+                    face_count_data.append(face_count_dict[i])
+                    face_count_colors.append(face_count_colors_map.get(i, '#6c757d'))
+
+            # 添加9人以上
+            if 10 in face_count_dict and face_count_dict[10] > 0:
+                face_count_labels.append("9人以上")
+                face_count_data.append(face_count_dict[10])
+                face_count_colors.append('#dc3545')
+
+            stats["charts"]["face_count"] = {
+                "labels": face_count_labels,
+                "data": face_count_data,
+                "colors": face_count_colors
             }
 
             # 年份分布图表数据（基于筛选结果）

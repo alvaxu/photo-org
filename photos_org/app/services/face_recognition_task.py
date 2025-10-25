@@ -212,9 +212,14 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
                     
                     # 🔥 关键：只有人脸检测部分使用信号量控制并发
                     async with semaphore:
-                        detections = await face_service.detect_faces_in_photo(str(full_path), photo_id)
+                        detection_result = await face_service.detect_faces_in_photo(str(full_path), photo_id)
                     
-                    return {"photo_id": photo_id, "status": "success", "detections": detections}
+                    return {
+                        "photo_id": photo_id, 
+                        "status": "success", 
+                        "detections": detection_result['detections'],
+                        "real_face_count": detection_result['real_face_count']
+                    }
                     
                 except Exception as e:
                     logger.error(f"处理照片 {photo_id} 失败: {str(e)}")
@@ -226,7 +231,7 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             # 🔥 新增：批量数据库操作
-            all_detections = []
+            all_detection_results = []  # 包含检测结果和人数信息
             all_processed_photos = set()
             
             for result in results:
@@ -238,20 +243,29 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
                 all_processed_photos.add(photo_id)  # 所有照片都标记为已处理
                 
                 if result["status"] == "success" and "detections" in result:
-                    detections = result["detections"]
-                    if detections:
-                        all_detections.extend(detections)
+                    # 构建包含人数信息的检测结果
+                    detection_result = {
+                        'photo_id': photo_id,
+                        'detections': result["detections"],
+                        'real_face_count': result["real_face_count"]
+                    }
+                    all_detection_results.append(detection_result)
             
-            # 🔥 批量保存到数据库（一个事务）
-            if all_detections:
-                await face_service.batch_save_face_detections(all_detections, db)
+            # 🔥 批量保存到数据库（包含人数信息）
+            if all_detection_results:
+                await face_service.batch_save_face_detections(all_detection_results, db)
             
             if all_processed_photos:
                 await face_service.batch_mark_photos_as_processed(all_processed_photos, db)
             
             # 🔥 关键：批量提交事务
             db.commit()
-            logger.info(f"✅ 批次 {batch_idx + 1} 批量提交成功: {len(all_detections)} 个人脸, {len(all_processed_photos)} 张照片")
+            
+            # 统计人脸数量
+            total_faces_detected = sum(result['real_face_count'] for result in all_detection_results)
+            total_faces_processed = sum(len(result['detections']) for result in all_detection_results)
+            
+            logger.info(f"✅ 批次 {batch_idx + 1} 批量提交成功: 检测到 {total_faces_detected} 个人脸，处理了 {total_faces_processed} 个，{len(all_processed_photos)} 张照片")
             
         except Exception as e:
             logger.error(f"批次 {batch_idx + 1} 数据库操作失败: {str(e)}")
@@ -305,11 +319,13 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
         # 找到对应的批次详情并更新人脸检测数量
         batch_details = face_recognition_task_status[task_id]["batch_details"]
         if batch_idx < len(batch_details):
-            batch_details[batch_idx]["faces_detected"] = len(all_detections)
+            # 计算总人脸数量
+            total_faces_detected = sum(result['real_face_count'] for result in all_detection_results)
+            batch_details[batch_idx]["faces_detected"] = total_faces_detected
             batch_details[batch_idx]["completed_photos"] = successful_analyses
             batch_details[batch_idx]["failed_photos"] = failed_analyses
         
-        logger.info(f"✅ 批次 {batch_idx + 1} 完成: 成功 {successful_analyses}, 失败 {failed_analyses}, 检测到 {len(all_detections)} 个人脸")
+        logger.info(f"✅ 批次 {batch_idx + 1} 完成: 成功 {successful_analyses}, 失败 {failed_analyses}, 检测到 {total_faces_detected} 个人脸")
         
     except Exception as e:
         logger.error(f"处理人脸识别批次失败: {str(e)}")

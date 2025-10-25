@@ -32,6 +32,9 @@ async def search_photos(
     quality_min: Optional[float] = Query(None, ge=0, le=100, description="最低质量分数"),
     quality_level: Optional[str] = Query(None, description="质量等级"),
     quality_filter: Optional[str] = Query(None, description="质量筛选"),
+    face_count_min: Optional[int] = Query(None, ge=0, description="最少人脸数"),
+    face_count_max: Optional[int] = Query(None, ge=0, description="最多人脸数"),
+    face_count_filter: Optional[str] = Query(None, description="人脸数量筛选"),
     format_filter: Optional[str] = Query(None, description="格式筛选"),
     camera_filter: Optional[str] = Query(None, description="相机筛选"),
     person_filter: str = Query("all", description="人物筛选"),
@@ -113,6 +116,58 @@ async def search_photos(
         # 处理质量筛选
         processed_quality_level = quality_level or quality_filter
         
+        # 处理人脸数量筛选
+        processed_face_count_min = face_count_min
+        processed_face_count_max = face_count_max
+        
+        if face_count_filter:
+            # 处理预设的人脸数量筛选
+            if face_count_filter == "0":
+                processed_face_count_min = 0
+                processed_face_count_max = 0
+            elif face_count_filter == "1":
+                processed_face_count_min = 1
+                processed_face_count_max = 1
+            elif face_count_filter == "2":
+                processed_face_count_min = 2
+                processed_face_count_max = 2
+            elif face_count_filter == "3":
+                processed_face_count_min = 3
+                processed_face_count_max = 3
+            elif face_count_filter == "4":
+                processed_face_count_min = 4
+                processed_face_count_max = 4
+            elif face_count_filter == "5":
+                processed_face_count_min = 5
+                processed_face_count_max = 5
+            elif face_count_filter == "6":
+                processed_face_count_min = 6
+                processed_face_count_max = 6
+            elif face_count_filter == "7":
+                processed_face_count_min = 7
+                processed_face_count_max = 7
+            elif face_count_filter == "8":
+                processed_face_count_min = 8
+                processed_face_count_max = 8
+            elif face_count_filter == "9":
+                processed_face_count_min = 9
+                processed_face_count_max = 9
+            elif face_count_filter == "10":
+                processed_face_count_min = 10
+                processed_face_count_max = 10
+            elif face_count_filter == "4-5":
+                processed_face_count_min = 4
+                processed_face_count_max = 5
+            elif face_count_filter == "6-9":
+                processed_face_count_min = 6
+                processed_face_count_max = 9
+            elif face_count_filter == "9+":
+                processed_face_count_min = 10
+                processed_face_count_max = None
+            elif face_count_filter == "1+":
+                processed_face_count_min = 1
+                processed_face_count_max = None
+        
         # 处理标签ID和分类ID参数
         processed_tag_ids = None
         processed_category_ids = None
@@ -139,6 +194,8 @@ async def search_photos(
             date_to=processed_date_to,
             quality_min=quality_min,
             quality_level=processed_quality_level,
+            face_count_min=processed_face_count_min,
+            face_count_max=processed_face_count_max,
             format_filter=format_filter,
             camera_filter=camera_filter,
             person_filter=person_filter,
@@ -204,6 +261,7 @@ async def get_search_stats(
     year_filter: Optional[str] = Query(None, description="年份筛选"),
     format_filter: Optional[str] = Query(None, description="格式筛选"),
     camera_filter: Optional[str] = Query(None, description="相机筛选"),
+    face_count_filter: Optional[str] = Query(None, description="人脸数量筛选"),
     tag_ids: Optional[str] = Query(None, description="标签ID列表，逗号分隔"),
     category_ids: Optional[str] = Query(None, description="分类ID列表，逗号分隔"),
     person_filter: Optional[str] = Query(None, description="人物筛选"),
@@ -234,6 +292,7 @@ async def get_search_stats(
             year_filter=year_filter,
             format_filter=format_filter,
             camera_filter=camera_filter,
+            face_count_filter=face_count_filter,
             tag_ids=tag_ids_list,
             category_ids=category_ids_list,
             person_filter=person_filter,

@@ -220,6 +220,7 @@
                                             <select class="form-select" id="advancedFilterMode" style="flex: 0 0 120px;">
                                                 <option value="date" selected>📅 日期</option>
                                                 <option value="quality">⭐ 质量</option>
+                                                <option value="face_count">👥 人数</option>
                                                 <option value="format">📄 格式</option>
                                                 <option value="camera">📷 相机</option>
                                             </select>
@@ -483,6 +484,25 @@
                                         <div class="card-body">
                                             <div class="stats-chart-container">
                                                 <canvas id="yearChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 人脸数分布 -->
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">人脸数分布</h6>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="statsPanel.filterByFaceCount('all')">
+                                                查看全部
+                                            </button>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="stats-chart-container">
+                                                <canvas id="faceCountChart"></canvas>
                                             </div>
                                         </div>
                                     </div>
