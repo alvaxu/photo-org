@@ -9,7 +9,7 @@
     "path": "./photo_db/photos.db"
   },
   "dashscope": {
-    "api_key": "",
+    "api_key": "sk-9ade5a04da1a46c998a203db3ccd70fe",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
     "model": "qwen-vl-plus",
     "available_models": [
@@ -157,13 +157,13 @@
   },
   "maps": {
     "provider": "amap",
-    "api_key": "",
+    "api_key": "97afc70a410ea5102ce7b21ff7b931c9",
     "timeout": 10,
     "rate_limit": 180,
     "cache_enabled": true,
     "cache_ttl": 86400,
     "batch_size": 500,
-    "configured": false
+    "configured": true
   },
   "face_recognition": {
     "enabled": true,

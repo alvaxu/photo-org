@@ -75,6 +75,7 @@ async function loadUserConfig() {
                 CONFIG.PAGE_SIZE = userConfig.ui?.photos_per_page || 12;
                 CONFIG.importConfig = userConfig.import || {};
                 CONFIG.analysisConfig = userConfig.analysis || {};
+                CONFIG.mapsConfig = userConfig.maps || { batch_size: 500 };
                 // 用户配置加载成功
             }
         }
@@ -84,6 +85,7 @@ async function loadUserConfig() {
         CONFIG.PAGE_SIZE = 12;
         CONFIG.importConfig = { max_upload_files: 50 };
         CONFIG.analysisConfig = { batch_size: 100 };
+        CONFIG.mapsConfig = { batch_size: 500 };
     }
 }
 

@@ -4,7 +4,7 @@
 """
 
 import httpx
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
@@ -164,20 +164,20 @@ async def get_maps_stats():
 @router.post("/photos/{photo_id}/convert-gps-address")
 async def convert_single_photo_address(
     photo_id: int,
-    force: bool = False,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """转换单张照片的GPS为地址"""
-
-    # 检查API Key - 动态导入以确保使用最新配置
-    from app.core.config import settings as current_settings
-    if not current_settings.maps.api_key:
-        raise HTTPException(
-            status_code=400,
-            detail="请先配置高德地图API Key",
-            headers={"X-Help-Page": "/help-gaode-api-key"}
-        )
-
+    
+    # 获取请求体参数
+    try:
+        body = await request.json()
+        service = body.get("service", "amap")
+        force = body.get("force", False)
+    except:
+        service = "amap"
+        force = False
+    
     photo = db.query(Photo).filter(Photo.id == photo_id).first()
     if not photo:
         raise HTTPException(status_code=404, detail="照片不存在")
@@ -185,49 +185,265 @@ async def convert_single_photo_address(
     if not photo.location_lat or not photo.location_lng:
         raise HTTPException(status_code=400, detail="照片没有GPS信息")
 
-    # 检查缓存
-    cache_service = MapCacheService()
-    cached_address = cache_service.get_cached_address(
-        photo.location_lat, photo.location_lng
-    )
+    # 根据选择的服务进行地址解析
+    if service == "amap":
+        result = await convert_with_amap(photo.location_lat, photo.location_lng, force)
+    elif service == "offline":
+        result = await convert_with_offline(photo.location_lat, photo.location_lng)
+    elif service == "nominatim":
+        result = await convert_with_nominatim(photo.location_lat, photo.location_lng)
+    else:
+        raise HTTPException(status_code=400, detail="不支持的服务类型")
 
-    if cached_address and not force:
-        # 更新数据库但不重新调用API
-        photo.location_name = cached_address
+    if result["success"]:
+        # 更新数据库
+        photo.location_name = result["address"]
         db.commit()
+        
         return {
-            "address": cached_address,
-            "cached": True,
-            "message": "使用缓存地址"
+            "address": result["address"],
+            "service": service,
+            "success": True,
+            "cached": result.get("cached", False),
+            "message": result.get("message", "地址解析成功")
+        }
+    else:
+        return {
+            "address": None,
+            "service": service,
+            "success": False,
+            "message": result.get("message", "地址解析失败")
         }
 
+async def convert_with_amap(lat: float, lng: float, force: bool = False):
+    """使用高德地图API解析地址"""
+    import logging
+    import time
+    logger = logging.getLogger(__name__)
+    
+    from app.core.config import settings
+    
+    start_time = time.time()
+    logger.info(f"🌐 开始高德API地址解析: 坐标({lat}, {lng}), 强制更新={force}")
+    
+    if not settings.maps.api_key:
+        logger.warning("❌ 高德地图API密钥未配置")
+        return {
+            "success": False,
+            "message": "高德地图API密钥未配置"
+        }
+    
+    # 检查缓存
+    cache_service = MapCacheService()
+    if not force:
+        cached_address = cache_service.get_cached_address(lat, lng)
+        if cached_address:
+            elapsed = time.time() - start_time
+            logger.info(f"✅ 使用缓存地址: {cached_address[:50]}... (耗时: {elapsed:.2f}s)")
+            return {
+                "success": True,
+                "address": cached_address,
+                "cached": True,
+                "message": "使用缓存地址"
+            }
+    
     # 调用高德API
+    logger.info("🔄 调用高德API进行地址解析...")
     map_service = AMapService()
-    address = map_service.reverse_geocode(
-        photo.location_lat,
-        photo.location_lng
-    )
+    address = map_service.reverse_geocode(lat, lng)
+    
+    elapsed = time.time() - start_time
+    
+    if address:
+        # 缓存结果
+        cache_service.set_cached_address(lat, lng, address)
+        logger.info(f"✅ 高德API解析成功: {address[:50]}... (耗时: {elapsed:.2f}s)")
+        return {
+            "success": True,
+            "address": address,
+            "cached": False,
+            "message": "高德API解析成功"
+        }
+    else:
+        logger.error(f"❌ 高德API调用失败 (耗时: {elapsed:.2f}s)")
+        return {
+            "success": False,
+            "message": "高德API调用失败"
+        }
 
-    if not address:
-        raise HTTPException(status_code=500, detail="地址解析失败，请检查网络或API Key")
+async def convert_with_offline(lat: float, lng: float):
+    """使用离线数据库解析地址"""
+    import logging
+    import time
+    logger = logging.getLogger(__name__)
+    
+    start_time = time.time()
+    logger.info(f"🏠 开始离线数据库地址解析: 坐标({lat}, {lng})")
+    
+    try:
+        import sys
+        import os
+        from pathlib import Path
+        
+        logger.info("🔄 查询离线数据库...")
+        from app.services.offline_geocoding import offline_geocoding
+        
+        result = offline_geocoding.get_address_info(lat, lng)
+        
+        elapsed = time.time() - start_time
+        logger.info(f"✅ 离线数据库解析成功: {result['display_name'][:50]}... (耗时: {elapsed:.2f}s)")
+        
+        return {
+            "success": True,
+            "address": result["display_name"],
+            "service": "offline",
+            "message": "离线数据库解析成功"
+        }
+    except Exception as e:
+        elapsed = time.time() - start_time
+        logger.error(f"❌ 离线服务失败: {str(e)} (耗时: {elapsed:.2f}s)", exc_info=True)
+        return {
+            "success": False,
+            "service": "offline",
+            "message": f"离线服务失败: {str(e)}"
+        }
 
-    # 缓存结果
-    cache_service.set_cached_address(
-        photo.location_lat,
-        photo.location_lng,
-        address
-    )
+async def convert_with_nominatim(lat: float, lng: float):
+    """使用Nominatim API解析地址"""
+    import logging
+    import time
+    import requests
+    logger = logging.getLogger(__name__)
+    
+    start_time = time.time()
+    logger.info(f"🌍 开始Nominatim API地址解析: 坐标({lat}, {lng})")
+    
+    try:
+        # Nominatim API URL
+        url = "https://nominatim.openstreetmap.org/reverse"
+        params = {
+            "lat": lat,
+            "lon": lng,
+            "format": "json",
+            "addressdetails": 1,
+            "accept-language": "zh-CN,en"
+        }
+        
+        # 设置User-Agent（Nominatim要求）
+        headers = {
+            "User-Agent": "PhotoSystem/1.0 (contact@example.com)"
+        }
+        
+        logger.info("🔄 调用Nominatim API进行地址解析...")
+        # 发送请求，设置超时
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        
+        elapsed = time.time() - start_time
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data and "display_name" in data:
+                logger.info(f"✅ Nominatim API解析成功: {data['display_name'][:50]}... (耗时: {elapsed:.2f}s)")
+                return {
+                    "success": True,
+                    "address": data["display_name"],
+                    "service": "nominatim",
+                    "message": "Nominatim API解析成功"
+                }
+            else:
+                logger.warning(f"⚠️ Nominatim API返回空结果 (耗时: {elapsed:.2f}s)")
+                return {
+                    "success": False,
+                    "service": "nominatim",
+                    "message": "Nominatim API返回空结果"
+                }
+        else:
+            logger.error(f"❌ Nominatim API请求失败: HTTP {response.status_code} (耗时: {elapsed:.2f}s)")
+            return {
+                "success": False,
+                "service": "nominatim",
+                "message": f"Nominatim API请求失败: HTTP {response.status_code}"
+            }
+            
+    except requests.exceptions.Timeout:
+        elapsed = time.time() - start_time
+        logger.error(f"❌ Nominatim API请求超时 (耗时: {elapsed:.2f}s)")
+        return {
+            "success": False,
+            "service": "nominatim",
+            "message": "Nominatim API请求超时，请检查网络连接或使用科学上网"
+        }
+    except requests.exceptions.ConnectionError:
+        elapsed = time.time() - start_time
+        logger.error(f"❌ Nominatim API连接失败 (耗时: {elapsed:.2f}s)")
+        return {
+            "success": False,
+            "service": "nominatim",
+            "message": "无法连接到Nominatim API，可能需要科学上网"
+        }
+    except Exception as e:
+        elapsed = time.time() - start_time
+        logger.error(f"❌ Nominatim服务失败: {str(e)} (耗时: {elapsed:.2f}s)", exc_info=True)
+        return {
+            "success": False,
+            "service": "nominatim",
+            "message": f"Nominatim服务失败: {str(e)}"
+        }
 
-    # 更新数据库
-    photo.location_name = address
-    db.commit()
 
-    return {
-        "address": address,
-        "cached": False,
-        "message": "地址转换成功"
+@router.get("/service-status")
+async def get_service_status():
+    """获取各服务状态"""
+    status = {
+        "amap": {
+            "available": False,
+            "reason": None
+        },
+        "offline": {
+            "available": True,
+            "reason": None
+        },
+        "nominatim": {
+            "available": False,
+            "reason": None
+        }
     }
-
+    
+    # 检查高德API状态
+    from app.core.config import settings
+    if settings.maps.api_key:
+        try:
+            # 简单测试API
+            map_service = AMapService()
+            test_result = map_service.reverse_geocode(39.9042, 116.4074)
+            status["amap"]["available"] = test_result is not None
+            if not test_result:
+                status["amap"]["reason"] = "API调用失败"
+        except Exception as e:
+            status["amap"]["reason"] = f"连接失败: {str(e)}"
+    else:
+        status["amap"]["reason"] = "API密钥未配置"
+    
+    # 检查Nominatim API状态
+    try:
+        import requests
+        test_response = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"lat": 39.9042, "lon": 116.4074, "format": "json"},
+            headers={"User-Agent": "PhotoSystem/1.0"},
+            timeout=5
+        )
+        status["nominatim"]["available"] = test_response.status_code == 200
+        if test_response.status_code != 200:
+            status["nominatim"]["reason"] = f"HTTP {test_response.status_code}"
+    except requests.exceptions.Timeout:
+        status["nominatim"]["reason"] = "请求超时，可能需要科学上网"
+    except requests.exceptions.ConnectionError:
+        status["nominatim"]["reason"] = "连接失败，可能需要科学上网"
+    except Exception as e:
+        status["nominatim"]["reason"] = f"测试失败: {str(e)}"
+    
+    return status
 
 @router.get("/photos/gps-stats")
 async def get_gps_photo_stats(db: Session = Depends(get_db)):
@@ -259,24 +475,23 @@ async def get_gps_photo_stats(db: Session = Depends(get_db)):
 
 @router.post("/photos/batch-convert-gps-address")
 async def batch_convert_gps_address(
-    limit: int = None,  # 🔥 改为可选参数
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """批量转换GPS为地址"""
-
-    # 检查API Key - 动态导入以确保使用最新配置
-    from app.core.config import settings as current_settings
-    if not current_settings.maps.api_key:
-        raise HTTPException(
-            status_code=400,
-            detail="请先配置高德地图API Key",
-            headers={"X-Help-Page": "/help-gaode-api-key"}
-        )
+    
+    # 从请求体中获取参数
+    body = await request.json()
+    service = body.get("service", "amap")
+    limit = body.get("limit")
 
     # 🔥 如果没有传入limit，使用配置的batch_size
+    from app.core.config import settings as current_settings
     if limit is None:
         limit = current_settings.maps.batch_size
         print(f"使用配置的批次大小: {limit}")
+    
+    print(f"批量转换使用服务: {service}")
 
     # 获取需要转换的照片（有GPS但没有地址的照片）
     photos_to_convert = db.query(Photo).filter(
@@ -291,16 +506,55 @@ async def batch_convert_gps_address(
             "count": 0
         }
 
-    # 直接执行批量转换（改为同步执行）
-    success_count, error_count = await process_batch_gps_conversion_sync(
-        [photo.id for photo in photos_to_convert]
-    )
+    # 使用选择的服务进行批量转换
+    success_count = 0
+    error_count = 0
+    
+    import logging
+    import time
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"🚀 开始批量地址解析: 服务={service}, 照片数量={len(photos_to_convert)}")
+    
+    for i, photo in enumerate(photos_to_convert, 1):
+        try:
+            logger.info(f"📸 处理照片 {i}/{len(photos_to_convert)}: ID={photo.id}, 坐标=({photo.location_lat}, {photo.location_lng})")
+            
+            if service == "amap":
+                result = await convert_with_amap(photo.location_lat, photo.location_lng, False)
+            elif service == "offline":
+                result = await convert_with_offline(photo.location_lat, photo.location_lng)
+            elif service == "nominatim":
+                # Nominatim API有请求频率限制，添加延迟
+                if i > 1:  # 第一张照片不需要延迟
+                    logger.info("⏳ Nominatim API请求间隔控制: 等待1秒...")
+                    time.sleep(1)
+                result = await convert_with_nominatim(photo.location_lat, photo.location_lng)
+            else:
+                result = {"success": False, "message": "不支持的服务类型"}
+            
+            if result["success"]:
+                photo.location_name = result["address"]
+                success_count += 1
+                logger.info(f"✅ 照片 {i} 地址解析成功: {result['address'][:50]}...")
+            else:
+                error_count += 1
+                logger.error(f"❌ 照片 {i} 地址解析失败: {result.get('message', '未知错误')}")
+        except Exception as e:
+            error_count += 1
+            logger.error(f"❌ 照片 {i} 处理异常: {str(e)}", exc_info=True)
+    
+    # 提交数据库更改
+    db.commit()
+    
+    logger.info(f"🎉 批量地址解析完成: 成功 {success_count}, 失败 {error_count}, 服务={service}")
 
     return {
         "message": f"批量转换完成: 成功 {success_count}, 失败 {error_count}",
         "count": len(photos_to_convert),
         "success_count": success_count,
-        "error_count": error_count
+        "error_count": error_count,
+        "service": service
     }
 
 

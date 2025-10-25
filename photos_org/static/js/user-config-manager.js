@@ -86,6 +86,14 @@ class UserConfigManager {
                 this.openHelpPage();
             });
         }
+
+        // 高德API Key测试按钮
+        const testAmapBtn = document.getElementById('testAmapApi');
+        if (testAmapBtn) {
+            testAmapBtn.addEventListener('click', () => {
+                this.testAmapApiKey();
+            });
+        }
     }
 
     /**
@@ -190,11 +198,12 @@ class UserConfigManager {
         try {
             this.showLoading(true);
             
-            // 并行加载用户配置、默认配置和可用模型列表
-            const [configResponse, defaultsResponse, modelsResponse] = await Promise.all([
+            // 并行加载用户配置、默认配置、可用模型列表和地图配置
+            const [configResponse, defaultsResponse, modelsResponse, mapsResponse] = await Promise.all([
                 fetch('/api/v1/config/user'),
                 fetch('/api/v1/config/defaults'), // 新增：加载默认配置
-                fetch('/api/v1/config/models')
+                fetch('/api/v1/config/models'),
+                fetch('/api/maps/config') // 新增：加载地图配置
             ]);
             
             if (!configResponse.ok) {
@@ -219,6 +228,16 @@ class UserConfigManager {
                     const modelsResult = await modelsResponse.json();
                     if (modelsResult.success && modelsResult.data && modelsResult.data.available_models) {
                         this.populateModelOptions(modelsResult.data.available_models);
+                    }
+                }
+                
+                // 加载地图配置
+                if (mapsResponse.ok) {
+                    const mapsResult = await mapsResponse.json();
+                    if (mapsResult.configured) {
+                        // 地图配置已设置，但我们无法从API获取具体的API Key（安全考虑）
+                        // 这里我们只需要知道配置状态即可
+                        this.config.maps = { configured: true };
                     }
                 }
                 
@@ -320,6 +339,25 @@ class UserConfigManager {
         const duplicateThreshold = this.config.analysis?.duplicate_threshold || 5;
         this.setRangeValue('duplicateThreshold', duplicateThreshold);
         this.updateCurrentValue('duplicateThresholdCurrent', duplicateThreshold.toString());
+
+        // 地图服务配置
+        const amapApiKeyInput = document.getElementById('amapApiKey');
+        if (amapApiKeyInput) {
+            // 由于安全考虑，API不会返回具体的API Key
+            // 我们只显示配置状态，不预填充API Key
+            amapApiKeyInput.value = '';
+        }
+        // 根据配置状态显示当前值
+        const isConfigured = this.config.maps?.configured || false;
+        this.updateCurrentValue('amapApiKeyCurrent', isConfigured ? '已设置' : '未设置');
+
+        // 地理编码服务配置
+        const defaultServiceSelect = document.getElementById('defaultGeocodingService');
+        if (defaultServiceSelect) {
+            // 从localStorage加载默认服务设置
+            const savedService = localStorage.getItem('defaultGeocodingService') || 'ask';
+            defaultServiceSelect.value = savedService;
+        }
     }
 
     /**
@@ -446,6 +484,12 @@ class UserConfigManager {
             },
             analysis: {
                 duplicate_threshold: parseInt(document.getElementById('duplicateThreshold').value)
+            },
+            maps: {
+                api_key: document.getElementById('amapApiKey').value || null
+            },
+            geocoding: {
+                default_service: document.getElementById('defaultGeocodingService').value || 'ask'
             }
         };
     }
@@ -459,6 +503,13 @@ class UserConfigManager {
             
             const configData = this.collectFormData();
             
+            // 分离maps配置和geocoding配置，使用专门的API保存
+            const mapsConfig = configData.maps;
+            const geocodingConfig = configData.geocoding;
+            delete configData.maps;
+            delete configData.geocoding;
+            
+            // 保存其他配置
             const response = await fetch('/api/v1/config/user', {
                 method: 'PUT',
                 headers: {
@@ -473,6 +524,35 @@ class UserConfigManager {
 
             const result = await response.json();
             if (result.success) {
+                // 保存maps配置（如果有的话）
+                if (mapsConfig && mapsConfig.api_key) {
+                    try {
+                        const mapsResponse = await fetch('/api/maps/config', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                api_key: mapsConfig.api_key
+                            })
+                        });
+                        
+                        if (!mapsResponse.ok) {
+                            const mapsError = await mapsResponse.json();
+                            throw new Error(`地图配置保存失败: ${mapsError.detail || mapsResponse.statusText}`);
+                        }
+                    } catch (mapsError) {
+                        console.error('保存地图配置失败:', mapsError);
+                        this.showStatus('其他配置保存成功，但地图配置保存失败: ' + mapsError.message, 'warning');
+                        return;
+                    }
+                }
+                
+                // 保存geocoding配置到localStorage
+                if (geocodingConfig && geocodingConfig.default_service) {
+                    localStorage.setItem('defaultGeocodingService', geocodingConfig.default_service);
+                }
+                
                 this.originalConfig = JSON.parse(JSON.stringify(configData));
                 this.hasChanges = false;
                 this.updateSaveButton();
@@ -685,6 +765,111 @@ class UserConfigManager {
         if (!helpWindow) {
             // 如果弹窗被阻止，则直接跳转
             window.location.href = '/help-api-key';
+        }
+    }
+
+    /**
+     * 测试高德API Key
+     */
+    async testAmapApiKey() {
+        const apiKeyInput = document.getElementById('amapApiKey');
+        const testBtn = document.getElementById('testAmapApi');
+        
+        if (!apiKeyInput || !testBtn) return;
+        
+        const apiKey = apiKeyInput.value.trim();
+        
+        if (!this.validateAmapApiKey(apiKey)) {
+            this.showAmapTestResult('请输入有效的32位API Key', 'danger');
+            return;
+        }
+
+        // 显示测试中状态
+        const originalText = testBtn.innerHTML;
+        this.setButtonLoading(testBtn, true, '测试中...');
+
+        try {
+            const response = await fetch('/api/maps/test-geocode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    lat: 39.9042,  // 北京天安门坐标作为测试
+                    lng: 116.4074,
+                    api_key: apiKey
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.showAmapTestResult(`API Key测试成功！地址：${result.address}`, 'success');
+            } else {
+                this.showAmapTestResult(`API Key测试失败：${result.detail}`, 'danger');
+            }
+
+        } catch (error) {
+            this.showAmapTestResult('测试请求失败，请检查网络', 'danger');
+        } finally {
+            this.setButtonLoading(testBtn, false, originalText);
+        }
+    }
+
+    /**
+     * 验证高德API Key格式
+     */
+    validateAmapApiKey(apiKey) {
+        return apiKey && apiKey.length === 32;
+    }
+
+    /**
+     * 显示高德API测试结果
+     */
+    showAmapTestResult(message, type) {
+        // 创建或更新测试结果显示区域
+        let resultDiv = document.getElementById('amapTestResult');
+        if (!resultDiv) {
+            resultDiv = document.createElement('div');
+            resultDiv.id = 'amapTestResult';
+            resultDiv.className = 'mt-2';
+            
+            // 插入到API Key输入框后面
+            const apiKeyInput = document.getElementById('amapApiKey');
+            if (apiKeyInput && apiKeyInput.parentNode) {
+                apiKeyInput.parentNode.parentNode.appendChild(resultDiv);
+            }
+        }
+
+        resultDiv.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+
+        // 自动隐藏成功消息
+        if (type === 'success') {
+            setTimeout(() => {
+                const alert = resultDiv.querySelector('.alert');
+                if (alert) {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }
+            }, 5000);
+        }
+    }
+
+    /**
+     * 设置按钮加载状态
+     */
+    setButtonLoading(button, loading, text) {
+        if (!button) return;
+
+        button.disabled = loading;
+        if (loading) {
+            button.innerHTML = `<i class="bi bi-hourglass-split"></i> ${text}`;
+        } else {
+            button.innerHTML = text;
         }
     }
 }

@@ -3450,34 +3450,30 @@ async function startBatchGpsToAddress() {
             return;
         }
 
-        // 确认批量转换
-        const confirmed = await showConfirmDialog(
+        // 显示服务选择对话框
+        const selectedService = await showServiceSelectionDialog(
             `批量GPS转地址`,
-            `发现 ${stats.has_gps_without_address} 张照片有GPS信息但没有地址，是否开始批量转换？\n\n注意：此操作将在后台进行，不会阻塞界面。`
+            `发现 ${stats.has_gps_without_address} 张照片有GPS信息但没有地址，请选择使用的地址解析服务：`
         );
 
-        if (!confirmed) return;
+        if (!selectedService) return;
 
         // 启动批量转换
         const batchSize = CONFIG.mapsConfig?.batch_size || 50; // 🔥 使用配置参数，默认50
         const convertResponse = await fetch('/api/maps/photos/batch-convert-gps-address', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({limit: batchSize}) // 🔥 使用配置的批次大小
+            body: JSON.stringify({
+                service: selectedService,
+                limit: batchSize
+            })
         });
 
         const result = await convertResponse.json();
 
         if (convertResponse.ok) {
-            showToast(result.message, 'success');
-
-            // 检查是否还有更多照片需要转换
-            const remaining = stats.has_gps_without_address - result.count;
-            if (remaining > 0) {
-                setTimeout(() => {
-                    showToast(`还有 ${remaining} 张照片待转换，可再次点击按钮继续`, 'info');
-                }, 2000);
-            }
+            // 显示持久化结果弹窗
+            showBatchResultModal(result, stats.has_gps_without_address);
 
             // 刷新照片列表以显示最新状态
             setTimeout(() => {
@@ -3562,6 +3558,244 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+/**
+ * 显示服务选择对话框
+ */
+function showServiceSelectionDialog(title, message) {
+    return new Promise((resolve) => {
+        // 创建模态框HTML
+        const modalHtml = `
+            <div class="modal fade" id="serviceSelectionModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${title}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>${message}</p>
+                            <div class="service-options">
+                                <div class="service-option" data-service="amap">
+                                    <div class="service-card">
+                                        <h6><i class="bi bi-geo-alt"></i> 高德地图API</h6>
+                                        <ul class="small mb-0">
+                                            <li>国内地址详细准确</li>
+                                            <li>支持中文地址</li>
+                                            <li>需要网络连接</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="service-option" data-service="offline">
+                                    <div class="service-card">
+                                        <h6><i class="bi bi-house"></i> 离线数据库</h6>
+                                        <ul class="small mb-0">
+                                            <li>无需网络连接</li>
+                                            <li>全球主要城市</li>
+                                            <li>地址信息相对简单</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="service-option" data-service="nominatim">
+                                    <div class="service-card">
+                                        <h6><i class="bi bi-globe"></i> Nominatim API</h6>
+                                        <ul class="small mb-0">
+                                            <li>全球地址覆盖</li>
+                                            <li>免费无需API密钥</li>
+                                            <li><span class="text-warning">需要科学上网</span></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-primary" id="confirmService" disabled>确认</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 添加样式
+        const styleHtml = `
+            <style>
+                .service-options {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 1rem;
+                    margin-top: 1rem;
+                }
+                .service-option {
+                    flex: 1;
+                    cursor: pointer;
+                    border: 2px solid #dee2e6;
+                    border-radius: 0.375rem;
+                    padding: 1rem;
+                    transition: all 0.2s;
+                }
+                .service-option:hover {
+                    border-color: #0d6efd;
+                    background-color: #f8f9fa;
+                }
+                .service-option.selected {
+                    border-color: #0d6efd;
+                    background-color: #e7f3ff;
+                }
+                .service-card h6 {
+                    margin-bottom: 0.5rem;
+                    color: #495057;
+                }
+                .service-card ul {
+                    color: #6c757d;
+                }
+            </style>
+        `;
+
+        // 移除现有的模态框
+        const existingModal = document.getElementById('serviceSelectionModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // 添加模态框和样式到页面
+        document.body.insertAdjacentHTML('beforeend', styleHtml);
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        const modal = new bootstrap.Modal(document.getElementById('serviceSelectionModal'));
+        let selectedService = null;
+
+        // 服务选择事件
+        document.querySelectorAll('.service-option').forEach(option => {
+            option.addEventListener('click', function() {
+                // 移除其他选中状态
+                document.querySelectorAll('.service-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                
+                // 添加选中状态
+                this.classList.add('selected');
+                selectedService = this.dataset.service;
+                
+                // 启用确认按钮
+                document.getElementById('confirmService').disabled = false;
+            });
+        });
+
+        // 确认按钮事件
+        document.getElementById('confirmService').addEventListener('click', function() {
+            modal.hide();
+            resolve(selectedService);
+        });
+
+        // 取消按钮事件
+        document.getElementById('serviceSelectionModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+            resolve(null);
+        });
+
+        // 显示模态框
+        modal.show();
+    });
+}
+
+/**
+ * 显示批量转换结果弹窗
+ */
+function showBatchResultModal(result, totalPhotos) {
+    const serviceNames = {
+        'amap': '高德地图API',
+        'offline': '离线数据库',
+        'nominatim': 'Nominatim API'
+    };
+    
+    const serviceName = serviceNames[result.service] || result.service;
+    const remaining = totalPhotos - result.count;
+    
+    // 创建结果弹窗HTML
+    const modalHtml = `
+        <div class="modal fade" id="batchResultModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            批量GPS转地址完成
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card border-success">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-success mb-2">
+                                            <i class="bi bi-check-circle-fill"></i>
+                                            ${result.success_count}
+                                        </h4>
+                                        <p class="mb-0">成功转换</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-danger">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-danger mb-2">
+                                            <i class="bi bi-x-circle-fill"></i>
+                                            ${result.error_count}
+                                        </h4>
+                                        <p class="mb-0">转换失败</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h6>转换详情：</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>使用服务：</strong> ${serviceName}</li>
+                                <li><strong>处理照片：</strong> ${result.count} 张</li>
+                                <li><strong>成功数量：</strong> ${result.success_count} 张</li>
+                                <li><strong>失败数量：</strong> ${result.error_count} 张</li>
+                                ${remaining > 0 ? `<li><strong>剩余待转换：</strong> ${remaining} 张</li>` : ''}
+                            </ul>
+                        </div>
+                        
+                        ${remaining > 0 ? `
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            还有 ${remaining} 张照片待转换，您可以再次点击"GPS转地址"按钮继续处理。
+                        </div>
+                        ` : ''}
+                        
+                        <div class="alert alert-success mt-3">
+                            <i class="bi bi-check-circle me-2"></i>
+                            转换结果已保存到数据库，照片列表已自动刷新。
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                            <i class="bi bi-check-lg me-1"></i>确定
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 移除现有的结果弹窗
+    const existingModal = document.getElementById('batchResultModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // 添加弹窗到页面
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // 显示弹窗
+    const modal = new bootstrap.Modal(document.getElementById('batchResultModal'));
+    modal.show();
+}
 
 
 

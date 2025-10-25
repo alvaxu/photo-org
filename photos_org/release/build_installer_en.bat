@@ -210,6 +210,12 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+copy "..\offline_geocoding.db" "!DIST_DIR!\" >nul
+if errorlevel 1 (
+    echo ERROR: Failed to copy offline_geocoding.db
+    pause
+    exit /b 1
+)
 copy "README.md" "!DIST_DIR!\" >nul
 if errorlevel 1 (
     echo ERROR: Failed to copy README.md
@@ -329,7 +335,7 @@ echo echo [INFO] Starting PhotoSystem, please wait...
 echo echo.
 echo cd /d "%%~dp0"
 echo echo [INFO] Program path: %%~dp0
-echo echo [INFO] Initializing components...
+echo echo [INFO] Initializing components,first time will be a little longer...
 echo echo.
 echo PhotoSystem.exe
 echo.
