@@ -8,11 +8,8 @@
 """
 
 import os
-import cv2
-import numpy as np
 from pathlib import Path
 from typing import Optional, Tuple
-from PIL import Image, ImageDraw
 import logging
 from app.core.config import settings
 
@@ -40,6 +37,10 @@ class FaceCropService:
         :return: 裁剪后图片的缓存路径
         """
         try:
+            # 延迟导入cv2, numpy
+            import cv2
+            import numpy as np
+            
             # 构建完整照片路径
             storage_base = Path(settings.storage.base_path)
             full_photo_path = storage_base / photo_path
@@ -158,7 +159,7 @@ class FaceCropService:
             logger.error(f"人脸裁剪失败: {e}")
             return None
     
-    def _create_circular_crop(self, image: np.ndarray) -> np.ndarray:
+    def _create_circular_crop(self, image) -> object:
         """
         创建圆形裁剪
         
@@ -166,6 +167,9 @@ class FaceCropService:
         :return: 圆形裁剪后的图像
         """
         try:
+            import cv2
+            import numpy as np
+            
             height, width = image.shape[:2]
             
             # 创建圆形遮罩
@@ -255,5 +259,18 @@ class FaceCropService:
             logger.error(f"清理过期缓存失败: {e}")
             return 0
 
-# 全局实例
-face_crop_service = FaceCropService()
+# 懒加载实例
+_face_crop_service_instance = None
+
+def get_face_crop_service():
+    """获取人脸裁剪服务实例（单例模式）"""
+    global _face_crop_service_instance
+    if _face_crop_service_instance is None:
+        _face_crop_service_instance = FaceCropService()
+    return _face_crop_service_instance
+
+# 为了向后兼容，提供全局访问
+def __getattr__(name):
+    if name == 'face_crop_service':
+        return get_face_crop_service()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

@@ -16,24 +16,20 @@
 
 import asyncio
 import logging
-import numpy as np
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from pathlib import Path
 import json
 
-try:
-    import insightface
-    from insightface.app import FaceAnalysis
-    from insightface.data import get_image as ins_get_image
-    import cv2
-    from sklearn.cluster import DBSCAN
-    from sklearn.metrics.pairwise import cosine_similarity
-    import matplotlib.pyplot as plt
-    from tqdm import tqdm
-except ImportError as e:
-    logging.error(f"人脸识别依赖导入失败: {e}")
-    insightface = None
+# 延迟导入重型库
+insightface = None
+FaceAnalysis = None
+ins_get_image = None
+cv2 = None
+DBSCAN = None
+cosine_similarity = None
+plt = None
+tqdm = None
 
 from app.core.config import settings
 from app.db.session import get_db
@@ -53,11 +49,33 @@ class FaceRecognitionService:
         self.is_initialized = False
         self.config = settings.face_recognition
         
+    def _lazy_import_dependencies(self):
+        """延迟导入重型库"""
+        global insightface, FaceAnalysis, ins_get_image, cv2, DBSCAN, cosine_similarity, plt, tqdm
+        
+        if insightface is None:
+            try:
+                import numpy as np
+                import insightface
+                from insightface.app import FaceAnalysis
+                from insightface.data import get_image as ins_get_image
+                import cv2
+                from sklearn.cluster import DBSCAN
+                from sklearn.metrics.pairwise import cosine_similarity
+                import matplotlib.pyplot as plt
+                from tqdm import tqdm
+                logger.info("成功加载人脸识别依赖库")
+            except ImportError as e:
+                logger.error(f"人脸识别依赖导入失败: {e}")
+    
     async def initialize(self) -> bool:
         """
         初始化人脸识别模型
         :return: 是否初始化成功
         """
+        # 延迟导入依赖
+        self._lazy_import_dependencies()
+        
         try:
             if not insightface:
                 logger.error("InsightFace未安装，无法启用人脸识别")
@@ -266,6 +284,10 @@ class FaceRecognitionService:
         :param db: 数据库会话
         :return: 是否聚类成功
         """
+        # 延迟导入依赖
+        self._lazy_import_dependencies()
+        import numpy as np
+        
         try:
             logger.info("开始人脸聚类分析...")
             
@@ -511,5 +533,18 @@ class FaceRecognitionService:
             logger.error(f"批量标记照片已处理失败: {e}")
             return False
 
-# 全局服务实例
-face_service = FaceRecognitionService()
+# 懒加载实例
+_face_service_instance = None
+
+def get_face_service():
+    """获取人脸识别服务实例（单例模式）"""
+    global _face_service_instance
+    if _face_service_instance is None:
+        _face_service_instance = FaceRecognitionService()
+    return _face_service_instance
+
+# 为了向后兼容，提供全局访问
+def __getattr__(name):
+    if name == 'face_service':
+        return get_face_service()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

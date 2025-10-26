@@ -16,19 +16,31 @@
 
 import asyncio
 import logging
-import numpy as np
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 import uuid
 
-try:
-    from sklearn.cluster import DBSCAN
-    from sklearn.metrics.pairwise import cosine_distances
-    import matplotlib.pyplot as plt
-    from tqdm import tqdm
-except ImportError as e:
-    logging.error(f"聚类依赖导入失败: {e}")
-    DBSCAN = None
+# 延迟导入重型库
+np = None
+DBSCAN = None
+cosine_distances = None
+plt = None
+tqdm = None
+
+def _lazy_import_dependencies():
+    """延迟导入重型库"""
+    global np, DBSCAN, cosine_distances, plt, tqdm
+    
+    if np is None:
+        try:
+            import numpy as np
+            from sklearn.cluster import DBSCAN
+            from sklearn.metrics.pairwise import cosine_distances
+            import matplotlib.pyplot as plt
+            from tqdm import tqdm
+            logging.info("成功加载人脸聚类依赖库")
+        except ImportError as e:
+            logging.error(f"聚类依赖导入失败: {e}")
 
 from app.core.config import settings
 from app.db.session import get_db
@@ -140,6 +152,9 @@ class FaceClusterService:
         :param db: 数据库会话
         :return: 是否聚类成功
         """
+        # 延迟导入依赖
+        _lazy_import_dependencies()
+        
         try:
             logger.info("开始人脸聚类分析...")
             
