@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="家庭版智能照片系统",
     description="基于AI技术的智能照片管理平台",
-    version="3.1.0",  # 更新版本号
+    version="4.0.0",  # 更新版本号
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan  # 使用新的生命周期管理
