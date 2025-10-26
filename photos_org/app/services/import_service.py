@@ -14,16 +14,29 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 import mimetypes
 
-from PIL import Image, ExifTags
-import imagehash
+# 延迟导入PIL, imagehash
+Image = None
+ExifTags = None
+imagehash = None
 
-# 导入HEIC支持
-try:
-    from pillow_heif import register_heif_opener
-    register_heif_opener()
-    HEIC_SUPPORT = True
-except ImportError:
-    HEIC_SUPPORT = False
+# HEIC支持标志
+HEIC_SUPPORT = False
+
+def _lazy_import_pil():
+    """延迟导入PIL和imagehash"""
+    global Image, ExifTags, imagehash, HEIC_SUPPORT
+    
+    if Image is None:
+        from PIL import Image, ExifTags
+        import imagehash
+        
+        # 导入HEIC支持
+        try:
+            from pillow_heif import register_heif_opener
+            register_heif_opener()
+            HEIC_SUPPORT = True
+        except ImportError:
+            HEIC_SUPPORT = False
 
 from app.core.config import settings
 from app.models.photo import Photo
@@ -85,6 +98,9 @@ class ImportService:
         :param file_path: 文件路径
         :return: (是否有效, 错误信息, 文件信息)
         """
+        # 延迟导入PIL
+        _lazy_import_pil()
+        
         file_path = Path(file_path)
 
         # 检查文件存在性
@@ -167,6 +183,9 @@ class ImportService:
         :param file_path: 文件路径
         :return: 感知哈希值（16进制字符串）
         """
+        # 延迟导入PIL
+        _lazy_import_pil()
+        
         try:
             with Image.open(file_path) as img:
                 # 转换为灰度图像
@@ -190,6 +209,9 @@ class ImportService:
         :param file_path: 文件路径
         :return: EXIF元数据字典
         """
+        # 延迟导入PIL
+        _lazy_import_pil()
+        
         metadata = {}
 
         try:
@@ -345,7 +367,7 @@ class ImportService:
         except (TypeError, ValueError, ZeroDivisionError):
             return None
 
-    def _fix_image_orientation(self, img: Image.Image) -> Image.Image:
+    def _fix_image_orientation(self, img) -> object:
         """
         根据EXIF方向信息修复图片方向
         
@@ -405,6 +427,9 @@ class ImportService:
         :param file_hash: 文件哈希值（用于生成基于哈希的文件名）
         :return: 缩略图路径
         """
+        # 延迟导入PIL
+        _lazy_import_pil()
+        
         if max_size is None:
             max_size = settings.storage.thumbnail_size
 

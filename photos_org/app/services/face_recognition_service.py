@@ -55,16 +55,23 @@ class FaceRecognitionService:
         
         if insightface is None:
             try:
+                logger.info("🔄 开始加载人脸识别模型（首次加载可能需要30-60秒）...")
                 import numpy as np
+                logger.info("✓ 已加载 numpy")
                 import insightface
+                logger.info("✓ 已加载 insightface")
                 from insightface.app import FaceAnalysis
                 from insightface.data import get_image as ins_get_image
+                logger.info("✓ 已加载 FaceAnalysis")
                 import cv2
+                logger.info("✓ 已加载 cv2")
                 from sklearn.cluster import DBSCAN
                 from sklearn.metrics.pairwise import cosine_similarity
+                logger.info("✓ 已加载 sklearn")
                 import matplotlib.pyplot as plt
                 from tqdm import tqdm
-                logger.info("成功加载人脸识别依赖库")
+                logger.info("✓ 已加载 matplotlib 和 tqdm")
+                logger.info("✅ 人脸识别依赖库加载完成")
             except ImportError as e:
                 logger.error(f"人脸识别依赖导入失败: {e}")
     
@@ -85,7 +92,7 @@ class FaceRecognitionService:
                 logger.info("人脸识别功能已禁用")
                 return False
                 
-            logger.info("正在初始化人脸识别模型...")
+            logger.info("🔄 正在初始化人脸识别模型（首次加载需要下载模型，请稍候）...")
             
             # 根据配置决定使用本地模型还是在线模型
             if self.config.use_local_model:
@@ -111,9 +118,10 @@ class FaceRecognitionService:
             logger.info(f"设置检测尺寸: {det_size}")
             
             # 准备模型，使用CPU上下文
+            logger.info("⏳ 准备人脸识别模型（CPU模式）...")
             self.app.prepare(ctx_id=0, det_size=det_size)
             
-            logger.info("人脸识别模型初始化成功")
+            logger.info("✅ 人脸识别模型初始化成功，已就绪")
             self.is_initialized = True
             return True
             

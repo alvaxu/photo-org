@@ -1,20 +1,32 @@
 """
 家庭版智能照片系统 - 照片质量评估服务
 """
-import cv2
-import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
-from PIL import Image
 import math
 from app.core.logging import get_logger
 
-# 导入HEIC支持
-try:
-    from pillow_heif import register_heif_opener
-    register_heif_opener()
-    HEIC_SUPPORT = True
-except ImportError:
-    HEIC_SUPPORT = False
+# 延迟导入重型库
+cv2 = None
+np = None
+Image = None
+HEIC_SUPPORT = False
+
+def _lazy_import_dependencies():
+    """延迟导入cv2, numpy, PIL"""
+    global cv2, np, Image, HEIC_SUPPORT
+    
+    if cv2 is None:
+        import cv2
+        import numpy as np
+        from PIL import Image
+        
+        # 导入HEIC支持
+        try:
+            from pillow_heif import register_heif_opener
+            register_heif_opener()
+            HEIC_SUPPORT = True
+        except ImportError:
+            HEIC_SUPPORT = False
 
 
 class PhotoQualityService:
@@ -37,6 +49,9 @@ class PhotoQualityService:
         Returns:
             质量评估结果字典
         """
+        # 延迟导入依赖
+        _lazy_import_dependencies()
+        
         try:
             # 读取图片 - 处理中文文件名问题
             image = None
@@ -127,7 +142,7 @@ class PhotoQualityService:
             self.logger.error(f"照片质量评估失败 {image_path}: {str(e)}")
             raise Exception(f"照片质量评估失败: {str(e)}")
 
-    def _assess_sharpness(self, image: np.ndarray) -> float:
+    def _assess_sharpness(self, image) -> float:
         """
         评估图像清晰度
 
@@ -137,6 +152,9 @@ class PhotoQualityService:
         Returns:
             清晰度评分 (0-100)
         """
+        # 延迟导入依赖
+        _lazy_import_dependencies()
+        
         try:
             # 转换为灰度图
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -155,7 +173,7 @@ class PhotoQualityService:
             self.logger.error(f"清晰度评估失败: {str(e)}")
             return 50.0
 
-    def _assess_brightness(self, image: np.ndarray) -> float:
+    def _assess_brightness(self, image) -> float:
         """
         评估图像亮度
 
@@ -186,7 +204,7 @@ class PhotoQualityService:
             self.logger.error(f"亮度评估失败: {str(e)}")
             return 50.0
 
-    def _assess_contrast(self, image: np.ndarray) -> float:
+    def _assess_contrast(self, image) -> float:
         """
         评估图像对比度
 
@@ -213,7 +231,7 @@ class PhotoQualityService:
             self.logger.error(f"对比度评估失败: {str(e)}")
             return 50.0
 
-    def _assess_color_quality(self, image: np.ndarray) -> float:
+    def _assess_color_quality(self, image) -> float:
         """
         评估图像色彩质量
 
@@ -248,7 +266,7 @@ class PhotoQualityService:
             self.logger.error(f"色彩质量评估失败: {str(e)}")
             return 50.0
 
-    def _assess_composition(self, image: np.ndarray) -> float:
+    def _assess_composition(self, image) -> float:
         """
         评估图像构图
 
@@ -284,7 +302,7 @@ class PhotoQualityService:
             self.logger.error(f"构图评估失败: {str(e)}")
             return 50.0
 
-    def _check_symmetry(self, gray_image: np.ndarray) -> float:
+    def _check_symmetry(self, gray_image) -> float:
         """
         检查图像对称性
 
@@ -316,7 +334,7 @@ class PhotoQualityService:
         except Exception as e:
             return 50.0
 
-    def _detect_technical_issues(self, image: np.ndarray, pil_image: Image.Image) -> List[str]:
+    def _detect_technical_issues(self, image, pil_image) -> List[str]:
         """
         检测技术问题
 
@@ -381,22 +399,22 @@ class PhotoQualityService:
         else:
             return "很差"
 
-    def _get_average_brightness(self, image: np.ndarray) -> float:
+    def _get_average_brightness(self, image) -> float:
         """获取平均亮度"""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return float(np.mean(gray))
 
-    def _get_contrast_ratio(self, image: np.ndarray) -> float:
+    def _get_contrast_ratio(self, image) -> float:
         """获取对比度比例"""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return float(np.std(gray))
 
-    def _get_average_saturation(self, image: np.ndarray) -> float:
+    def _get_average_saturation(self, image) -> float:
         """获取平均饱和度"""
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         return float(np.mean(hsv[:, :, 1]))
 
-    def _assess_noise(self, image: np.ndarray) -> float:
+    def _assess_noise(self, image) -> float:
         """评估噪声水平"""
         try:
             # 简单的噪声评估：计算图像梯度的标准差
@@ -409,7 +427,7 @@ class PhotoQualityService:
         except:
             return 0.0
 
-    def _assess_dynamic_range(self, image: np.ndarray) -> float:
+    def _assess_dynamic_range(self, image) -> float:
         """评估动态范围"""
         try:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)

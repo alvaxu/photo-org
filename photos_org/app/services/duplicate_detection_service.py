@@ -1,9 +1,6 @@
 """
 家庭版智能照片系统 - 重复检测服务
 """
-import imagehash
-from PIL import Image
-import numpy as np
 from typing import List, Dict, Optional, Any, Tuple
 from pathlib import Path
 from collections import defaultdict
@@ -12,13 +9,28 @@ from app.core.logging import get_logger
 from app.db.session import get_db
 from app.models.photo import Photo, DuplicateGroup, DuplicateGroupPhoto
 
-# 导入HEIC支持
-try:
-    from pillow_heif import register_heif_opener
-    register_heif_opener()
-    HEIC_SUPPORT = True
-except ImportError:
-    HEIC_SUPPORT = False
+# 延迟导入重型库
+imagehash = None
+Image = None
+np = None
+HEIC_SUPPORT = False
+
+def _lazy_import_dependencies():
+    """延迟导入imagehash, PIL, numpy"""
+    global imagehash, Image, np, HEIC_SUPPORT
+    
+    if imagehash is None:
+        import imagehash
+        from PIL import Image
+        import numpy as np
+        
+        # 导入HEIC支持
+        try:
+            from pillow_heif import register_heif_opener
+            register_heif_opener()
+            HEIC_SUPPORT = True
+        except ImportError:
+            HEIC_SUPPORT = False
 
 
 class DuplicateDetectionService:
@@ -44,6 +56,9 @@ class DuplicateDetectionService:
         Returns:
             十六进制哈希字符串
         """
+        # 延迟导入依赖
+        _lazy_import_dependencies()
+        
         try:
             # 打开图片并转换为灰度
             image = Image.open(image_path)
@@ -75,6 +90,9 @@ class DuplicateDetectionService:
         Returns:
             相似度分数（0-64，越小越相似）
         """
+        # 延迟导入依赖
+        _lazy_import_dependencies()
+        
         try:
             # 将十六进制字符串转换为imagehash对象
             h1 = imagehash.hex_to_hash(hash1)
