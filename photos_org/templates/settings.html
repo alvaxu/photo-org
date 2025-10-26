@@ -80,7 +80,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/help-api-key" target="_blank">
-                            <i class="bi bi-key"></i> API密钥帮助
+                            <i class="bi bi-key"></i>大模型API Key
                         </a>
                     </li>
                     <li class="nav-item">
@@ -146,12 +146,6 @@
                                     <span class="text-muted">当前值: <span id="apiKeyCurrent">已设置</span></span><br>
                                     <span class="text-muted">默认值: <span id="apiKeyDefault">加载中...</span></span>
                                 </div>
-                            </div>
-                            <div class="mb-2">
-                                <button type="button" class="btn btn-outline-info btn-sm" id="helpApiKeyBtn">
-                                    <i class="bi bi-question-circle me-1"></i>
-                                    如何获取API密钥
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -253,104 +247,9 @@
                     </div>
                 </div>
                 
-                <!-- 界面设置 -->
+                <!-- 地址解析设置 - 第二行左边 -->
                 <div class="col-lg-6 mb-3">
-                    <div class="card h-100">
-                        <div class="card-header bg-warning text-dark py-2">
-                            <h6 class="mb-0">
-                                <i class="bi bi-display me-2"></i>
-                                界面设置
-                            </h6>
-                        </div>
-                        <div class="card-body py-2">
-                            <div class="row">
-                                <div class="col-6">
-                                    <div class="mb-2">
-                                        <label for="photosPerPage" class="form-label small">每页显示照片数</label>
-                                        <select class="form-select form-select-sm" id="photosPerPage">
-                                            <option value="6">6张</option>
-                                            <option value="12" selected>12张</option>
-                                            <option value="18">18张</option>
-                                            <option value="24">24张</option>
-                                            <option value="30">30张</option>
-                                        </select>
-                                        <div class="form-text small">
-                                            <span class="text-muted">当前值: <span id="photosPerPageCurrent">12张</span></span><br>
-                                            <span class="text-muted">默认值: <span id="photosPerPageDefault">加载中...</span></span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="mb-2">
-                                        <label for="similarPhotosLimit" class="form-label small">相似照片显示数量</label>
-                                        <select class="form-select form-select-sm" id="similarPhotosLimit">
-                                            <option value="4">4张</option>
-                                            <option value="8" selected>8张</option>
-                                            <option value="12">12张</option>
-                                        </select>
-                                        <div class="form-text small">
-                                            <span class="text-muted">当前值: <span id="similarPhotosLimitCurrent">8张</span></span><br>
-                                            <span class="text-muted">默认值: <span id="similarPhotosLimitDefault">加载中...</span></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- 热门标签和分类配置已移除，因为前端没有实际使用这些数据 -->
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 搜索设置 -->
-                <div class="col-lg-6 mb-3">
-                    <div class="card h-100">
-                        <div class="card-header bg-info text-white py-2">
-                            <h6 class="mb-0">
-                                <i class="bi bi-search me-2"></i>
-                                搜索设置
-                            </h6>
-                        </div>
-                        <div class="card-body py-2">
-                            <!-- 搜索设置 - 一行两列 -->
-                            <div class="row">
-                                <div class="col-6">
-                                    <label for="similarityThreshold" class="form-label small">相似度阈值</label>
-                                    <input type="range" class="form-range" id="similarityThreshold" 
-                                           min="0" max="1" step="0.1" value="0.8">
-                                    <div class="d-flex justify-content-between">
-                                        <small>0.0 (宽松)</small>
-                                        <small id="similarityThresholdValue">0.8</small>
-                                        <small>1.0 (严格)</small>
-                                    </div>
-                                    <div class="form-text small">
-                                        用于相似照片搜索的阈值<br>
-                                        <span class="text-muted">当前值: <span id="similarityThresholdCurrent">0.8</span></span><br>
-                                        <span class="text-muted">默认值: <span id="similarityThresholdDefault">加载中...</span></span>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <label for="duplicateThreshold" class="form-label small">重复检测阈值</label>
-                                    <input type="range" class="form-range" id="duplicateThreshold" 
-                                           min="1" max="20" value="5">
-                                    <div class="d-flex justify-content-between">
-                                        <small>1 (严格)</small>
-                                        <small id="duplicateThresholdValue">5</small>
-                                        <small>20 (宽松)</small>
-                                    </div>
-                                    <div class="form-text small">
-                                        用于重复照片检测的阈值<br>
-                                        <span class="text-muted">当前值: <span id="duplicateThresholdCurrent">5</span></span><br>
-                                        <span class="text-muted">默认值: <span id="duplicateThresholdDefault">加载中...</span></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                </div>
-                
-                <!-- 地理编码设置 -->
-                <div class="col-lg-6 mb-3">
-                    <div class="card h-100">
+                    <div class="card">
                         <div class="card-header bg-info text-white py-2">
                             <h6 class="mb-0">
                                 <i class="bi bi-geo-alt me-2"></i>
@@ -425,6 +324,99 @@
                             </div>
                         </div>
                     </div>
+                </div>
+                
+                <!-- 第二行右边：界面设置和搜索设置 -->
+                <div class="col-lg-6 mb-3">
+                    <!-- 界面设置 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning text-dark py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-display me-2"></i>
+                                界面设置
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="mb-2">
+                                        <label for="photosPerPage" class="form-label small">每页显示照片数</label>
+                                        <select class="form-select form-select-sm" id="photosPerPage">
+                                            <option value="6">6张</option>
+                                            <option value="12" selected>12张</option>
+                                            <option value="18">18张</option>
+                                            <option value="24">24张</option>
+                                            <option value="30">30张</option>
+                                        </select>
+                                        <div class="form-text small">
+                                            <span class="text-muted">当前值: <span id="photosPerPageCurrent">12张</span></span><br>
+                                            <span class="text-muted">默认值: <span id="photosPerPageDefault">加载中...</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="mb-2">
+                                        <label for="similarPhotosLimit" class="form-label small">相似照片显示数量</label>
+                                        <select class="form-select form-select-sm" id="similarPhotosLimit">
+                                            <option value="4">4张</option>
+                                            <option value="8" selected>8张</option>
+                                            <option value="12">12张</option>
+                                        </select>
+                                        <div class="form-text small">
+                                            <span class="text-muted">当前值: <span id="similarPhotosLimitCurrent">8张</span></span><br>
+                                            <span class="text-muted">默认值: <span id="similarPhotosLimitDefault">加载中...</span></span>
+                                        </div>
+                                    </div>
+                            </div>
+                            <!-- 热门标签和分类配置已移除，因为前端没有实际使用这些数据 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 搜索设置 -->
+                    <div class="card">
+                        <div class="card-header bg-info text-white py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-search me-2"></i>
+                                搜索设置
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <!-- 搜索设置 - 一行两列 -->
+                            <div class="row">
+                                <div class="col-6">
+                                    <label for="similarityThreshold" class="form-label small">相似度阈值</label>
+                                    <input type="range" class="form-range" id="similarityThreshold" 
+                                           min="0" max="1" step="0.1" value="0.8">
+                                    <div class="d-flex justify-content-between">
+                                        <small>0.0 (宽松)</small>
+                                        <small id="similarityThresholdValue">0.8</small>
+                                        <small>1.0 (严格)</small>
+                                    </div>
+                                    <div class="form-text small">
+                                        用于相似照片搜索的阈值<br>
+                                        <span class="text-muted">当前值: <span id="similarityThresholdCurrent">0.8</span></span><br>
+                                        <span class="text-muted">默认值: <span id="similarityThresholdDefault">加载中...</span></span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <label for="duplicateThreshold" class="form-label small">重复检测阈值</label>
+                                    <input type="range" class="form-range" id="duplicateThreshold" 
+                                           min="1" max="20" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <small>1 (严格)</small>
+                                        <small id="duplicateThresholdValue">5</small>
+                                        <small>20 (宽松)</small>
+                                    </div>
+                                    <div class="form-text small">
+                                        用于重复照片检测的阈值<br>
+                                        <span class="text-muted">当前值: <span id="duplicateThresholdCurrent">5</span></span><br>
+                                        <span class="text-muted">默认值: <span id="duplicateThresholdDefault">加载中...</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 </div>
             </div>
         </form>
