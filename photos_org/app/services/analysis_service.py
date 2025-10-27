@@ -335,12 +335,14 @@ class AnalysisService:
                 if content_result:
                     # 清理现有的AI标签（避免标签累积）- 使用子查询避免join+delete问题
                     from app.models.photo import PhotoTag, Tag
+                    from sqlalchemy import select
                     tag_ids_to_delete = db.query(PhotoTag.id).join(Tag).filter(
                         PhotoTag.photo_id == photo_id,
                         PhotoTag.source == 'auto',
                         Tag.category.in_(['scene', 'activity', 'emotion', 'object'])
                     ).subquery()
-                    db.query(PhotoTag).filter(PhotoTag.id.in_(tag_ids_to_delete)).delete(synchronize_session=False)
+                    # 使用 select() 显式包装子查询
+                    db.query(PhotoTag).filter(PhotoTag.id.in_(select(tag_ids_to_delete.c.id))).delete(synchronize_session=False)
 
                     # 清理现有的AI分类（避免分类累积）
                     from app.models.photo import PhotoCategory

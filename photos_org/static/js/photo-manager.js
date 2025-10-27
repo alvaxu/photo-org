@@ -444,6 +444,18 @@ class PhotoManager {
             console.log('未找到AI分析按钮');
         }
 
+        // 更新下载按钮状态
+        const downloadBtn = document.getElementById('downloadSelectedBtn');
+        if (downloadBtn) {
+            downloadBtn.disabled = selectedCount === 0;
+            downloadBtn.innerHTML = selectedCount > 0 ?
+                `<i class="bi bi-download"></i> 下载选中 (${selectedCount})` :
+                `<i class="bi bi-download"></i> 下载选中`;
+            console.log('下载按钮状态更新 - disabled:', downloadBtn.disabled, 'text:', downloadBtn.innerHTML);
+        } else {
+            console.log('未找到下载按钮');
+        }
+
         // 更新幻灯片播放按钮状态
         const slideshowBtn = document.getElementById('slideshowSelectedBtn');
         if (slideshowBtn) {
@@ -453,11 +465,11 @@ class PhotoManager {
                 `<i class="bi bi-play-circle"></i> 播放选中`;
         }
 
-        // 更新全选按钮文本
+        // 更新全选按钮文本（按钮始终显示"全选"）
         const selectAllBtn = document.getElementById('selectAllBtn');
         if (selectAllBtn) {
-            const totalPhotos = photoCards.length;
-            selectAllBtn.textContent = selectedCount === totalPhotos ? '取消全选' : '全选';
+            // 按钮始终显示"全选"，不再切换文本
+            selectAllBtn.textContent = '全选';
         }
 
         // 同步状态到AppState

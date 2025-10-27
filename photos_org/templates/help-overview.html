@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>功能说明 - 家庭版智能照片系统 v3.1.0 </title>
+    <title>功能说明 - 家庭版智能照片系统 v4版 </title>
 
     <!-- Bootstrap CSS - 优先使用本地版本 -->
     <link href="/static/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
@@ -115,7 +115,7 @@
             <a class="navbar-brand" href="/">
                 <img src="/static/images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
                 智能照片系统
-                <small class="ms-2 text-light opacity-75">2025.10.11</small>
+                <small class="ms-2 text-light opacity-75">2025-v4版</small>
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -141,7 +141,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/help-api-key">
-                            <i class="bi bi-key"></i> API密钥帮助
+                            <i class="bi bi-key"></i>大模型API Key
                         </a>
                     </li>
                     <li class="nav-item">
@@ -170,7 +170,7 @@
 
             <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i>
-                欢迎使用家庭版智能照片系统 v3.2.3 ！本帮助文档将为您详细介绍系统的各项功能和使用方法。
+                欢迎使用家庭版智能照片系统 v4版 ！本帮助文档将为您详细介绍系统的各项功能和使用方法。
             </div>
 
             <!-- 系统概述 -->
@@ -179,12 +179,12 @@
 
                 <div class="info-box">
                     <h5><i class="bi bi-house-heart me-2"></i>家庭版智能照片系统</h5>
-                    <p><strong>数据永不离身，绝对隐私无忧：</strong>您的照片数据始终存储在您控制的本地设备中，既可以安心放在家里，也可以随身携带。从不上传到任何云端服务，彻底杜绝泄密风险，确保家庭隐私完全自主掌控。基于AI技术的智能照片管理平台，支持照片自动分析、分类、标签生成和重复检测，支持节假日识别，基于GPS信息提取地址。真正的便携式设计，解压即用，一次配置处处可用。</p>
+                    <p><strong>数据永不离身，绝对隐私无忧：</strong>您的照片数据始终存储在您控制的本地设备中，既可以安心放在家里，也可以随身携带。从不上传到任何云端服务，彻底杜绝泄密风险，确保家庭隐私完全自主掌控。基于AI技术的智能照片管理平台，支持照片自动分析、分类、标签生成和重复检测，<strong>支持人脸识别与人物管理、GPS转地址多服务解析</strong>。真正的便携式设计，解压即用，一次配置处处可用。</p>
                 </div>
 
                 <div class="row g-4">
                     <!-- 第一行 -->
-                    <div class="col-lg-6 col-md-6">
+                    <div class="col-lg-4 col-md-4">
                         <div class="feature-card p-4">
                             <div class="feature-icon">
                                 <i class="bi bi-shield-check"></i>
@@ -199,7 +199,7 @@
                         </div>
                     </div>
 
-                    <div class="col-lg-6 col-md-6">
+                    <div class="col-lg-4 col-md-4">
                         <div class="feature-card p-4">
                             <div class="feature-icon">
                                 <i class="bi bi-house-heart"></i>
@@ -214,34 +214,63 @@
                         </div>
                     </div>
 
-                    <!-- 第二行 -->
-                    <div class="col-lg-6 col-md-6">
+                    <div class="col-lg-4 col-md-4">
                         <div class="feature-card p-4">
                             <div class="feature-icon">
                                 <i class="bi bi-robot"></i>
                             </div>
-                            <h5 class="card-title text-center mb-3">分步骤智能分析，灵活选择</h5>
+                            <h5 class="card-title text-center mb-3">智能分析，灵活选择</h5>
                             <ul class="list-unstyled">
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>基础分析：免费质量评估和标签</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>AI分析：深度内容识别和分类</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>人脸识别：自动聚类人物</li>
                                 <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>重复照片自动检测</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>节假日识别，地址提取</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>基础分析：免费的质量评估和基础标签</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>AI分析：深度内容识别、智能标签和分类</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>支持重新分析和结果更新</li>
                             </ul>
                         </div>
                     </div>
 
-                    <div class="col-lg-6 col-md-6">
+                    <!-- 第二行 -->
+                    <div class="col-lg-4 col-md-4">
                         <div class="feature-card p-4">
                             <div class="feature-icon">
                                 <i class="bi bi-search"></i>
                             </div>
-                            <h5 class="card-title text-center mb-3">多端快速导入、超强搜索引擎</h5>
+                            <h5 class="card-title text-center mb-3">超强搜索功能</h5>
                             <ul class="list-unstyled">
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>支持多终端联网快速导入照片</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>支持标签、日期、分类等多种搜索方式</li>
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>支持全文快速智能搜索</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>全文搜索，支持中文分词</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>多条件筛选（日期、质量、人物等）</li>
                                 <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>相似照片秒速匹配</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>支持单张和批量下载</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4 col-md-4">
+                        <div class="feature-card p-4">
+                            <div class="feature-icon">
+                                <i class="bi bi-person-check"></i>
+                            </div>
+                            <h5 class="card-title text-center mb-3">人脸识别与人物管理</h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>自动识别照片中的人脸</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>AI智能聚类同一个人物</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>本地处理，隐私安全</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>按人物筛选浏览照片</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4 col-md-4">
+                        <div class="feature-card p-4">
+                            <div class="feature-icon">
+                                <i class="bi bi-geo-alt"></i>
+                            </div>
+                            <h5 class="card-title text-center mb-3">多服务 GPS 转地址</h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>高德、Nominatim、离线三种服务</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>智能选择最合适服务</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>批量转换和单张转换</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>全球地址解析支持</li>
                             </ul>
                         </div>
                     </div>
@@ -266,20 +295,6 @@
                             </ol>
                         </div>
                     </div>
-
-                    <div class="col-md-6">
-                        <div class="step-card p-3 mb-3">
-                            <h4 class="h5"><i class="bi bi-apple me-2"></i>Linux/macOS 用户</h4>
-                            <ol>
-                                <li>下载 <code>PhotoSystem-Portable.tar.gz</code></li>
-                                <li>解压：<code>tar -xzf PhotoSystem-Portable.tar.gz</code></li>
-                                <li><strong>运行 <code>./PhotoSystem</code></strong> 直接启动</li>
-                                <li>或者运行 <code>./startup.sh</code> 获得更好的用户体验</li>
-                                <li>初次启动，估计要等待1分钟</li>
-                                <li>启动完成后，请不要关闭启动窗口</li>
-                            </ol>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="step-card p-3 mb-3">
@@ -289,15 +304,23 @@
                         <strong>启动完成后，在浏览器中访问：<code>http://127.0.0.1:8000</code></strong>
                     </div>
                     <p>也可在家庭的其他设备上，根据启动页的提示，在浏览器中访问：<code>http://主机ip地址:8000</code></p>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>导航栏功能：</strong>页面顶部提供快速入口，包括<strong>基础分析</strong>、<strong>GPS转地址</strong>、<strong>人脸识别</strong>、<strong>AI分析</strong>等核心功能按钮。
+                    </div>
                 </div>
 
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5"><i class="bi bi-gear me-2"></i>首次使用建议</h4>
                     <ol>
-                        <li><a href="#api-key-config" class="text-decoration-none">申请并配置免费大模型API密钥和高德API密钥</a></li>
-                        <li>导入照片并开始智能分析</li>
+                        <li><a href="#api-key-config" class="text-decoration-none">申请并配置免费大模型API密钥；如选用高德API解析照片地址，需申请并配置高德API密钥</a></li>
+                        <li>导入照片到系统中</li>
                         <li>先进行基础分析（免费、快速的质量评估）</li>
-                        <li>再进行AI分析（深度内容识别，需要API密钥）</li>
+                        <li>再进行GPS转地址（高德、Nominatim或离线解析）</li>
+                        <li>启动人脸识别（本地AI模型，自动聚类人物）</li>
+                        <li>选择性进行AI分析（深度内容识别，需要API密钥）</li>
+                        <li>使用智能搜索和筛选功能管理照片</li>
                         <li>享受智能照片管理体验！</li>
                     </ol>
                 </div>
@@ -414,28 +437,29 @@
                 <!-- 3.3 GPS转地址 -->
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5">3.3 GPS转地址</h4>
-                    <p>将照片中的GPS坐标信息转换为可读的地理地址，支持批量转换和单张照片转换。</p>
+                    <p>将照片中的GPS坐标信息转换为可读的地理地址，支持多种解析服务，功能更强大。</p>
 
                     <div class="info-box mb-3">
                         <h6><i class="bi bi-geo-alt me-2"></i>GPS转地址功能</h6>
                         <div class="row">
                             <div class="col-md-6">
-                                <h6><i class="bi bi-geo-alt me-2 text-info"></i>功能特点</h6>
+                                <h6><i class="bi bi-geo-alt me-2 text-info"></i>支持的服务</h6>
                                 <ul class="mb-2 small">
-                                    <li><strong>地理编码：</strong>使用高德地图API将GPS坐标转换为详细地址</li>
-                                    <li><strong>地址存储：</strong>转换后的地址保存到照片的地点名称字段</li>
-                                    <li><strong>批量处理：</strong>支持一次转换所有有GPS信息的照片</li>
+                                    <li><strong>高德地图：</strong>国内主要地区，解析准确度高</li>
+                                    <li><strong>Nominatim：</strong>全球覆盖，开源免费（需科学上网）</li>
+                                    <li><strong>离线解析：</strong>本地数据库，无需网络连接</li>
+                                    <li><strong>自动切换：</strong>根据地点智能选择最佳服务</li>
                                     <li><strong>重新解析：</strong>支持重新解析已转换的地址</li>
-                                    <li><strong>状态显示：</strong>直观显示转换状态（已解析/未解析）</li>
                                 </ul>
                             </div>
                             <div class="col-md-6">
-                                <h6><i class="bi bi-key me-2 text-warning"></i>使用要求</h6>
+                                <h6><i class="bi bi-key me-2 text-warning"></i>配置要求</h6>
                                 <ul class="mb-2 small">
-                                    <li><strong>API密钥：</strong>需要配置高德地图API密钥</li>
+                                    <li><strong>高德地图：</strong>需配置API密钥（国内推荐）</li>
+                                    <li><strong>Nominatim：</strong>无需密钥（需VPN）</li>
+                                    <li><strong>离线模式：</strong>无需任何配置，直接使用</li>
+                                    <li><strong>智能选择：</strong>系统自动选择可用服务</li>
                                     <li><strong>GPS信息：</strong>照片必须包含GPS坐标信息</li>
-                                    <li><strong>网络连接：</strong>需要稳定的网络连接</li>
-                                    <li><strong>iPhone设置：</strong>拍摄时需开启定位服务</li>
                                 </ul>
                             </div>
                         </div>
@@ -446,18 +470,20 @@
                         <h6><i class="bi bi-play-circle me-2"></i>GPS转地址的使用方式</h6>
                         <div class="row">
                             <div class="col-md-6">
-                                <h6><i class="bi bi-geo-alt me-2 text-info"></i>导航栏转换</h6>
+                                <h6><i class="bi bi-geo-alt me-2 text-info"></i>批量转换</h6>
                                 <ul class="small">
-                                    <li><strong>批量转换：</strong>点击导航栏"GPS转地址"按钮，批量处理所有有GPS但未转换地址的照片</li>
+                                    <li><strong>导航栏：</strong>点击"GPS转地址"按钮批量处理</li>
+                                    <li><strong>选择服务：</strong>系统会提示选择解析服务</li>
                                     <li><strong>进度显示：</strong>显示转换进度和成功/失败统计</li>
                                 </ul>
                             </div>
                             <div class="col-md-6">
                                 <h6><i class="bi bi-mouse me-2 text-success"></i>单张转换</h6>
                                 <ul class="small">
-                                    <li><strong>照片卡片：</strong>点击照片信息区域的GPS图标，转换单张照片地址</li>
-                                    <li><strong>重新解析：</strong>已转换的照片可以重新点击进行地址更新</li>
-                                    <li><strong>状态反馈：</strong>转换完成后GPS图标颜色会从灰色变为绿色</li>
+                                    <li><strong>照片卡片：</strong>点击GPS图标转换单张照片地址</li>
+                                    <li><strong>重新解析：</strong>已转换的照片可以重新解析更新</li>
+                                    <li><strong>状态显示：</strong>GPS图标颜色显示解析状态</li>
+                                    <li><strong>快速下载：</strong>照片下方提供单张下载功能</li>
                                 </ul>
                             </div>
                         </div>
@@ -468,12 +494,12 @@
                         <h6><i class="bi bi-exclamation-triangle me-2"></i>GPS转地址注意事项</h6>
                         <div class="row">
                             <div class="col-md-6">
-                                <h6><i class="bi bi-key me-2 text-warning"></i>API配置</h6>
+                                <h6><i class="bi bi-key me-2 text-warning"></i>服务配置</h6>
                                 <ul class="mb-0 small">
-                                    <li>首次使用前需要配置高德地图API密钥</li>
-                                    <li>访问系统配置页面设置API密钥</li>
-                                    <li>配置后无需重启应用即可生效</li>
-                                    <li>API密钥泄露时及时更换</li>
+                                    <li>高德地图需配置API密钥，在系统配置页面设置</li>
+                                    <li>Nominatim使用开源服务，无需密钥</li>
+                                    <li>离线模式使用本地数据库，无需配置</li>
+                                    <li>优先使用离线模式，其他服务作为备用</li>
                                 </ul>
                             </div>
                             <div class="col-md-6">
@@ -489,13 +515,96 @@
                     </div>
                 </div>
 
-                <!-- 3.4 智能搜索 -->
+                <!-- 3.4 人脸识别与人物管理 -->
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">3.4 智能搜索</h4>
+                    <h4 class="h5">3.4 人脸识别与人物管理</h4>
+                    <p>智能识别照片中的人脸，自动聚类同一个人物，方便您按人物浏览和整理家庭照片。</p>
+
+                    <div class="info-box mb-3">
+                        <h6><i class="bi bi-person-check me-2"></i>人脸识别功能</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-robot me-2 text-info"></i>核心功能</h6>
+                                <ul class="mb-2 small">
+                                    <li><strong>人脸检测：</strong>自动识别照片中的人脸并提取特征</li>
+                                    <li><strong>智能聚类：</strong>使用AI算法将相似人脸聚类到同一个人物组</li>
+                                    <li><strong>肖像生成：</strong>自动为每个聚类选择最佳肖像照片</li>
+                                    <li><strong>人物筛选：</strong>按人物筛选照片，快速找到特定人物</li>
+                                    <li><strong>批量管理：</strong>批量处理、合并、拆分人物聚类</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-key me-2 text-warning"></i>使用要求</h6>
+                                <ul class="mb-2 small">
+                                    <li><strong>模型下载：</strong>首次使用需下载人脸识别模型（约80MB）</li>
+                                    <li><strong>本地处理：</strong>完全本地运行，无需网络连接</li>
+                                    <li><strong>隐私安全：</strong>所有人脸数据存储本地，绝对安全</li>
+                                    <li><strong>处理速度：</strong>取决于照片数量，支持批量处理</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 人脸识别的使用方式 -->
+                    <div class="mb-3">
+                        <h6><i class="bi bi-play-circle me-2"></i>人脸识别的使用方式</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-play-fill me-2 text-info"></i>开始人脸识别</h6>
+                                <ul class="small">
+                                    <li><strong>入口：</strong>点击导航栏"人脸识别"按钮</li>
+                                    <li><strong>首次使用：</strong>系统会自动下载人脸识别模型</li>
+                                    <li><strong>批量处理：</strong>系统自动识别所有照片中的人脸</li>
+                                    <li><strong>进度显示：</strong>显示处理进度和处理统计信息</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-people me-2 text-success"></i>人物管理</h6>
+                                <ul class="small">
+                                    <li><strong>查看人物：</strong>浏览系统识别的所有人物分组</li>
+                                    <li><strong>重命名人物：</strong>为人物设置友好名称</li>
+                                    <li><strong>合并聚类：</strong>将同一人物的多个聚类合并</li>
+                                    <li><strong>拆分聚类：</strong>将错误聚类的照片移到正确人物</li>
+                                    <li><strong>删除聚类：</strong>删除重复或不需要的人物聚类</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 注意事项 -->
+                    <div class="warning-box">
+                        <h6><i class="bi bi-exclamation-triangle me-2"></i>人脸识别注意事项</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-clock me-2 text-warning"></i>处理时间</h6>
+                                <ul class="mb-0 small">
+                                    <li>首次使用需下载模型，约需1-2分钟</li>
+                                    <li>人脸识别处理速度约为每秒5-10张照片</li>
+                                    <li>大量照片可能需要较长时间，请耐心等待</li>
+                                    <li>处理过程中请勿关闭浏览器窗口</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-shield-check me-2 text-info"></i>准确性提示</h6>
+                                <ul class="mb-0 small">
+                                    <li>人脸清晰、正面照片识别准确率最高</li>
+                                    <li>侧面、模糊、戴口罩照片可能识别失败</li>
+                                    <li>识别结果可能需要人工审核和调整</li>
+                                    <li>支持手动修正聚类结果</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3.5 智能搜索 -->
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">3.5 智能搜索</h4>
                     <p>强大的搜索功能让您快速找到需要的照片，支持多种搜索方式和条件组合。</p>
                     <ul>
+                        <li><strong>全文搜索：</strong>支持多文本的组合全文搜索，支持中文分词和复杂查询</li>
                         <li><strong>关键词搜索：</strong>支持文件名、描述、标签、分类、AI分析结果搜索</li>
-                        <li><strong>条件筛选：</strong>按日期、质量、相机、格式、标签、分类等条件精确筛选</li>
+                        <li><strong>条件筛选：</strong>按日期、质量、相机、格式、肖像、标签、分类等条件精确筛选</li>
                         <li><strong>相似照片：</strong>通过图片悬停功能快速发现相似照片</li>
                         <li><strong>搜索建议：</strong>基于热门标签和分类的智能建议</li>
                     </ul>
@@ -562,9 +671,9 @@
                     </div>
                 </div>
 
-                <!-- 3.5 照片显示 -->
+                <!-- 3.6 照片显示 -->
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">3.5 照片显示</h4>
+                    <h4 class="h5">3.6 照片显示</h4>
                     <p>系统提供多种照片查看和操作方式，让您能够方便地浏览、管理和欣赏您的照片收藏。</p>
 
                     <!-- 照片浏览模式 -->
@@ -805,17 +914,40 @@
                     </div>
                 </div>
 
-                <!-- 3.6 系统配置 -->
+                <!-- 3.7 系统配置 -->
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">3.6 系统配置</h4>
-                    <p>通过系统配置，您可以根据个人需求调整系统的各项参数和功能设置。</p>
-                    <ul>
-                        <li><strong>AI设置：</strong>配置免费阿里云千问大模型DashScope API密钥和模型选择</li>
-                        <li><strong>地图设置：</strong>配置高德地图API密钥，支持GPS坐标转地址功能</li>
-                        <li><strong>界面设置：</strong>调整显示数量、排序方式等界面参数</li>
-                        <li><strong>搜索设置：</strong>配置相似度阈值、重复检测参数</li>
-
+                    <h4 class="h5">3.7 系统配置</h4>
+                    <p>通过系统配置页面，您可以根据个人需求调整系统的各项参数和功能设置。</p>
+                    
+                    <div class="info-box mb-3">
+                        <h6><i class="bi bi-gear me-2"></i>配置项说明</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="mb-2 small">
+                                    <li><strong>AI服务设置：</strong>配置大模型选择和API密钥</li>
+                                    <li><strong>存储设置：</strong>配置照片大小限制和缩略图参数</li>
+                                    <li><strong>地址解析设置：</strong>配置GPS转地址服务和API密钥</li>
                     </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="mb-2 small">
+                                    <li><strong>界面设置：</strong>调整每页显示照片数和相似照片数量</li>
+                                    <li><strong>搜索设置：</strong>配置相似度阈值和重复检测阈值</li>
+                                    <li><strong>配置导出：</strong>支持导出配置为JSON文件</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6><i class="bi bi-list-ol me-2"></i>配置操作</h6>
+                        <ul class="small">
+                            <li><strong>修改配置：</strong>在各配置项中调整参数值</li>
+                            <li><strong>保存配置：</strong>点击"保存配置"按钮应用更改</li>
+                            <li><strong>重置配置：</strong>点击"重置为默认"按钮恢复默认值</li>
+                            <li><strong>导出配置：</strong>点击"导出配置"按钮备份当前配置</li>
+                        </ul>
+                    </div>
                 </div>
 
             </section>
@@ -834,12 +966,28 @@
                 </div>
 
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">地图服务设置</h4>
+                    <h4 class="h5">地址解析服务设置</h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-map me-2"></i>支持的服务</h6>
+                            <ul class="small">
+                                <li><strong>高德地图API：</strong>国内地址详细准确，推荐使用</li>
+                                <li><strong>离线数据库：</strong>无需网络，全球主要城市</li>
+                                <li><strong>Nominatim API：</strong>全球覆盖，需科学上网</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-key me-2"></i>配置要求</h6>
+                            <ul class="small">
+                                <li><strong>高德地图：</strong>需配置API密钥（从高德开发者平台获取）</li>
+                                <li><strong>离线模式：</strong>无需配置，直接使用</li>
+                                <li><strong>Nominatim：</strong>无需API密钥（需VPN）</li>
+                            </ul>
+                        </div>
+                    </div>
                     <ul>
-                        <li><strong>地图服务提供商：</strong>高德地图（Amap）</li>
-                        <li><strong>API密钥：</strong>从高德地图开发者平台获取</li>
-                        <li><strong>功能支持：</strong>GPS坐标转地理地址</li>
-                        <li><strong>配置方式：</strong>通过系统配置页面设置，或使用环境变量</li>
+                        <li><strong>配置方式：</strong>系统配置页面设置默认服务，或使用环境变量</li>
+                        <li><strong>服务选择：</strong>可设置每次都询问，或默认使用某个服务</li>
                         <li><strong>安全建议：</strong>定期更换API密钥，避免泄露</li>
                     </ul>
                 </div>
@@ -1415,7 +1563,7 @@
                 </a>
                 <a href="/help-api-key" class="btn btn-outline-info me-2">
                     <i class="bi bi-key me-1"></i>
-                    API密钥帮助
+                   大模型API Key
                 </a>
                 <button class="btn btn-outline-success" onclick="window.close()">
                     <i class="bi bi-x-lg me-1"></i>

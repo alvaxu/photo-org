@@ -131,6 +131,23 @@ function bindBasicEvents() {
         });
     }
 
+    // 批量下载按钮事件 - 使用PhotoManager
+    const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+    if (downloadSelectedBtn) {
+        console.log('为批量下载按钮添加点击事件监听器');
+        downloadSelectedBtn.addEventListener('click', () => {
+            console.log('批量下载按钮被点击');
+            if (window.PhotoManager && window.PhotoManager.selectedPhotos.size > 0) {
+                const selectedIds = Array.from(window.PhotoManager.selectedPhotos);
+                console.log('选中的照片ID:', selectedIds);
+                downloadSelectedPhotos(selectedIds);
+            } else {
+                console.log('没有选中的照片');
+                showWarning('请先选择要下载的照片');
+            }
+        });
+    }
+
     // 键盘快捷键
     document.addEventListener('keydown', handleKeyboard);
 }

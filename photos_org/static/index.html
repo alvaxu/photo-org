@@ -171,7 +171,7 @@
             <a class="navbar-brand" href="#">
                 <img src="images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
                 智能照片系统
-                <small class="ms-2 text-light opacity-75">2025.10.01</small>
+                <small class="ms-2 text-light opacity-75">2025-v4版</small>
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -197,7 +197,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/help-api-key" target="_blank">
-                            <i class="bi bi-key"></i> API密钥帮助
+                            <i class="bi bi-key"></i>大模型API Key
                         </a>
                     </li>
                     <li class="nav-item">
@@ -212,7 +212,7 @@
                         <i class="bi bi-upload"></i> 导入照片
                     </button>
                     <button class="btn btn-outline-light me-2" id="basicAnalysisBtn">
-                        <i class="bi bi-gear"></i> 基础分析
+                        <i class="bi bi-graph-up-arrow"></i> 基础分析
                     </button>
                     <a class="btn btn-outline-light me-2" href="/people" id="navPeople" data-section="people">
                         <i class="bi bi-people"></i> 人脸识别
@@ -705,10 +705,13 @@
                                     <i class="bi bi-trash"></i> 删除选中
                                 </button>
                                 <button class="btn btn-sm btn-warning" id="basicProcessSelectedBtn" disabled>
-                                    <i class="bi bi-graph-up"></i> 基础分析
+                                    <i class="bi bi-graph-up-arrow"></i> 基础分析
                                 </button>
                                 <button class="btn btn-sm btn-primary" id="aiProcessSelectedBtn" disabled>
                                     <i class="bi bi-robot"></i> AI分析
+                                </button>
+                                <button class="btn btn-sm btn-success" id="downloadSelectedBtn" disabled>
+                                    <i class="bi bi-download"></i> 下载选中
                                 </button>
                                 <button class="btn btn-sm btn-outline-info" id="photoDisplayHelpBtn" onclick="togglePhotoDisplayHelp()">
                                     <i class="bi bi-question-circle"></i> 帮助

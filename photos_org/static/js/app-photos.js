@@ -159,11 +159,20 @@ function createPhotoCard(photo) {
                     <div class="photo-quality-container">
                         <i class="bi ${qualityStatus.icon} quality-icon ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
                            data-level="${qualityStatus.level}"
+                           data-photo-id="${photo.id}"
+                           onclick="event.stopPropagation(); forceBasicAnalysis(${photo.id})"
                            title="${qualityStatus.title}"
                            style="color: ${qualityStatus.color}"></i>
                         <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
-                           title="${aiStatus.title}"></i>
+                           data-photo-id="${photo.id}"
+                           onclick="event.stopPropagation(); forceAIAnalysis(${photo.id})"
+                           title="${aiStatus.title}"
+                           style="${aiStatus.hasAIAnalysis ? '' : 'color: #6c757d;'}"></i>
                         ${hasGps ? `<i class="bi bi-geo-alt-fill gps-icon ${hasAddress ? 'gps-resolved' : 'gps-unresolved'}" data-photo-id="${photo.id}" onclick="event.stopPropagation(); resolvePhotoAddress(${photo.id}, ${hasAddress})" title="${hasAddress ? '点击重新解析地址' : '点击解析地址'}"></i>` : ''}
+                        <i class="bi bi-download download-icon" 
+                           data-photo-id="${photo.id}" 
+                           onclick="event.stopPropagation(); downloadSinglePhoto(${photo.id})" 
+                           title="下载照片"></i>
                     </div>
                 </div>
                 <div class="photo-meta">
@@ -283,11 +292,20 @@ function createPhotoListItem(photo) {
                         <div class="photo-quality-container">
                             <i class="bi ${qualityStatus.icon} quality-icon ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
                                data-level="${qualityStatus.level}"
+                               data-photo-id="${photo.id}"
+                               onclick="event.stopPropagation(); forceBasicAnalysis(${photo.id})"
                                title="${qualityStatus.title}"
                                style="color: ${qualityStatus.color}"></i>
                             <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
-                               title="${aiStatus.title}"></i>
+                               data-photo-id="${photo.id}"
+                               onclick="event.stopPropagation(); forceAIAnalysis(${photo.id})"
+                               title="${aiStatus.title}"
+                               style="${aiStatus.hasAIAnalysis ? '' : 'color: #6c757d;'}"></i>
                             ${hasGps ? `<i class="bi bi-geo-alt-fill gps-icon ${hasAddress ? 'gps-resolved' : 'gps-unresolved'}" data-photo-id="${photo.id}" onclick="event.stopPropagation(); resolvePhotoAddress(${photo.id}, ${hasAddress})" title="${hasAddress ? '点击重新解析地址' : '点击解析地址'}"></i>` : ''}
+                            <i class="bi bi-download download-icon" 
+                               data-photo-id="${photo.id}" 
+                               onclick="event.stopPropagation(); downloadSinglePhoto(${photo.id})" 
+                               title="下载照片"></i>
                         </div>
                     </div>
                     <div class="photo-actions">
@@ -347,29 +365,12 @@ function createPhotoListItem(photo) {
 
 
 /**
- * 全选照片/取消全选
+ * 全选照片
  */
 function selectAllPhotos() {
     if (window.PhotoManager) {
-        const selectAllBtn = document.getElementById('selectAllBtn');
-        if (selectAllBtn) {
-            const buttonText = selectAllBtn.textContent.trim();
-            // 检查按钮文本
-
-            if (buttonText === '取消全选') {
-                // 当前是取消全选状态，执行取消选择
-                // 执行取消全选
-                window.PhotoManager.clearSelection();
-            } else {
-                // 当前是全选状态，执行全选
-                // 执行全选
-                window.PhotoManager.selectAllPhotos();
-            }
-        } else {
-            // 如果找不到按钮，默认执行全选
-            // 找不到全选按钮，默认执行全选
-            window.PhotoManager.selectAllPhotos();
-        }
+        // 直接执行全选
+        window.PhotoManager.selectAllPhotos();
     } else {
         console.error('PhotoManager 未初始化');
         showError('照片管理器未初始化，请刷新页面重试');
@@ -1069,16 +1070,16 @@ class PhotoSelector {
         this.updateUI();
     }
 
-    // 全选/取消全选
+    // 全选功能
     toggleSelectAll() {
         const allPhotoCards = document.querySelectorAll('.photo-card.selectable[data-photo-id]');
         const allSelected = allPhotoCards.length === this.selectedPhotos.size && allPhotoCards.length > 0;
 
         if (allSelected) {
-            // 取消全选
+            // 已经全部选中，清空选择
             this.clearSelection();
         } else {
-            // 全选
+            // 未全部选中，执行全选
             allPhotoCards.forEach(card => {
                 const photoId = parseInt(card.dataset.photoId);
                 this.selectedPhotos.add(photoId);
@@ -1167,14 +1168,12 @@ class PhotoSelector {
             summaryParts.length > 0 ? ` (${summaryParts.join(', ')})` : '';
     }
 
-    // 更新全选按钮
+    // 更新全选按钮（按钮始终显示"全选"）
     updateSelectAllButton() {
         const selectAllBtn = document.getElementById('selectAllBtn');
         if (selectAllBtn) {
-            const totalPhotos = document.querySelectorAll('.photo-card.selectable[data-photo-id]').length;
-            const allSelected = totalPhotos === this.selectedPhotos.size && totalPhotos > 0;
-
-            selectAllBtn.textContent = allSelected ? '取消全选' : '全选';
+            // 按钮始终显示"全选"，不再切换文本
+            selectAllBtn.textContent = '全选';
         }
     }
 
@@ -1183,6 +1182,7 @@ class PhotoSelector {
         console.log('=== 启用分析按钮 ===');
         const basicBtn = document.getElementById('basicProcessSelectedBtn');
         const aiBtn = document.getElementById('aiProcessSelectedBtn');
+        const downloadBtn = document.getElementById('downloadSelectedBtn');
 
         if (basicBtn) {
             basicBtn.disabled = false;
@@ -1199,6 +1199,15 @@ class PhotoSelector {
         } else {
             console.error('未找到AI分析按钮');
         }
+
+        if (downloadBtn) {
+            downloadBtn.disabled = false;
+            const selectedCount = this.selectedPhotos.size;
+            downloadBtn.innerHTML = selectedCount > 0 ?
+                `<i class="bi bi-download"></i> 下载选中 (${selectedCount})` :
+                `<i class="bi bi-download"></i> 下载选中`;
+            console.log('下载按钮已启用');
+        }
     }
 
     // 禁用分析按钮
@@ -1206,6 +1215,7 @@ class PhotoSelector {
         console.log('禁用分析按钮');
         const basicBtn = document.getElementById('basicProcessSelectedBtn');
         const aiBtn = document.getElementById('aiProcessSelectedBtn');
+        const downloadBtn = document.getElementById('downloadSelectedBtn');
 
         if (basicBtn) {
             basicBtn.disabled = true;
@@ -1221,6 +1231,11 @@ class PhotoSelector {
             console.log('AI分析按钮已禁用');
         } else {
             console.error('未找到AI分析按钮');
+        }
+
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = '<i class="bi bi-download"></i> 下载选中';
         }
     }
 
@@ -1607,3 +1622,254 @@ window.updateSelectionCheckboxVisual = updateSelectionCheckboxVisual;
 window.initializeSelectionCheckboxes = initializeSelectionCheckboxes;
 window.resolvePhotoAddress = resolvePhotoAddress;
 window.updatePhotoAddress = updatePhotoAddress;
+window.downloadSinglePhoto = downloadSinglePhoto;
+window.downloadSelectedPhotos = downloadSelectedPhotos;
+
+/**
+ * 强制基础分析单张照片（同步处理）
+ */
+async function forceBasicAnalysis(photoId) {
+    const qualityIcon = document.querySelector(`.quality-icon[data-photo-id="${photoId}"]`);
+    if (!qualityIcon) return;
+
+    // 确认对话框
+    const isAssessed = qualityIcon.classList.contains('quality-assessed');
+    const confirmMessage = isAssessed 
+        ? '确定要强制重新进行基础分析吗？' 
+        : '确定要进行基础分析吗？';
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    // 保存原始状态
+    const originalClass = qualityIcon.className;
+    const originalTitle = qualityIcon.title;
+    
+    try {
+        // 显示加载状态
+        qualityIcon.className = 'quality-icon processing';
+        qualityIcon.title = '分析中...';
+        qualityIcon.style.opacity = '0.5';
+
+        // 调用同步API（暂用异步接口，等待后续添加同步接口）
+        const response = await fetch(`${CONFIG.API_BASE_URL}/analysis/photos/${photoId}/analyze-quality`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            // 分析完成，立即刷新照片列表
+            await window.loadPhotos();
+            await window.loadStats();
+            
+            showToast('基础分析完成', 'success');
+        } else {
+            // 恢复原状态
+            qualityIcon.className = originalClass;
+            qualityIcon.title = originalTitle;
+            qualityIcon.style.opacity = '';
+            showToast(result.message || '基础分析失败', 'error');
+        }
+
+    } catch (error) {
+        console.error('基础分析失败:', error);
+        // 恢复原状态
+        qualityIcon.className = originalClass;
+        qualityIcon.title = originalTitle;
+        qualityIcon.style.opacity = '';
+        showToast('基础分析失败，请检查网络连接', 'error');
+    }
+}
+
+window.forceBasicAnalysis = forceBasicAnalysis;
+
+/**
+ * 强制AI分析单张照片（同步处理）
+ */
+async function forceAIAnalysis(photoId) {
+    const aiIcon = document.querySelector(`.ai-status-icon[data-photo-id="${photoId}"]`);
+    if (!aiIcon) return;
+
+    // 确认对话框
+    const hasAnalysis = aiIcon.classList.contains('ai-analyzed');
+    const confirmMessage = hasAnalysis 
+        ? '确定要强制重新进行AI分析吗？' 
+        : '确定要进行AI分析吗？';
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    // 保存原始状态
+    const originalClass = aiIcon.className;
+    const originalTitle = aiIcon.title;
+    const originalStyle = aiIcon.getAttribute('style') || '';
+    
+    try {
+        // 显示加载状态
+        aiIcon.className = 'ai-status-icon processing';
+        aiIcon.title = '分析中...';
+        aiIcon.style.opacity = '0.5';
+
+        // 调用同步API
+        const response = await fetch(`${CONFIG.API_BASE_URL}/analysis/photos/${photoId}/analyze-ai`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            // 分析完成，立即刷新照片列表
+            await window.loadPhotos();
+            await window.loadStats();
+            
+            showToast('AI分析完成', 'success');
+        } else {
+            // 恢复原状态
+            aiIcon.className = originalClass;
+            aiIcon.title = originalTitle;
+            aiIcon.setAttribute('style', originalStyle);
+            showToast(result.message || 'AI分析失败', 'error');
+        }
+
+    } catch (error) {
+        console.error('AI分析失败:', error);
+        // 恢复原状态
+        aiIcon.className = originalClass;
+        aiIcon.title = originalTitle;
+        aiIcon.setAttribute('style', originalStyle);
+        showToast('AI分析失败，请检查网络连接', 'error');
+    }
+}
+
+/**
+ * 批量下载选中的照片
+ * 
+ * :param photoIds: 照片ID数组
+ */
+async function downloadSelectedPhotos(photoIds) {
+    if (!photoIds || photoIds.length === 0) {
+        showToast('请先选择要下载的照片', 'warning');
+        return;
+    }
+
+    const downloadBtn = document.getElementById('downloadSelectedBtn');
+    const originalText = downloadBtn ? downloadBtn.innerHTML : '';
+
+    try {
+        // 更新按钮状态
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 下载中...';
+        }
+
+        showToast(`开始下载 ${photoIds.length} 张照片...`, 'info');
+
+        // 依次下载每张照片
+        for (let i = 0; i < photoIds.length; i++) {
+            const photoId = photoIds[i];
+            const downloadUrl = `${CONFIG.API_BASE_URL}/photos/${photoId}/download`;
+
+            // 创建隐藏的下载链接
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = '';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+
+            // 触发下载
+            link.click();
+
+            // 清理
+            document.body.removeChild(link);
+
+            // 添加延迟，避免浏览器阻止多个下载
+            if (i < photoIds.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
+
+        console.log('批量下载完成:', photoIds.length, '张照片');
+
+        // 恢复按钮状态
+        if (downloadBtn) {
+            downloadBtn.disabled = false;
+            downloadBtn.innerHTML = originalText;
+        }
+
+        showToast(`成功下载 ${photoIds.length} 张照片`, 'success');
+
+    } catch (error) {
+        console.error('批量下载失败:', error);
+
+        // 恢复按钮状态
+        if (downloadBtn) {
+            downloadBtn.disabled = false;
+            downloadBtn.innerHTML = originalText;
+        }
+
+        showToast('批量下载失败，请重试', 'error');
+    }
+}
+
+/**
+ * 下载单张照片
+ * 
+ * :param photoId: 照片ID
+ */
+async function downloadSinglePhoto(photoId) {
+    const downloadIcon = document.querySelector(`.download-icon[data-photo-id="${photoId}"]`);
+    if (!downloadIcon) return;
+
+    const originalClass = downloadIcon.className;
+    const originalTitle = downloadIcon.title;
+
+    try {
+        // 更新图标状态
+        downloadIcon.className = 'bi bi-hourglass-split download-icon processing';
+        downloadIcon.title = '下载中...';
+        downloadIcon.style.opacity = '0.5';
+
+        // 构建下载URL
+        const downloadUrl = `${CONFIG.API_BASE_URL}/photos/${photoId}/download`;
+
+        // 创建隐藏的下载链接
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = ''; // 让服务器决定文件名
+        link.style.display = 'none';
+        document.body.appendChild(link);
+
+        // 触发下载
+        link.click();
+
+        // 清理
+        document.body.removeChild(link);
+
+        console.log('照片下载已开始:', photoId);
+
+        // 恢复图标状态
+        setTimeout(() => {
+            downloadIcon.className = originalClass;
+            downloadIcon.title = originalTitle;
+            downloadIcon.style.opacity = '';
+            showToast('下载已开始', 'success');
+        }, 1000);
+
+    } catch (error) {
+        console.error('下载照片失败:', error);
+        
+        // 恢复图标状态
+        downloadIcon.className = originalClass;
+        downloadIcon.title = originalTitle;
+        downloadIcon.style.opacity = '';
+        
+        showToast('下载失败，请重试', 'error');
+    }
+}
+
+window.forceAIAnalysis = forceAIAnalysis;

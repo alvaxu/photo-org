@@ -414,6 +414,14 @@ async function loadStats() {
         // 构建筛选参数，与 loadPhotos 保持一致
         const params = new URLSearchParams();
 
+        // 添加关键词搜索参数
+        if (AppState.searchFilters.keyword) {
+            params.append('keyword', AppState.searchFilters.keyword);
+        }
+        if (AppState.searchFilters.searchType) {
+            params.append('search_type', AppState.searchFilters.searchType);
+        }
+
         // 添加基本筛选参数
         if (AppState.searchFilters.qualityFilter) {
             params.append('quality_filter', AppState.searchFilters.qualityFilter);

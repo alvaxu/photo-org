@@ -1649,6 +1649,8 @@ body {
     font-size: 1rem;
     margin-right: 0.25rem;
     vertical-align: middle;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.2s;
 }
 
 /* 已评估的质量等级样式 */
@@ -1656,9 +1658,20 @@ body {
     opacity: 1;
 }
 
+.quality-icon.quality-assessed:hover {
+    opacity: 0.8;
+    transform: scale(1.1);
+}
+
 /* 未评估状态样式 */
 .quality-icon.quality-unassessed {
     opacity: 0.6;
+    color: #6c757d !important;
+}
+
+.quality-icon.quality-unassessed:hover {
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 /* AI状态图标样式 */
@@ -1666,15 +1679,27 @@ body {
     font-size: 0.75rem;
     margin-left: 0.25rem;
     vertical-align: middle;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.2s;
 }
 
 .ai-status-icon.ai-analyzed {
-    color: #28a745; /* 绿色表示已分析 */
+    color: #28a745 !important; /* 绿色表示已分析 */
+}
+
+.ai-status-icon.ai-analyzed:hover {
+    opacity: 0.8;
+    transform: scale(1.1);
 }
 
 .ai-status-icon.ai-not-analyzed {
-    color: #6c757d; /* 灰色表示未分析 */
+    color: #6c757d !important; /* 灰色表示未分析 */
     opacity: 0.6;
+}
+
+.ai-status-icon.ai-not-analyzed:hover {
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 /* 网格视图的质量容器样式 */
@@ -2554,6 +2579,26 @@ kbd {
 }
 
 .gps-icon.processing {
+    animation: gpsPulse 1.5s infinite;
+    color: #ffc107; /* 黄色 - 处理中 */
+}
+
+/* 下载图标 */
+.download-icon {
+    font-size: 1.1rem;
+    margin-left: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.8;
+    color: #0d6efd; /* 蓝色 - 下载 */
+}
+
+.download-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.download-icon.processing {
     animation: gpsPulse 1.5s infinite;
     color: #ffc107; /* 黄色 - 处理中 */
 }

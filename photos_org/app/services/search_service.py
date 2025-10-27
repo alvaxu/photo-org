@@ -568,7 +568,8 @@ class SearchService:
 
         return suggestions
 
-    def get_search_stats(self, db: Session, quality_filter: Optional[str] = None,
+    def get_search_stats(self, db: Session, keyword: Optional[str] = None,
+                         search_type: str = "all", quality_filter: Optional[str] = None,
                          year_filter: Optional[str] = None, format_filter: Optional[str] = None,
                          camera_filter: Optional[str] = None, face_count_filter: Optional[str] = None,
                          tag_ids: Optional[List[int]] = None, category_ids: Optional[List[int]] = None, 
@@ -579,6 +580,8 @@ class SearchService:
 
         Args:
             db: 数据库会话
+            keyword: 关键词搜索
+            search_type: 搜索类型
             quality_filter: 质量筛选
             year_filter: 年份筛选
             format_filter: 格式筛选
@@ -602,6 +605,10 @@ class SearchService:
             ]))
 
             # 应用筛选条件（与search_photos完全相同的顺序和逻辑）
+
+            # 关键词搜索（优先应用，作为第一步筛选）
+            if keyword:
+                base_query = self._apply_keyword_filter(base_query, keyword, search_type)
 
             # 格式筛选（在search_photos中排在前面）
             if format_filter:
