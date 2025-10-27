@@ -20,9 +20,6 @@ from typing import List, Dict, Optional
 import logging
 import time
 from pathlib import Path
-import cv2
-import numpy as np
-from PIL import Image
 
 from app.db.session import get_db
 from app.core.config import settings
@@ -397,6 +394,8 @@ async def generate_portrait_image(photo_path: str, face_bbox: List[int]) -> str:
     :param face_bbox: 人脸位置 [x, y, w, h]
     :return: 肖像照URL
     """
+    import cv2  # 延迟导入
+    
     try:
         # 构建完整路径
         storage_base = Path(settings.storage.base_path)

@@ -27,12 +27,34 @@ class AnalysisService:
     def __init__(self):
         """初始化分析服务"""
         self.logger = get_logger(__name__)
-        self.dashscope_service = DashScopeService()
-        self.quality_service = PhotoQualityService()
-        self.duplicate_service = DuplicateDetectionService()
-
+        # 懒加载：不立即实例化服务，首次使用时才创建
+        self._dashscope_service = None
+        self._quality_service = None
+        self._duplicate_service = None
+        
         # 线程池用于并发处理
         self.executor = ThreadPoolExecutor(max_workers=2)
+    
+    @property
+    def dashscope_service(self):
+        """获取DashScope服务实例（懒加载）"""
+        if self._dashscope_service is None:
+            self._dashscope_service = DashScopeService()
+        return self._dashscope_service
+    
+    @property
+    def quality_service(self):
+        """获取质量评估服务实例（懒加载）"""
+        if self._quality_service is None:
+            self._quality_service = PhotoQualityService()
+        return self._quality_service
+    
+    @property
+    def duplicate_service(self):
+        """获取重复检测服务实例（懒加载）"""
+        if self._duplicate_service is None:
+            self._duplicate_service = DuplicateDetectionService()
+        return self._duplicate_service
 
     async def analyze_photo(self, photo_id: int, analysis_types: List[str] = None, db: Session = None, original_status: str = None) -> Dict[str, Any]:
         """
@@ -313,12 +335,14 @@ class AnalysisService:
                 if content_result:
                     # 清理现有的AI标签（避免标签累积）- 使用子查询避免join+delete问题
                     from app.models.photo import PhotoTag, Tag
+                    from sqlalchemy import select
                     tag_ids_to_delete = db.query(PhotoTag.id).join(Tag).filter(
                         PhotoTag.photo_id == photo_id,
                         PhotoTag.source == 'auto',
                         Tag.category.in_(['scene', 'activity', 'emotion', 'object'])
                     ).subquery()
-                    db.query(PhotoTag).filter(PhotoTag.id.in_(tag_ids_to_delete)).delete(synchronize_session=False)
+                    # 使用 select() 显式包装子查询
+                    db.query(PhotoTag).filter(PhotoTag.id.in_(select(tag_ids_to_delete.c.id))).delete(synchronize_session=False)
 
                     # 清理现有的AI分类（避免分类累积）
                     from app.models.photo import PhotoCategory

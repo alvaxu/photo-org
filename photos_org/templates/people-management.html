@@ -51,56 +51,6 @@
     <link rel="icon" type="image/x-icon" href="/static/images/xuwh.ico">
 </head>
 <body>
-    <!-- 顶部导航栏 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <img src="/static/images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
-                智能照片系统
-                <small class="ms-2 text-light opacity-75">2025.10.01</small>
-            </a>
-
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/">
-                            <i class="bi bi-grid-3x3-gap"></i> 照片库
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/people">
-                            <i class="bi bi-people"></i> 人脸识别
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/settings">
-                            <i class="bi bi-gear"></i> 系统配置
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/help-overview" target="_blank">
-                            <i class="bi bi-info-circle"></i> 功能说明
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/help-api-key" target="_blank">
-                            <i class="bi bi-key"></i> API密钥帮助
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/help-gaode-api-key" target="_blank">
-                            <i class="bi bi-geo-alt"></i> 高德API配置
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
     <!-- 主内容区域 -->
     <div class="container-fluid mt-4">
         <!-- 人物管理页面 -->
@@ -121,6 +71,9 @@
                             <button class="btn btn-sm btn-outline-success" id="startFaceRecognitionBtn">
                                 <i class="bi bi-camera"></i> 开始人脸识别
                             </button>
+                            <a class="btn btn-sm btn-outline-secondary" href="/">
+                                <i class="bi bi-grid-3x3-gap"></i> 返回照片库首页
+                            </a>
                         </div>
                     </div>
                     <div class="card-body">

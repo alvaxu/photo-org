@@ -537,6 +537,94 @@ async def get_ai_pending_photos(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"获取AI分析照片列表失败: {str(e)}")
 
 
+@router.post("/photos/{photo_id}/analyze-quality")
+async def analyze_photo_quality_sync(
+    photo_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    同步分析单张照片的质量
+    
+    - **photo_id**: 要分析的照片ID
+    """
+    try:
+        # 验证照片存在
+        photo = db.query(Photo).filter(Photo.id == photo_id).first()
+        if not photo:
+            raise HTTPException(status_code=404, detail="照片不存在")
+
+        # 获取分析服务
+        analysis_service = AnalysisService()
+        
+        # 同步执行质量分析
+        logger.info(f"开始同步质量分析照片: {photo_id}")
+        result = await analysis_service.analyze_photo(
+            photo_id=photo_id,
+            analysis_types=['quality'],
+            db=db,
+            original_status=photo.status
+        )
+        
+        logger.info(f"照片 {photo_id} 质量分析完成")
+        
+        return {
+            "success": True,
+            "photo_id": photo_id,
+            "result": result,
+            "message": "质量分析完成"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"同步质量分析失败 {photo_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"质量分析失败: {str(e)}")
+
+
+@router.post("/photos/{photo_id}/analyze-ai")
+async def analyze_photo_ai_sync(
+    photo_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    同步分析单张照片的AI内容
+    
+    - **photo_id**: 要分析的照片ID
+    """
+    try:
+        # 验证照片存在
+        photo = db.query(Photo).filter(Photo.id == photo_id).first()
+        if not photo:
+            raise HTTPException(status_code=404, detail="照片不存在")
+
+        # 获取分析服务
+        analysis_service = AnalysisService()
+        
+        # 同步执行AI分析
+        logger.info(f"开始同步AI分析照片: {photo_id}")
+        result = await analysis_service.analyze_photo(
+            photo_id=photo_id,
+            analysis_types=['content'],
+            db=db,
+            original_status=photo.status
+        )
+        
+        logger.info(f"照片 {photo_id} AI分析完成")
+        
+        return {
+            "success": True,
+            "photo_id": photo_id,
+            "result": result,
+            "message": "AI分析完成"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"同步AI分析失败 {photo_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI分析失败: {str(e)}")
+
+
 @router.post("/start-analysis")
 async def start_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """

@@ -15,9 +15,6 @@ from pathlib import Path
 import math
 import json
 from datetime import datetime, timedelta
-import jieba
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 # 导入HEIC支持
 try:
@@ -251,6 +248,11 @@ class EnhancedSimilarityService:
             return 0.0
         
         try:
+            # 延迟导入jieba和sklearn
+            import jieba
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.metrics.pairwise import cosine_similarity
+            
             # 1. 分词
             words1 = ' '.join(jieba.cut(desc1))
             words2 = ' '.join(jieba.cut(desc2))

@@ -257,6 +257,8 @@ async def get_search_suggestions(
 
 @router.get("/stats", response_model=SearchStatsResponse)
 async def get_search_stats(
+    keyword: Optional[str] = Query(None, description="关键词搜索"),
+    search_type: str = Query("all", description="搜索类型"),
     quality_filter: Optional[str] = Query(None, description="质量筛选"),
     year_filter: Optional[str] = Query(None, description="年份筛选"),
     format_filter: Optional[str] = Query(None, description="格式筛选"),
@@ -286,8 +288,16 @@ async def get_search_stats(
         tag_ids_list = [int(id) for id in tag_ids.split(',')] if tag_ids else None
         category_ids_list = [int(id) for id in category_ids.split(',')] if category_ids else None
 
+        # 处理中文关键词解码
+        processed_keyword = None
+        if keyword:
+            from urllib.parse import unquote
+            processed_keyword = unquote(keyword)
+
         stats = search_service.get_search_stats(
             db=db,
+            keyword=processed_keyword,
+            search_type=search_type,
             quality_filter=quality_filter,
             year_filter=year_filter,
             format_filter=format_filter,

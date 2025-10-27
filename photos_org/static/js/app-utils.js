@@ -78,19 +78,19 @@ function getQualityStatus(photo) {
             text: levelInfo.text,
             class: getQualityClass(levelInfo.level),
             isAssessed: true,
-            title: `质量评分：${qualityScore}分 - ${levelInfo.text}`
+            title: `质量评分：${qualityScore}分 - ${levelInfo.text}\n点击强制重新基础分析`
         };
     } else {
         // 未进行质量评估（分数为0或无质量数据）
         return {
             score: 0,
             level: 'unassessed',
-            icon: 'bi-circle',
+            icon: 'bi-graph-up-arrow',
             color: '#6c757d',
             text: '未评估',
             class: 'unassessed',
             isAssessed: false,
-            title: '尚未进行质量评估'
+            title: '尚未进行基础分析'
         };
     }
 }
@@ -143,13 +143,13 @@ function getAIAnalysisStatus(photo) {
         return {
             hasAIAnalysis: true,
             iconClass: 'bi-robot',
-            title: 'AI已分析'
+            title: 'AI已分析\n点击强制重新AI分析'
         };
     } else {
         return {
             hasAIAnalysis: false,
-            iconClass: 'bi-circle',
-            title: 'AI未分析'
+            iconClass: 'bi-robot',
+            title: '尚未进行AI分析'
         };
     }
 }
