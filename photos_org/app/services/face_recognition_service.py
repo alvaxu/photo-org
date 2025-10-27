@@ -28,8 +28,6 @@ ins_get_image = None
 cv2 = None
 DBSCAN = None
 cosine_similarity = None
-plt = None
-tqdm = None
 
 from app.core.config import settings
 from app.db.session import get_db
@@ -51,13 +49,21 @@ class FaceRecognitionService:
         
     def _lazy_import_dependencies(self):
         """延迟导入重型库"""
-        global insightface, FaceAnalysis, ins_get_image, cv2, DBSCAN, cosine_similarity, plt, tqdm
+        global insightface, FaceAnalysis, ins_get_image, cv2, DBSCAN, cosine_similarity
         
         if insightface is None:
             try:
-                logger.info("🔄 开始加载人脸识别模型（首次加载可能需要30-60秒）...")
+                logger.info("🔄 开始加载人脸识别模型（首次加载可能需要较长时间）...")
                 import numpy as np
                 logger.info("✓ 已加载 numpy")
+                
+                # 设置 matplotlib 使用非交互式后端，避免触发 font_manager 初始化
+                import os
+                os.environ['MPLBACKEND'] = 'Agg'  # 使用非交互式后端
+                import matplotlib
+                matplotlib.use('Agg')  # 确保使用非交互式后端
+                logger.info("✓ 已配置 matplotlib (非交互式模式)")
+                
                 import insightface
                 logger.info("✓ 已加载 insightface")
                 from insightface.app import FaceAnalysis
@@ -68,9 +74,6 @@ class FaceRecognitionService:
                 from sklearn.cluster import DBSCAN
                 from sklearn.metrics.pairwise import cosine_similarity
                 logger.info("✓ 已加载 sklearn")
-                import matplotlib.pyplot as plt
-                from tqdm import tqdm
-                logger.info("✓ 已加载 matplotlib 和 tqdm")
                 logger.info("✅ 人脸识别依赖库加载完成")
             except ImportError as e:
                 logger.error(f"人脸识别依赖导入失败: {e}")
@@ -92,7 +95,7 @@ class FaceRecognitionService:
                 logger.info("人脸识别功能已禁用")
                 return False
                 
-            logger.info("🔄 正在初始化人脸识别模型（首次加载需要下载模型，请稍候）...")
+            logger.info("🔄 正在初始化人脸识别模型...")
             
             # 根据配置决定使用本地模型还是在线模型
             if self.config.use_local_model:
