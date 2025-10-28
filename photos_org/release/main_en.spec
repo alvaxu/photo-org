@@ -222,7 +222,13 @@ a = Analysis(
         'sklearn.cluster',
         'sklearn.metrics',
         'sklearn.metrics.pairwise',
-        'tqdm',
+        'tqdm',                  # Progress bar - NEEDED by InsightFace
+        
+        # Matplotlib for InsightFace (non-interactive mode)
+        'matplotlib',
+        'matplotlib.pyplot',
+        'matplotlib.backends',
+        'matplotlib.backends.backend_agg',
         
         # HTTP client for InsightFace
         'requests',
@@ -358,7 +364,7 @@ a = Analysis(
         
         # GUI and plotting libraries
         'tkinter',         # GUI library
-        # 'matplotlib',      # Plotting library - MAY BE NEEDED for InsightFace
+        # 'matplotlib',      # Required by InsightFace (but slow to initialize)
         'IPython',         # Jupyter related
         'jupyter',         # Jupyter related
         'notebook',        # Jupyter related
@@ -408,7 +414,7 @@ a = Analysis(
         
         # Unused dependencies
         # 'requests',        # HTTP client - NEEDED for InsightFace
-        # 'tqdm',            # Progress bar - MAY BE NEEDED for InsightFace
+        # 'tqdm',            # Progress bar - NEEDED by InsightFace
     ],
 
 # Windows specific options

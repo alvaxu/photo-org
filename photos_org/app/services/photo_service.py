@@ -269,14 +269,14 @@ class PhotoService:
                     FaceClusterMember.cluster_id == cluster_id
                 ).count()
                 
+                # 🔥 更新聚类的人脸数量
+                cluster.face_count = remaining_members
+                
                 if remaining_members == 0:
-                    # 聚类为空，删除聚类
-                    self.logger.info(f"删除空聚类: {cluster_id}")
+                    # 🔥 直接删除空聚类（简化逻辑）
+                    self.logger.info(f"删除空聚类: {cluster_id} (命名: {cluster.person_name or '未命名'})")
                     db.delete(cluster)
                 else:
-                    # 更新聚类的人脸数量
-                    cluster.face_count = remaining_members
-                    
                     # 如果代表人脸被删除，需要重新选择代表人脸
                     if cluster.representative_face_id in face_ids:
                         # 选择剩余成员中的第一个作为新的代表人脸

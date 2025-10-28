@@ -54,6 +54,24 @@ class PeopleManagementStandalone {
     getLoadingDelay() {
         return window.userConfig?.face_recognition?.person_photos_pagination?.loading_delay || 300;
     }
+    
+    async loadUserConfig() {
+        /**
+         * 加载用户配置
+         */
+        try {
+            const response = await fetch('/api/v1/config/user');
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    window.userConfig = result.data;
+                    console.log('用户配置加载成功:', window.userConfig);
+                }
+            }
+        } catch (error) {
+            console.error('加载用户配置失败:', error);
+        }
+    }
 
     bindEvents() {
         // 人物管理按钮
@@ -73,11 +91,26 @@ class PeopleManagementStandalone {
         document.getElementById('startFaceBtn')?.addEventListener('click', () => {
             this.startFaceRecognitionProcess();
         });
+
+        // 🔥 新增：配置按钮事件
+        document.getElementById('faceRecognitionConfigBtn')?.addEventListener('click', () => {
+            this.openFaceRecognitionConfig();
+        });
+
+        // 🔥 新增：保存配置按钮事件
+        document.getElementById('saveFaceRecognitionConfigBtn')?.addEventListener('click', () => {
+            this.saveFaceRecognitionConfig();
+        });
     }
 
     async loadPeopleData() {
         try {
             this.showLoadingState();
+            
+            // 🔥 先加载用户配置（如果没有加载）
+            if (!window.userConfig) {
+                await this.loadUserConfig();
+            }
 
             // 并行加载统计信息和聚类数据
             const [statisticsResponse, clustersResponse] = await Promise.all([
@@ -112,6 +145,36 @@ class PeopleManagementStandalone {
         document.getElementById('unlabeledPeopleCount').textContent = this.statistics.unlabeled_clusters || 0;
         document.getElementById('totalFacesCount').textContent = this.statistics.total_faces || 0;
         document.getElementById('peopleCount').textContent = this.statistics.total_clusters || 0;
+        
+        // 更新聚类显示提示
+        this.updateClusterDisplayNotice();
+    }
+    
+    updateClusterDisplayNotice() {
+        const totalClusters = this.statistics.total_clusters || 0;
+        const displayedClusters = this.clustersData.length || 0;
+        
+        // 从配置获取参数
+        const maxClusters = window.userConfig?.face_recognition?.max_clusters || 40;
+        const minClusterSize = window.userConfig?.face_recognition?.min_cluster_size || 1;
+        
+        // 只有当显示的聚类数小于总聚类数时才显示提示
+        const noticeElement = document.getElementById('clusterDisplayNotice');
+        const maxClustersNotice = document.getElementById('maxClustersNotice');
+        const minClusterSizeNotice = document.getElementById('minClusterSizeNotice');
+        
+        if (noticeElement && maxClustersNotice && minClusterSizeNotice) {
+            // 更新配置值
+            maxClustersNotice.textContent = maxClusters;
+            minClusterSizeNotice.textContent = minClusterSize;
+            
+            // 显示/隐藏提示
+            if (displayedClusters < totalClusters && displayedClusters > 0) {
+                noticeElement.style.display = 'flex';
+            } else {
+                noticeElement.style.display = 'none';
+            }
+        }
     }
 
     renderPeopleCards() {
@@ -1333,6 +1396,108 @@ class PeopleManagementStandalone {
                 messageDiv.parentNode.removeChild(messageDiv);
             }
         }, 5000);
+    }
+
+    /**
+     * 打开人脸识别配置模态框
+     */
+    openFaceRecognitionConfig() {
+        try {
+            // 从当前配置读取值
+            const minClusterSize = window.userConfig?.face_recognition?.min_cluster_size || 2;
+            const maxClusters = window.userConfig?.face_recognition?.max_clusters || 40;
+            
+            // 填充输入框
+            document.getElementById('configMinClusterSize').value = minClusterSize;
+            document.getElementById('configMaxClusters').value = maxClusters;
+            
+            // 显示模态框
+            const modal = new bootstrap.Modal(document.getElementById('faceRecognitionConfigModal'));
+            modal.show();
+        } catch (error) {
+            console.error('打开配置模态框失败:', error);
+            this.showMessage('打开配置失败: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * 保存人脸识别配置
+     */
+    async saveFaceRecognitionConfig() {
+        try {
+            const minClusterSize = parseInt(document.getElementById('configMinClusterSize').value);
+            const maxClusters = parseInt(document.getElementById('configMaxClusters').value);
+            
+            // 验证输入
+            if (!minClusterSize || minClusterSize < 1 || minClusterSize > 10) {
+                this.showMessage('最小聚类照片数必须在1-10之间', 'error');
+                return;
+            }
+            
+            if (!maxClusters || maxClusters < 10 || maxClusters > 200) {
+                this.showMessage('最大显示聚类数必须在10-200之间', 'error');
+                return;
+            }
+
+            // 显示保存中状态
+            const saveBtn = document.getElementById('saveFaceRecognitionConfigBtn');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
+            saveBtn.disabled = true;
+
+            try {
+                // 调用保存配置API
+                const response = await fetch('/api/v1/config/user', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        face_recognition: {
+                            min_cluster_size: minClusterSize,
+                            max_clusters: maxClusters
+                        }
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 更新本地配置
+                    if (!window.userConfig) {
+                        window.userConfig = {};
+                    }
+                    if (!window.userConfig.face_recognition) {
+                        window.userConfig.face_recognition = {};
+                    }
+                    window.userConfig.face_recognition.min_cluster_size = minClusterSize;
+                    window.userConfig.face_recognition.max_clusters = maxClusters;
+
+                    // 显示成功消息
+                    this.showMessage('配置保存成功！页面将刷新以应用新配置。', 'success');
+
+                    // 关闭模态框
+                    const modalInstance = bootstrap.Modal.getInstance(document.getElementById('faceRecognitionConfigModal'));
+                    modalInstance.hide();
+
+                    // 延迟刷新页面
+                    setTimeout(() => {
+                        this.loadPeopleData();
+                    }, 500);
+                } else {
+                    throw new Error(result.message || '保存失败');
+                }
+            } catch (error) {
+                console.error('保存配置失败:', error);
+                this.showMessage('保存配置失败: ' + error.message, 'error');
+            } finally {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
+        } catch (error) {
+            console.error('保存配置异常:', error);
+            this.showMessage('保存配置异常: ' + error.message, 'error');
+        }
     }
 }
 
