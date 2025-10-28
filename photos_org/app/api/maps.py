@@ -4,6 +4,7 @@
 """
 
 import httpx
+import asyncio
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -528,7 +529,7 @@ async def batch_convert_gps_address(
                 # Nominatim API有请求频率限制，添加延迟
                 if i > 1:  # 第一张照片不需要延迟
                     logger.info("⏳ Nominatim API请求间隔控制: 等待1秒...")
-                    time.sleep(1)
+                    await asyncio.sleep(1)  # 🔥 使用异步sleep，不阻塞事件循环
                 result = await convert_with_nominatim(photo.location_lat, photo.location_lng)
             else:
                 result = {"success": False, "message": "不支持的服务类型"}

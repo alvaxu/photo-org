@@ -36,6 +36,17 @@ class StatsPanel {
 
     onPanelShown() {
         this.elements.statsToggleIcon.classList.replace('bi-chevron-down', 'bi-chevron-up');
+        
+        // 更新按钮文本
+        const button = this.elements.toggleButton;
+        // 查找并删除所有文本节点，然后添加新的文本节点
+        Array.from(button.childNodes).forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                node.remove();
+            }
+        });
+        // 添加新的文本节点
+        button.appendChild(document.createTextNode('点击收起'));
 
         // 确保Canvas有正确的尺寸
         setTimeout(() => {
@@ -46,6 +57,17 @@ class StatsPanel {
 
     onPanelHidden() {
         this.elements.statsToggleIcon.classList.replace('bi-chevron-up', 'bi-chevron-down');
+        
+        // 更新按钮文本
+        const button = this.elements.toggleButton;
+        // 查找并删除所有文本节点，然后添加新的文本节点
+        Array.from(button.childNodes).forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                node.remove();
+            }
+        });
+        // 添加新的文本节点
+        button.appendChild(document.createTextNode('点击展开'));
     }
 
     resizeCanvases() {
