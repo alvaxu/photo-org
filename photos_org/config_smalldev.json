@@ -179,7 +179,7 @@
     "max_concurrent_photos": 3,
     "max_progress_checks": 36000,
     "max_clusters": 60,
-    "min_cluster_size": 3,
+    "min_cluster_size": 1,
     "auto_cluster": true,
     "cluster_quality_threshold": 0.8,
     "person_photos_pagination": {

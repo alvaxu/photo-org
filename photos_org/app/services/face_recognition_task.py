@@ -183,6 +183,12 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
     :param photo_ids: 照片ID列表
     :param batch_idx: 批次索引
     """
+    # 🔥 修复：在try外初始化变量，避免作用域问题
+    all_detection_results = []  # 包含检测结果和人数信息
+    all_processed_photos = set()
+    results = []
+    total_faces_detected = 0
+    
     try:
         # 🔥 优化：使用共享数据库连接进行批量操作
         db = next(get_db())
@@ -230,10 +236,7 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
             tasks = [process_single_photo_with_semaphore(photo_id) for photo_id in photo_ids]
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
-            # 🔥 新增：批量数据库操作
-            all_detection_results = []  # 包含检测结果和人数信息
-            all_processed_photos = set()
-            
+            # 🔥 新增：批量数据库操作（变量已在函数开头初始化）
             for result in results:
                 if isinstance(result, Exception):
                     logger.error(f"任务执行异常: {str(result)}")
@@ -261,11 +264,11 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
             # 🔥 关键：批量提交事务
             db.commit()
             
-            # 统计人脸数量
-            total_faces_detected = sum(result['real_face_count'] for result in all_detection_results)
-            total_faces_processed = sum(len(result['detections']) for result in all_detection_results)
-            
-            logger.info(f"✅ 批次 {batch_idx + 1} 批量提交成功: 检测到 {total_faces_detected} 个人脸，处理了 {total_faces_processed} 个，{len(all_processed_photos)} 张照片")
+            # 统计人脸数量（已在函数开头初始化total_faces_detected）
+            if all_detection_results:
+                total_faces_detected = sum(result['real_face_count'] for result in all_detection_results)
+                total_faces_processed = sum(len(result['detections']) for result in all_detection_results)
+                logger.info(f"✅ 批次 {batch_idx + 1} 批量提交成功: 检测到 {total_faces_detected} 个人脸，处理了 {total_faces_processed} 个，{len(all_processed_photos)} 张照片")
             
         except Exception as e:
             logger.error(f"批次 {batch_idx + 1} 数据库操作失败: {str(e)}")
@@ -319,8 +322,7 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
         # 找到对应的批次详情并更新人脸检测数量
         batch_details = face_recognition_task_status[task_id]["batch_details"]
         if batch_idx < len(batch_details):
-            # 计算总人脸数量
-            total_faces_detected = sum(result['real_face_count'] for result in all_detection_results)
+            # total_faces_detected已在try块内更新
             batch_details[batch_idx]["faces_detected"] = total_faces_detected
             batch_details[batch_idx]["completed_photos"] = successful_analyses
             batch_details[batch_idx]["failed_photos"] = failed_analyses
@@ -336,14 +338,14 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
 async def perform_face_clustering(task_id: str):
     """
     执行人脸聚类（参考基础分析的perform_clustering）
-    :param task_id: 任务ID
+    :param task_id: 任务ID（用于增量聚类识别新人脸）
     """
     try:
         # 获取数据库会话
         db = next(get_db())
         
-        # 执行聚类
-        await cluster_service.cluster_faces(db)
+        # 执行聚类（传入task_id以支持增量聚类）
+        await cluster_service.cluster_faces(db, task_id=task_id)
         
         logger.info(f"人脸聚类完成")
         

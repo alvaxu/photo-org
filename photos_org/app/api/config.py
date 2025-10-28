@@ -49,6 +49,7 @@ class ConfigUpdateRequest(BaseModel):
     ui: Optional[Dict[str, Any]] = None
     search: Optional[Dict[str, Any]] = None
     analysis: Optional[Dict[str, Any]] = None
+    face_recognition: Optional[Dict[str, Any]] = None
     # maps 配置通过专门的API更新，不在这里处理
 
 
@@ -79,7 +80,7 @@ async def update_user_config(request: ConfigUpdateRequest, http_request: Request
         current_config = settings.get_full_config()
 
         # 确保所有必需的配置字段都存在
-        required_fields = ["system", "database", "dashscope", "storage", "analysis", "logging", "server", "ui", "search", "similarity", "import", "quality", "maps"]
+        required_fields = ["system", "database", "dashscope", "storage", "analysis", "logging", "server", "ui", "search", "similarity", "import", "quality", "maps", "face_recognition"]
         for field in required_fields:
             if field not in current_config:
                 logger.warning(f"配置中缺少必需字段: {field}")
@@ -103,6 +104,8 @@ async def update_user_config(request: ConfigUpdateRequest, http_request: Request
             current_config["search"].update(request.search)
         if request.analysis:
             current_config["analysis"].update(request.analysis)
+        if request.face_recognition:
+            current_config["face_recognition"].update(request.face_recognition)
         # maps 配置通过专门的API更新，不在这里处理
         # if request.maps:
         #     current_config["maps"].update(request.maps)

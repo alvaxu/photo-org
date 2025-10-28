@@ -1493,7 +1493,7 @@ function monitorImportProgress(taskId, totalFiles) {
                 const modal = bootstrap.Modal.getInstance(elements.importModal);
                 if (modal) {
                     modal.hide();
-
+                    
                     // 监听模态框关闭事件，确保模态框完全消失后才显示结果
                     // 使用全局变量确保事件监听器能被正确移除
                     if (window.importModalCloseHandler) {
@@ -1537,7 +1537,7 @@ function monitorImportProgress(taskId, totalFiles) {
                 const modal = bootstrap.Modal.getInstance(elements.importModal);
                 if (modal) {
                     modal.hide();
-
+                    
                     // 监听模态框关闭事件
                     elements.importModal.addEventListener('hidden.bs.modal', function onModalHidden() {
                         elements.importModal.removeEventListener('hidden.bs.modal', onModalHidden);
@@ -1846,7 +1846,7 @@ async function processBasicAnalysisSingleBatch(photoIds) {
 async function processBasicAnalysisInBatches(photoIds, batchSize) {
     const totalPhotos = photoIds.length;
     const totalBatches = Math.ceil(totalPhotos / batchSize);
-    
+
     // 🔥 新增：从配置读取最大并发批次数
     const maxConcurrentBatches = CONFIG.analysisConfig?.concurrent || 3;
     
@@ -1869,7 +1869,7 @@ async function processBasicAnalysisInBatches(photoIds, batchSize) {
             const start = i * batchSize;
             const end = Math.min(start + batchSize, totalPhotos);
             const batchPhotoIds = photoIds.slice(start, end);
-            
+
             allBatchTasks.push({
                 batchIndex: i + 1,
                 photoIds: batchPhotoIds,
@@ -1979,15 +1979,15 @@ async function startNextBatch(allBatchTasks, activeTasks, batchIndex) {
     try {
         // 启动单批分析
         const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
-            method: 'POST',
+                method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+                body: JSON.stringify({
                 photo_ids: batchTask.photoIds,
                 analysis_types: ['quality']
-            })
-        });
+                })
+            });
 
-        if (!response.ok) {
+            if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(`第${currentBatch}批启动失败: ${errorData.detail || response.statusText}`);
         }
@@ -2049,7 +2049,7 @@ async function monitorAndScaleConcurrentBatches(allBatchTasks, activeTasks, maxC
                 // 4. 更新进度显示
                 const totalCompleted = completedBatches;
                 const progressPercentage = Math.round((totalCompleted / allBatchTasks.length) * 100);
-                document.getElementById('basicStatus').textContent = 
+            document.getElementById('basicStatus').textContent =
                     `已完成${totalCompleted}/${allBatchTasks.length}批，活跃批次: ${activeTasks.size}/${maxConcurrentBatches}`;
                 document.getElementById('basicProgressBar').style.width = `${progressPercentage}%`;
                 document.getElementById('basicProgressBar').setAttribute('aria-valuenow', progressPercentage);
@@ -2060,12 +2060,12 @@ async function monitorAndScaleConcurrentBatches(allBatchTasks, activeTasks, maxC
                     console.log('所有批次分析完成');
                     document.getElementById('basicStatus').textContent = 
                         `所有${allBatchTasks.length}批分析任务已完成`;
-                    document.getElementById('basicProgressBar').style.width = '100%';
+                document.getElementById('basicProgressBar').style.width = '100%';
                     document.getElementById('basicProgressBar').setAttribute('aria-valuenow', 100);
                     resolve();
                 }
                 
-            } catch (error) {
+                    } catch (error) {
                 console.error('批次监控失败:', error);
                 clearInterval(checkInterval);
                 resolve();

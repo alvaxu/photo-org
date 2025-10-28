@@ -314,7 +314,6 @@
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5"><i class="bi bi-gear me-2"></i>首次使用建议</h4>
                     <ol>
-                        <li><a href="#api-key-config" class="text-decoration-none">申请并配置免费大模型API密钥；如选用高德API解析照片地址，需申请并配置高德API密钥</a></li>
                         <li>导入照片到系统中</li>
                         <li>先进行基础分析（免费、快速的质量评估）</li>
                         <li>再进行GPS转地址（高德、Nominatim或离线解析）</li>
@@ -322,6 +321,7 @@
                         <li>选择性进行AI分析（深度内容识别，需要API密钥）</li>
                         <li>使用智能搜索和筛选功能管理照片</li>
                         <li>享受智能照片管理体验！</li>
+                        <li><a href="#api-key-config" class="text-decoration-none">建议申请并配置免费额度大模型API密钥以便对照片进行更深入分析；如选用高德API解析照片地址，也需申请并配置免费额度高德API密钥</a></li>
                     </ol>
                 </div>
             </section>
@@ -365,7 +365,6 @@
                                 <ul class="mb-2 small">
                                     <li><strong>AI内容分析：</strong>使用千问大模型识别照片中的物体、场景、人脸、情感等，生成详细描述</li>
                             <li><strong>智能分类：</strong>基于AI分析结果自动为照片添加合适的标签和分类</li>
-                                    <li><strong>重复检测：</strong>计算照片的感知哈希值，用于查找和识别重复照片</li>
                                     <li><strong>需要网络：</strong>需要有效的API密钥和网络连接</li>
                         </ul>
                             </div>
@@ -398,7 +397,7 @@
                     <div class="mb-3">
                         <h6><i class="bi bi-list-ol me-2"></i>智能分析的执行步骤</h6>
                         <ol class="small">
-                            <li>导入照片后，照片质量状态显示为"未评估"（灰色圆圈图标）</li>
+                            <li>导入照片后，照片质量状态显示为"尚未进行基础分析"（灰色折线图标）</li>
                             <li>先点击"基础分析"按钮进行质量评估和基础标签生成，完成后质量状态显示为相应等级（如"优秀"红色星星图标）</li>
                             <li>如需更深入分析，可再点击"AI分析"按钮进行AI内容分析，完成后AI状态显示为"AI已分析"（绿色机器人图标）</li>
                             <li>在确认对话框中确认开始分析</li>
@@ -427,7 +426,7 @@
                             <li>处理时间与照片数量、复杂度、网络状况有关</li>
                                     <li>已处理过的照片可以重新分析以更新AI分析结果</li>
                             <li>建议在网络稳定时进行批量处理</li>
-                            <li>处理过程中请勿关闭浏览器窗口</li>
+                            <li>处理过程中请勿关闭当前浏览器窗口</li>
                         </ul>
                             </div>
                         </div>
@@ -505,9 +504,8 @@
                             <div class="col-md-6">
                                 <h6><i class="bi bi-camera me-2 text-info"></i>照片要求</h6>
                                 <ul class="mb-0 small">
-                                    <li>照片必须在拍摄时开启GPS定位</li>
-                                    <li>iPhone用户需在设置中开启定位服务</li>
-                                    <li>室内拍摄可能无法获取GPS信息</li>
+                                    <li>相机必须在拍摄时开启GPS定位</li>
+                                    <li>iPhone手机拍照前需在设置中开启定位服务</li>
                                     <li>GPS信息不完整的照片无法转换</li>
                                 </ul>
                             </div>
@@ -536,7 +534,7 @@
                             <div class="col-md-6">
                                 <h6><i class="bi bi-key me-2 text-warning"></i>使用要求</h6>
                                 <ul class="mb-2 small">
-                                    <li><strong>模型下载：</strong>首次使用需下载人脸识别模型（约80MB）</li>
+                                    <li><strong>预置模型：</strong>模型已在系统中内置，无需下载</li>
                                     <li><strong>本地处理：</strong>完全本地运行，无需网络连接</li>
                                     <li><strong>隐私安全：</strong>所有人脸数据存储本地，绝对安全</li>
                                     <li><strong>处理速度：</strong>取决于照片数量，支持批量处理</li>
@@ -553,7 +551,6 @@
                                 <h6><i class="bi bi-play-fill me-2 text-info"></i>开始人脸识别</h6>
                                 <ul class="small">
                                     <li><strong>入口：</strong>点击导航栏"人脸识别"按钮</li>
-                                    <li><strong>首次使用：</strong>系统会自动下载人脸识别模型</li>
                                     <li><strong>批量处理：</strong>系统自动识别所有照片中的人脸</li>
                                     <li><strong>进度显示：</strong>显示处理进度和处理统计信息</li>
                                 </ul>
@@ -563,9 +560,7 @@
                                 <ul class="small">
                                     <li><strong>查看人物：</strong>浏览系统识别的所有人物分组</li>
                                     <li><strong>重命名人物：</strong>为人物设置友好名称</li>
-                                    <li><strong>合并聚类：</strong>将同一人物的多个聚类合并</li>
-                                    <li><strong>拆分聚类：</strong>将错误聚类的照片移到正确人物</li>
-                                    <li><strong>删除聚类：</strong>删除重复或不需要的人物聚类</li>
+                                    <li><strong>优化肖像：</strong>可选择自动生成高质量圆形头像</li>
                                 </ul>
                             </div>
                         </div>
@@ -578,10 +573,9 @@
                             <div class="col-md-6">
                                 <h6><i class="bi bi-clock me-2 text-warning"></i>处理时间</h6>
                                 <ul class="mb-0 small">
-                                    <li>首次使用需下载模型，约需1-2分钟</li>
-                                    <li>人脸识别处理速度约为每秒5-10张照片</li>
+                                    <li>人脸识别处理速度很快，约为每秒5-10张照片</li>
                                     <li>大量照片可能需要较长时间，请耐心等待</li>
-                                    <li>处理过程中请勿关闭浏览器窗口</li>
+                                    <li>处理过程中请勿关闭当前浏览器窗口</li>
                                 </ul>
                             </div>
                             <div class="col-md-6">
@@ -589,8 +583,6 @@
                                 <ul class="mb-0 small">
                                     <li>人脸清晰、正面照片识别准确率最高</li>
                                     <li>侧面、模糊、戴口罩照片可能识别失败</li>
-                                    <li>识别结果可能需要人工审核和调整</li>
-                                    <li>支持手动修正聚类结果</li>
                                 </ul>
                             </div>
                         </div>
@@ -1134,7 +1126,7 @@
 
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    <strong>重要：</strong>AI分析功能需要有效的阿里云DashScope千问大模型API密钥，GPS转地址功能需要高德地图API密钥才能正常工作。
+                    <strong>重要：</strong>建议申请并配置免费额度大模型API密钥以便对照片进行更深入分析；如选用高德API解析照片地址，也需申请并配置免费额度高德API密钥。
                     <a href="/help-api-key" class="alert-link ms-2 me-3" target="_blank">
                         <i class="bi bi-robot me-1"></i>
                         AI密钥配置指南
@@ -1175,11 +1167,8 @@
                 </div>
 
                 <div class="info-box">
-                    <h6><i class="bi bi-shield-check me-2"></i>安全建议</h6>
+                    <h6><i class="bi bi-shield-check me-2"></i>建议</h6>
                     <ul class="mb-0">
-                        <li>定期更换API密钥，建议每3-6个月更换一次</li>
-                        <li>不要在公共场所或不安全网络环境下使用系统</li>
-                        <li>API密钥泄露时立即更换，并检查是否有异常使用记录</li>
                         <li>合理控制API使用频率，避免超出服务商的免费额度</li>
                     </ul>
                 </div>

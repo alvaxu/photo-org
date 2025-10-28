@@ -146,118 +146,230 @@ class FaceClusterService:
         # 初始化肖像轮换管理器
         self.rotation_manager = PortraitRotationManager()
         
-    async def cluster_faces(self, db: Session) -> bool:
+    async def cluster_faces(self, db: Session, task_id: Optional[str] = None) -> bool:
         """
-        对人脸进行聚类分析
+        增量人脸聚类分析
         :param db: 数据库会话
+        :param task_id: 任务ID，用于识别新人脸（可选）
         :return: 是否聚类成功
         """
         # 延迟导入依赖
         _lazy_import_dependencies()
         
         try:
-            logger.info("开始人脸聚类分析...")
+            logger.info("开始增量人脸聚类分析...")
             
-            # 清理旧的聚类数据
-            logger.info("清理旧的聚类数据...")
-            db.query(FaceClusterMember).delete()
-            db.query(FaceCluster).delete()
-            db.commit()
-            logger.info("✅ 旧聚类数据清理完成")
-            
-            # 获取所有人脸特征
-            faces = db.query(FaceDetection).filter(
-                FaceDetection.face_features.isnot(None)
+            # 🔥 策略：保留旧聚类，只处理新人脸
+            # 1. 获取所有已聚类的旧聚类（保留用户数据）
+            old_clusters = db.query(FaceCluster).filter(
+                FaceCluster.face_count > 0
             ).all()
             
-            if len(faces) < self.min_cluster_size:
-                logger.info("人脸数量不足，跳过聚类")
-                return True
-                
-            # 提取特征向量
-            features = []
-            face_ids = []
-            for face in faces:
-                if face.face_features:
-                    features.append(face.face_features)
-                    face_ids.append(face.face_id)
+            if old_clusters:
+                logger.info(f"发现 {len(old_clusters)} 个旧聚类，将保留用户命名和肖像选择")
+            else:
+                logger.info("首次聚类，将创建所有新聚类")
             
-            if len(features) < self.min_cluster_size:
-                logger.info("有效人脸特征不足，跳过聚类")
-                return True
+            # 🔥 增量聚类策略
+            if old_clusters:
+                # 2. 识别未被聚类的新人脸
+                clustered_face_ids = set()
+                for cluster in old_clusters:
+                    members = db.query(FaceClusterMember).filter_by(cluster_id=cluster.cluster_id).all()
+                    clustered_face_ids.update([m.face_id for m in members])
                 
-            features = np.array(features)
-            
-            # 使用DBSCAN进行聚类
-            clustering = DBSCAN(
-                eps=1 - self.similarity_threshold,
-                min_samples=self.min_cluster_size,
-                metric='cosine'
-            )
-            cluster_labels = clustering.fit_predict(features)
-            
-            # 处理聚类结果
-            unique_labels = set(cluster_labels)
-            if -1 in unique_labels:
-                unique_labels.remove(-1)  # 移除噪声点
+                # 获取所有未聚类的人脸
+                all_faces = db.query(FaceDetection).filter(
+                    FaceDetection.face_features.isnot(None)
+                ).all()
                 
-            logger.info(f"检测到 {len(unique_labels)} 个聚类")
-            
-            # 限制聚类数量（Top N）
-            if len(unique_labels) > self.max_clusters:
-                # 按聚类大小排序，保留最大的N个
-                cluster_sizes = {}
-                for label in unique_labels:
-                    cluster_sizes[label] = np.sum(cluster_labels == label)
+                unclustered_faces = [f for f in all_faces if f.face_id not in clustered_face_ids]
                 
-                # 按大小排序，保留Top N
-                sorted_clusters = sorted(cluster_sizes.items(), key=lambda x: x[1], reverse=True)
-                top_clusters = [label for label, _ in sorted_clusters[:self.max_clusters]]
+                if not unclustered_faces:
+                    logger.info("没有新的人脸需要聚类")
+                    return True
                 
-                logger.info(f"限制聚类数量为Top {self.max_clusters}，保留 {len(top_clusters)} 个聚类")
-                unique_labels = set(top_clusters)
-            
-            # 保存聚类结果
-            for cluster_label in unique_labels:
-                cluster_faces = [face_ids[i] for i, label in enumerate(cluster_labels) if label == cluster_label]
+                logger.info(f"发现 {len(unclustered_faces)} 个未被聚类的新人脸")
                 
-                if len(cluster_faces) < self.min_cluster_size:
-                    continue
+                # 3. 尝试将新人脸匹配到旧聚类
+                matched_count = 0
+                for face in unclustered_faces:
+                    best_cluster = self._match_to_existing_cluster(face, old_clusters, db)
+                    if best_cluster:
+                        # 添加到旧聚类
+                        member = FaceClusterMember(
+                            cluster_id=best_cluster.cluster_id,
+                            face_id=face.face_id,
+                            similarity_score=0.8
+                        )
+                        db.add(member)
+                        # 更新聚类计数
+                        best_cluster.face_count += 1
+                        matched_count += 1
+                
+                if matched_count > 0:
+                    logger.info(f"✅ 匹配了 {matched_count} 个人脸到旧聚类")
+                    db.commit()
+                
+                # 4. 对无法匹配的人脸进行聚类
+                unmatched_faces = [f for f in unclustered_faces if f.face_id not in {
+                    m.face_id for m in db.query(FaceClusterMember).all()
+                }]
+                
+                if unmatched_faces:
+                    logger.info(f"对 {len(unmatched_faces)} 个无法匹配的人脸进行新聚类")
+                    new_clusters = await self._create_new_clusters(unmatched_faces, db)
+                    logger.info(f"✅ 创建了 {new_clusters} 个新聚类")
                     
-                # 创建聚类
-                cluster_id = f"cluster_{cluster_label}_{int(datetime.now().timestamp())}"
-                
-                # 🎯 优化：选择最佳代表人脸（聚类时使用传统逻辑）
-                best_representative = self._select_best_representative_face(cluster_faces, faces, db)
-                
-                cluster = FaceCluster(
-                    cluster_id=cluster_id,
-                    face_count=len(cluster_faces),
-                    representative_face_id=best_representative,
-                    confidence_score=0.8,  # 默认置信度
-                    is_labeled=False,
-                    cluster_quality="high" if len(cluster_faces) >= 5 else "medium"
+            else:
+                # 首次聚类：全量聚类所有面容
+                logger.info("首次聚类，对所有面容进行聚类")
+                await self._create_new_clusters(
+                    db.query(FaceDetection).filter(FaceDetection.face_features.isnot(None)).all(),
+                    db
                 )
-                db.add(cluster)
-                db.flush()  # 获取cluster ID
-                
-                # 添加聚类成员
-                for face_id in cluster_faces:
-                    member = FaceClusterMember(
-                        cluster_id=cluster_id,
-                        face_id=face_id,
-                        similarity_score=0.8  # 默认相似度
-                    )
-                    db.add(member)
             
-            db.commit()
-            logger.info(f"✅ 人脸聚类完成，创建了 {len(unique_labels)} 个聚类")
             return True
             
         except Exception as e:
             logger.error(f"人脸聚类失败: {e}")
             db.rollback()
             return False
+    
+    def _match_to_existing_cluster(self, face, old_clusters: List, db) -> Optional[object]:
+        """
+        尝试将新人脸匹配到旧聚类
+        :param face: 新人脸对象
+        :param old_clusters: 旧聚类列表
+        :param db: 数据库会话
+        :return: 匹配成功的聚类，或None
+        """
+        if not face.face_features:
+            return None
+        
+        import numpy as np
+        
+        best_cluster = None
+        best_similarity = 0.0
+        match_threshold = self.similarity_threshold
+        
+        for cluster in old_clusters:
+            # 获取聚类中所有人脸的特征
+            members = db.query(FaceClusterMember).filter_by(
+                cluster_id=cluster.cluster_id
+            ).limit(10).all()  # 只取前10个成员计算平均相似度（性能优化）
+            
+            if not members:
+                continue
+            
+            # 获取成员的人脸特征
+            cluster_face_ids = [m.face_id for m in members]
+            cluster_faces = db.query(FaceDetection).filter(
+                FaceDetection.face_id.in_(cluster_face_ids)
+            ).all()
+            
+            # 计算与聚类中所有人脸的平均相似度
+            similarities = []
+            for cluster_face in cluster_faces:
+                if cluster_face.face_features:
+                    sim = self.calculate_face_similarity(face.face_features, cluster_face.face_features)
+                    similarities.append(sim)
+            
+            if similarities:
+                avg_similarity = np.mean(similarities)
+                if avg_similarity > best_similarity and avg_similarity >= match_threshold:
+                    best_similarity = avg_similarity
+                    best_cluster = cluster
+        
+        if best_cluster:
+            logger.debug(f"匹配人脸 {face.face_id} 到聚类 {best_cluster.cluster_id} (相似度: {best_similarity:.3f})")
+        
+        return best_cluster
+    
+    async def _create_new_clusters(self, faces: List, db) -> int:
+        """
+        创建新聚类（使用DBSCAN）
+        :param faces: 人脸列表
+        :param db: 数据库会话
+        :return: 创建的聚类数量
+        """
+        import numpy as np
+        
+        # 🔥 修改：不限制最小人脸数，允许单人照聚类
+        if len(faces) < 1:
+            logger.info(f"人脸数量不足，跳过聚类")
+            return 0
+        
+        # 提取特征向量
+        features = []
+        face_ids = []
+        for face in faces:
+            if face.face_features:
+                features.append(face.face_features)
+                face_ids.append(face.face_id)
+        
+        if len(features) < 1:
+            logger.info("有效人脸特征不足，跳过聚类")
+            return 0
+        
+        features = np.array(features)
+        
+        # 使用DBSCAN进行聚类
+        # 🔥 修改：min_samples=1，允许单人照聚类
+        clustering = DBSCAN(
+            eps=1 - self.similarity_threshold,
+            min_samples=1,  # 允许单人照
+            metric='cosine'
+        )
+        cluster_labels = clustering.fit_predict(features)
+        
+        # 处理聚类结果
+        unique_labels = set(cluster_labels)
+        if -1 in unique_labels:
+            unique_labels.remove(-1)  # 移除噪声点
+        
+        logger.info(f"检测到 {len(unique_labels)} 个新聚类")
+        
+        # 保存聚类结果
+        created_count = 0
+        for cluster_label in unique_labels:
+            cluster_faces = [face_ids[i] for i, label in enumerate(cluster_labels) if label == cluster_label]
+            
+            # 🔥 修改：不限制聚类大小，保存所有聚类（包括单人照）
+            # 显示时将根据 min_cluster_size 进行过滤
+            if len(cluster_faces) < 1:
+                continue  # 至少要有1张照片（真正的人脸）
+            
+            # 创建聚类
+            cluster_id = f"cluster_{cluster_label}_{int(datetime.now().timestamp())}"
+            
+            # 选择最佳代表人脸
+            best_representative = self._select_best_representative_face(cluster_faces, faces, db)
+            
+            cluster = FaceCluster(
+                cluster_id=cluster_id,
+                face_count=len(cluster_faces),
+                representative_face_id=best_representative,
+                confidence_score=0.8,
+                is_labeled=False,
+                cluster_quality="high" if len(cluster_faces) >= 5 else "medium"
+            )
+            db.add(cluster)
+            db.flush()
+            
+            # 添加聚类成员
+            for face_id in cluster_faces:
+                member = FaceClusterMember(
+                    cluster_id=cluster_id,
+                    face_id=face_id,
+                    similarity_score=0.8
+                )
+                db.add(member)
+            
+            created_count += 1
+        
+        db.commit()
+        return created_count
     
     def calculate_face_similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
         """
@@ -498,10 +610,23 @@ class FaceClusterService:
         :return: 统计信息
         """
         try:
-            total_faces = db.query(func.count(FaceDetection.id)).scalar() or 0
-            total_clusters = db.query(func.count(FaceCluster.id)).scalar() or 0
+            # 从配置获取最小聚类大小
+            min_cluster_size = self.min_cluster_size
+            
+            # 排除处理标记记录（face_id以"processed_"开头的记录）
+            total_faces = db.query(func.count(FaceDetection.id)).filter(
+                ~FaceDetection.face_id.like('processed_%')
+            ).scalar() or 0
+            
+            # 🔥 只统计符合min_cluster_size条件的聚类
+            total_clusters = db.query(func.count(FaceCluster.id)).filter(
+                FaceCluster.face_count >= min_cluster_size
+            ).scalar() or 0
+            
+            # 只统计符合条件且已标记的聚类
             labeled_clusters = db.query(func.count(FaceCluster.id)).filter(
-                FaceCluster.is_labeled == True
+                FaceCluster.is_labeled == True,
+                FaceCluster.face_count >= min_cluster_size
             ).scalar() or 0
             
             return {

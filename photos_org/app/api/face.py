@@ -74,12 +74,23 @@ async def get_clusters(
     :return: 聚类列表
     """
     try:
+        # 从配置获取参数
+        from app.core.config import settings
+        
         # 如果没有指定limit，使用配置中的max_clusters
         if limit is None:
-            from app.core.config import settings
             limit = settings.face_recognition.max_clusters
         
-        clusters = db.query(FaceCluster).offset(offset).limit(limit).all()
+        # 🔥 优化：只获取符合min_cluster_size条件的聚类，按大小降序
+        min_cluster_size = settings.face_recognition.min_cluster_size
+        
+        
+        clusters = db.query(FaceCluster).filter(
+            FaceCluster.face_count >= min_cluster_size  # 只显示人脸数 >= min_cluster_size 的聚类
+        ).order_by(
+            FaceCluster.face_count.desc()
+        ).offset(offset).limit(limit).all()
+        
         
         result = []
         for cluster in clusters:

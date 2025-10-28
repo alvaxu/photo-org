@@ -400,10 +400,23 @@ class FaceRecognitionService:
         :return: 统计信息
         """
         try:
-            total_faces = db.query(func.count(FaceDetection.id)).scalar() or 0
-            total_clusters = db.query(func.count(FaceCluster.id)).scalar() or 0
+            # 从配置获取最小聚类大小
+            min_cluster_size = self.config.min_cluster_size
+            
+            # 排除处理标记记录（face_id以"processed_"开头的记录）
+            total_faces = db.query(func.count(FaceDetection.id)).filter(
+                ~FaceDetection.face_id.like('processed_%')
+            ).scalar() or 0
+            
+            # 🔥 只统计符合min_cluster_size条件的聚类
+            total_clusters = db.query(func.count(FaceCluster.id)).filter(
+                FaceCluster.face_count >= min_cluster_size
+            ).scalar() or 0
+            
+            # 只统计符合条件且已标记的聚类
             labeled_clusters = db.query(func.count(FaceCluster.id)).filter(
-                FaceCluster.is_labeled == True
+                FaceCluster.is_labeled == True,
+                FaceCluster.face_count >= min_cluster_size
             ).scalar() or 0
             
             return {

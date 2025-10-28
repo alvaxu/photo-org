@@ -12,6 +12,11 @@ class PortraitFilterPanel {
         this.clusters = [];
         this.selectedClusterId = 'all';
         this.isExpanded = false;
+        // 分页显示状态
+        this.displayedCount = 10; // 初始显示10个
+        this.totalClusters = 0;
+        this.maxClusters = 40; // 默认值，将在loadClusters中从配置读取
+        this.minClusterSize = 1; // 默认值，将在loadClusters中从配置读取
         this.init();
     }
     
@@ -24,9 +29,47 @@ class PortraitFilterPanel {
     
     async loadClusters() {
         try {
+            // 🔥 先加载用户配置（如果没有加载）
+            if (!window.userConfig) {
+                try {
+                    const configResponse = await fetch('/api/v1/config/user');
+                    if (configResponse.ok) {
+                        const configResult = await configResponse.json();
+                        if (configResult.success) {
+                            window.userConfig = configResult.data;
+                            console.log('配置加载成功:', window.userConfig);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('加载配置失败，使用默认值:', e);
+                }
+            }
+            
+            // 从配置获取参数
+            if (window.userConfig?.face_recognition?.max_clusters) {
+                this.maxClusters = window.userConfig.face_recognition.max_clusters;
+                console.log('max_clusters:', this.maxClusters);
+            }
+            
+            if (window.userConfig?.face_recognition?.min_cluster_size) {
+                this.minClusterSize = window.userConfig.face_recognition.min_cluster_size;
+                console.log('min_cluster_size:', this.minClusterSize);
+            }
+            
             const response = await fetch('/api/v1/face-clusters/clusters');
             const data = await response.json();
             this.clusters = data.clusters || [];
+            
+            // 获取总聚类数
+            const statsResponse = await fetch('/api/v1/face-clusters/statistics');
+            if (statsResponse.ok) {
+                const statsData = await statsResponse.json();
+                this.totalClusters = statsData.statistics?.total_clusters || this.clusters.length;
+            } else {
+                this.totalClusters = this.clusters.length;
+            }
+            
+            console.log(`聚类加载完成: 获取到 ${this.clusters.length} 个聚类 (总数据: ${this.totalClusters} 个)`);
             
             // 🔥 修复：加载聚类数据后，同时刷新统计信息和UI
             await this.updatePeopleStats();
@@ -78,11 +121,15 @@ class PortraitFilterPanel {
     
     renderPortraits() {
         const grid = document.getElementById('portraitFilterGrid');
+        const container = grid?.parentElement;
         
         // 按人脸数量降序排序
         const sortedClusters = [...this.clusters].sort((a, b) => b.face_count - a.face_count);
         
-        const html = sortedClusters.map(cluster => `
+        // 只显示前 displayCount 个
+        const displayedClusters = sortedClusters.slice(0, this.displayedCount);
+        
+        let html = displayedClusters.map(cluster => `
             <div class="col-auto">
                 <div class="portrait-card" data-cluster-id="${cluster.cluster_id}">
                     <div class="portrait-img-container">
@@ -95,7 +142,102 @@ class PortraitFilterPanel {
             </div>
         `).join('');
         
+        // 添加操作按钮
+        const remainingCount = this.totalClusters - this.displayedCount;
+        const maxDisplayCount = Math.min(this.maxClusters, this.totalClusters);
+        
+        // 折回按钮：当显示数量超过10个时显示
+        if (this.displayedCount > 10) {
+            html += `
+                <div class="col-auto">
+                    <div class="portrait-card portrait-collapse" id="collapsePortraits" style="cursor: pointer; border: 2px dashed #ffc107; background-color: #fff8e1;" title="折回显示初始10个">
+                        <div class="portrait-img-container" style="align-items: center; justify-content: center;">
+                            <i class="bi bi-arrow-up" style="font-size: 2rem; color: #ffc107;"></i>
+                        </div>
+                        <span class="portrait-name" style="text-align: center; white-space: nowrap;">
+                            折回<br><small class="text-warning">初始10个</small>
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 加载更多按钮：当还有更多可加载时显示
+        if (remainingCount > 0 && this.displayedCount < maxDisplayCount) {
+            const nextBatch = Math.min(10, maxDisplayCount - this.displayedCount);
+            html += `
+                <div class="col-auto">
+                    <div class="portrait-card portrait-load-more" id="loadMorePortraits" style="cursor: pointer; border: 2px dashed #dee2e6; background-color: #f8f9fa;" title="每次加载10个">
+                        <div class="portrait-img-container" style="align-items: center; justify-content: center;">
+                            <i class="bi bi-chevron-down" style="font-size: 2rem; color: #6c757d;"></i>
+                        </div>
+                        <span class="portrait-name" style="text-align: center; white-space: nowrap;">
+                            加载更多<br><small class="text-muted">+${nextBatch}个</small>
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            // 显示全部按钮
+            html += `
+                <div class="col-auto">
+                    <div class="portrait-card portrait-show-all" id="showAllPortraits" style="cursor: pointer; border: 2px dashed #0d6efd; background-color: #e7f1ff;" title="一次性显示全部">
+                        <div class="portrait-img-container" style="align-items: center; justify-content: center;">
+                            <i class="bi bi-grid-3x3-gap" style="font-size: 2rem; color: #0d6efd;"></i>
+                        </div>
+                        <span class="portrait-name" style="text-align: center; white-space: nowrap;">
+                            显示全部<br><small class="text-primary">共${maxDisplayCount}个</small>
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+        
         grid.innerHTML = html;
+        
+        // 绑定按钮事件
+        this.bindLoadMoreEvents();
+    }
+    
+    bindLoadMoreEvents() {
+        const loadMoreBtn = document.getElementById('loadMorePortraits');
+        const showAllBtn = document.getElementById('showAllPortraits');
+        const collapseBtn = document.getElementById('collapsePortraits');
+        
+        if (loadMoreBtn) {
+            loadMoreBtn.addEventListener('click', () => {
+                this.showMore(10);
+            });
+        }
+        
+        if (showAllBtn) {
+            showAllBtn.addEventListener('click', () => {
+                this.showAll();
+            });
+        }
+        
+        if (collapseBtn) {
+            collapseBtn.addEventListener('click', () => {
+                this.collapse();
+            });
+        }
+    }
+    
+    showMore(increment = 10) {
+        const maxDisplayCount = Math.min(this.maxClusters, this.totalClusters);
+        this.displayedCount = Math.min(this.displayedCount + increment, maxDisplayCount);
+        this.renderPortraits();
+    }
+    
+    showAll() {
+        this.displayedCount = Math.min(this.maxClusters, this.totalClusters);
+        this.renderPortraits();
+    }
+    
+    collapse() {
+        // 折回到初始10个
+        this.displayedCount = 10;
+        this.renderPortraits();
     }
     
     bindEvents() {
@@ -104,14 +246,23 @@ class PortraitFilterPanel {
             this.toggleExpanded();
         });
         
-        // 肖像选择
-        document.addEventListener('click', (e) => {
-            const portraitCard = e.target.closest('.portrait-card');
-            if (portraitCard) {
-                const clusterId = portraitCard.dataset.clusterId;
-                this.selectCluster(clusterId);
-            }
-        });
+        // 使用事件委托处理肖像选择（避免重复绑定）
+        const grid = document.getElementById('portraitFilterGrid');
+        if (grid) {
+            grid.addEventListener('click', (e) => {
+                const portraitCard = e.target.closest('.portrait-card');
+                // 排除操作按钮
+                if (portraitCard && 
+                    !portraitCard.classList.contains('portrait-load-more') && 
+                    !portraitCard.classList.contains('portrait-show-all') &&
+                    !portraitCard.classList.contains('portrait-collapse')) {
+                    const clusterId = portraitCard.dataset.clusterId;
+                    if (clusterId) {
+                        this.selectCluster(clusterId);
+                    }
+                }
+            });
+        }
     }
     
     toggleExpanded() {

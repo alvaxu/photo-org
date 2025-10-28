@@ -168,7 +168,7 @@ async def convert_single_photo_address(
     db: Session = Depends(get_db)
 ):
     """转换单张照片的GPS为地址"""
-    
+
     # 获取请求体参数
     try:
         body = await request.json()
@@ -177,7 +177,7 @@ async def convert_single_photo_address(
     except:
         service = "amap"
         force = False
-    
+
     photo = db.query(Photo).filter(Photo.id == photo_id).first()
     if not photo:
         raise HTTPException(status_code=404, detail="照片不存在")
@@ -232,7 +232,7 @@ async def convert_with_amap(lat: float, lng: float, force: bool = False):
             "success": False,
             "message": "高德地图API密钥未配置"
         }
-    
+
     # 检查缓存
     cache_service = MapCacheService()
     if not force:
@@ -240,22 +240,22 @@ async def convert_with_amap(lat: float, lng: float, force: bool = False):
         if cached_address:
             elapsed = time.time() - start_time
             logger.info(f"✅ 使用缓存地址: {cached_address[:50]}... (耗时: {elapsed:.2f}s)")
-            return {
+        return {
                 "success": True,
-                "address": cached_address,
-                "cached": True,
-                "message": "使用缓存地址"
-            }
-    
+            "address": cached_address,
+            "cached": True,
+            "message": "使用缓存地址"
+        }
+
     # 调用高德API
     logger.info("🔄 调用高德API进行地址解析...")
     map_service = AMapService()
     address = map_service.reverse_geocode(lat, lng)
-    
+
     elapsed = time.time() - start_time
-    
+
     if address:
-        # 缓存结果
+    # 缓存结果
         cache_service.set_cached_address(lat, lng, address)
         logger.info(f"✅ 高德API解析成功: {address[:50]}... (耗时: {elapsed:.2f}s)")
         return {
@@ -479,7 +479,7 @@ async def batch_convert_gps_address(
     db: Session = Depends(get_db)
 ):
     """批量转换GPS为地址"""
-    
+
     # 从请求体中获取参数
     body = await request.json()
     service = body.get("service", "amap")
