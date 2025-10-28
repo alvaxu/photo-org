@@ -178,7 +178,7 @@
     "max_concurrent_batches": 3,
     "max_concurrent_photos": 6,
     "max_progress_checks": 36000,
-    "max_clusters": 60,
+    "max_clusters": 30,
     "min_cluster_size": 2,
     "auto_cluster": true,
     "cluster_quality_threshold": 0.8,
