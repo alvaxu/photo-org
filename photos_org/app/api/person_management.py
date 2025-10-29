@@ -376,9 +376,14 @@ async def get_cluster_photos(
             photo = db.query(Photo).filter(Photo.id == face.photo_id).first()
             
             if photo:
+                # 优先使用缩略图，如果没有则使用原图
+                display_path = photo.thumbnail_path if photo.thumbnail_path else photo.original_path
+                
                 photo_info = {
                     "photo_id": photo.id,
                     "original_path": photo.original_path,
+                    "thumbnail_path": photo.thumbnail_path,
+                    "display_path": display_path,  # 统一的显示路径
                     "face_id": face.face_id,
                     "face_rectangle": face.face_rectangle,
                     "confidence": face.confidence,

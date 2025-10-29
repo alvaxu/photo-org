@@ -40,6 +40,17 @@ class FaceCropService:
             # 延迟导入cv2, numpy
             import cv2
             import numpy as np
+            import PIL
+            from PIL import Image
+            HEIC_SUPPORT = False
+            
+            # 尝试导入 HEIC 支持
+            try:
+                from pillow_heif import register_heif_opener
+                register_heif_opener()
+                HEIC_SUPPORT = True
+            except ImportError:
+                HEIC_SUPPORT = False
             
             # 构建完整照片路径
             storage_base = Path(settings.storage.base_path)
@@ -67,11 +78,36 @@ class FaceCropService:
             if cache_path.exists():
                 return str(cache_path.relative_to(storage_base))
             
-            # 读取照片
-            image = cv2.imread(str(full_photo_path))
-            if image is None:
-                logger.error(f"无法读取照片: {full_photo_path}")
-                return None
+            # 读取照片（支持HEIC格式）
+            photo_path_lower = str(full_photo_path).lower()
+            is_heic = photo_path_lower.endswith(('.heic', '.heif'))
+            
+            if is_heic and HEIC_SUPPORT and PIL:
+                # HEIC 格式：使用 PIL 读取并转换为 OpenCV 格式
+                try:
+                    pil_img = Image.open(str(full_photo_path))
+                    # 转换为 RGB（HEIC 可能是 RGBA）
+                    if pil_img.mode == 'RGBA':
+                        # 创建白色背景
+                        background = Image.new('RGB', pil_img.size, (255, 255, 255))
+                        background.paste(pil_img, mask=pil_img.split()[3])  # 3 是 alpha 通道
+                        pil_img = background
+                    elif pil_img.mode != 'RGB':
+                        pil_img = pil_img.convert('RGB')
+                    
+                    # 转换为 numpy 数组并转为 BGR（OpenCV 格式）
+                    img_array = np.array(pil_img)
+                    image = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+                    logger.info(f"HEIC 图像读取成功（肖像裁剪）: {full_photo_path}")
+                except Exception as e:
+                    logger.error(f"HEIC 图像读取失败（肖像裁剪）: {e}")
+                    return None
+            else:
+                # 非 HEIC 格式：使用 OpenCV 读取
+                image = cv2.imread(str(full_photo_path))
+                if image is None:
+                    logger.error(f"无法读取照片: {full_photo_path}")
+                    return None
             
             # 尝试填充裁剪，如果失败则使用原始区域
             try:

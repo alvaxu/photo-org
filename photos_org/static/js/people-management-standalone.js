@@ -1100,7 +1100,7 @@ class PeopleManagementStandalone {
                                 ${photos.map(photo => `
                                     <div class="col-lg-2 col-md-3 col-sm-4 col-6">
                                         <div class="card">
-                                             <img src="/photos_storage/${(photo.original_path || PEOPLE_CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
+                                             <img src="/photos_storage/${(photo.display_path || photo.thumbnail_path || photo.original_path || PEOPLE_CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
                                                   class="card-img-top" 
                                                   style="height: 150px; object-fit: contain; object-position: center;"
                                                   alt="照片">
@@ -1270,7 +1270,7 @@ class PeopleManagementStandalone {
         grid.innerHTML = photos.map(photo => `
             <div class="col-lg-2 col-md-3 col-sm-4 col-6">
                 <div class="card">
-                     <img src="/photos_storage/${(photo.original_path || PEOPLE_CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
+                     <img src="/photos_storage/${(photo.display_path || photo.thumbnail_path || photo.original_path || PEOPLE_CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
                           class="card-img-top" 
                           style="height: 150px; object-fit: contain; object-position: center;"
                           alt="照片">

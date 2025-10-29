@@ -274,6 +274,15 @@ function showPhotoDetail(photo) {
     const modal = new bootstrap.Modal(elements.photoModal);
     modal.show();
     
+    // 初始化照片缩放功能（在模态框显示后）
+    elements.photoModal.addEventListener('shown.bs.modal', function onModalShown() {
+        if (typeof initPhotoZoom === 'function') {
+            initPhotoZoom();
+        }
+        // 只执行一次
+        elements.photoModal.removeEventListener('shown.bs.modal', onModalShown);
+    }, { once: true });
+    
     // 监听详情模态框关闭事件，如果之前有相似搜索页显示，则重新显示
     if (wasSimilarModalVisible) {
         elements.photoModal.addEventListener('hidden.bs.modal', function onDetailModalHidden() {
@@ -458,34 +467,53 @@ function createPhotoDetailModal(photo) {
     return `
         <!-- 照片显示区域 -->
         <div class="text-center mb-4">
-            <div id="photoImageContainer">
-                <img src="/photos_storage/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
-                     alt="${photo.filename}" 
-                     class="img-fluid rounded shadow" 
-                     style="max-height: 60vh; object-fit: contain;"
-                     data-thumbnail="${photo.thumbnail_path ? '/photos_storage/' + photo.thumbnail_path.replace(/\\/g, '/') : ''}"
-                     data-original-format="${photo.filename.toLowerCase().endsWith('.heic') || photo.filename.toLowerCase().endsWith('.heif') ? 'heic' : 'other'}"
-                     data-original-path="${photo.original_path || ''}"
-                     data-photo-id="${photo.id || ''}"
-                     onerror="handleImageError(this);"
-                     onload="handleImageLoad(this);">
+            <div id="photoImageContainer" style="overflow: hidden; position: relative; height: 60vh; background: #000;">
+                <div id="imageZoomWrapper" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: move;">
+                    <img id="zoomablePhoto" 
+                         src="/photos_storage/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
+                         alt="${photo.filename}" 
+                         class="img-fluid rounded shadow" 
+                         style="max-height: 60vh; max-width: 100%; object-fit: contain; user-select: none; transition: transform 0.1s;"
+                         data-thumbnail="${photo.thumbnail_path ? '/photos_storage/' + photo.thumbnail_path.replace(/\\/g, '/') : ''}"
+                         data-original-format="${photo.filename.toLowerCase().endsWith('.heic') || photo.filename.toLowerCase().endsWith('.heif') ? 'heic' : 'other'}"
+                         data-original-path="${photo.original_path || ''}"
+                         data-photo-id="${photo.id || ''}"
+                         onerror="handleImageError(this);"
+                         onload="handleImageLoad(this);">
+                </div>
                 
-                <!-- HEIC格式提示 -->
-                <div id="heicFormatTip" class="alert alert-info mt-2" style="display: none;">
-                    <i class="bi bi-info-circle me-2"></i>
-                    <strong>HEIC 格式提示：</strong>您的浏览器无法直接显示 HEIC 格式原图，当前显示的是 JPEG 缩略图。
-                    <br>
-                    <small class="text-muted">
-                        • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图,可能需科学上网<br>
-                        • Safari 浏览器：通常原生支持 HEIC 格式<br>
-                        • 其他浏览器：请先确认该浏览器是否支持、或者是否可以安装HEIC插件查看HEIC格式原图
-                    </small>
-                    <br>
-                    <small class="text-muted">
-                        你也可以点击下方按钮下载原图后用本地自带图片查看工具查看。
-                    </small>
+                <!-- 缩放控制按钮 -->
+                <div class="zoom-controls" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); border-radius: 20px; padding: 5px 15px; display: flex; align-items: center; gap: 10px;">
+                    <button class="btn btn-sm btn-outline-light" onclick="zoomOutPhoto()" title="缩小">
+                        <i class="bi bi-dash"></i>
+                    </button>
+                    <span id="zoomLevel" style="color: white; min-width: 50px; text-align: center; font-size: 12px;">100%</span>
+                    <button class="btn btn-sm btn-outline-light" onclick="zoomInPhoto()" title="放大">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-light" onclick="resetZoom()" title="重置">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
                 </div>
             </div>
+            
+            <!-- HEIC格式提示（移到容器外面） -->
+            <div id="heicFormatTip" class="alert alert-info mt-2" style="display: none;">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>HEIC 格式提示：</strong>您的浏览器无法直接显示 HEIC 格式原图，当前显示的是 JPEG 缩略图。
+                <br>
+                <small class="text-muted">
+                    • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图,可能需科学上网<br>
+                    • Safari 浏览器：通常原生支持 HEIC 格式<br>
+                    • 其他浏览器如EDGE浏览器：请尝试安装HEIC转换插件来显示高清图
+                </small>
+                <br>
+                <small class="text-muted">
+                    你也可以点击右上角下载按钮下载原图后用电脑自带图片查看工具查看。
+                </small>
+            </div>
+            
+            <small class="text-muted d-block mt-2">💡 提示：滚动鼠标滚轮可缩放照片，双击可重置，拖拽可移动</small>
         </div>
         
         <div class="row g-3">
@@ -656,58 +684,10 @@ window.switchView = switchView;
 
 // 绑定照片详情事件
 function bindPhotoDetailEvents(photo) {
-    // 绑定幻灯片播放按钮事件
-    const slideshowBtn = elements.photoModal.querySelector('#startSlideshowBtn');
-    if (slideshowBtn) {
-        slideshowBtn.onclick = (e) => {
-            e.preventDefault();
-            // 关闭当前详情模态框
-            const modal = bootstrap.Modal.getInstance(elements.photoModal);
-            if (modal) {
-                modal.hide();
-                // 清除焦点以避免aria-hidden警告
-                setTimeout(() => {
-                    const focusedElement = document.activeElement;
-                    if (focusedElement && focusedElement.blur) {
-                        focusedElement.blur();
-                    }
-                }, 100);
-            }
-
-            // 检查函数是否已加载
-            const checkAndStart = () => {
-                if (typeof window.startSlideshowFromCurrent === 'function') {
-                    // 开始幻灯片播放
-                    window.startSlideshowFromCurrent(photo.id);
-                } else {
-                    console.warn('幻灯片播放功能尚未加载，1秒后重试...');
-                    // 1秒后重试一次
-                    setTimeout(checkAndStart, 1000);
-                }
-            };
-
-            checkAndStart();
-        };
-    }
-
     // 绑定下载按钮事件
     const downloadBtn = elements.photoModal.querySelector('#downloadPhotoBtn');
     if (downloadBtn) {
         downloadBtn.onclick = () => downloadPhoto(photo.id);
-    }
-    
-    // 绑定搜索相似照片按钮事件
-    const searchSimilarBtn = elements.photoModal.querySelector('#searchSimilarBtn');
-    if (searchSimilarBtn) {
-        searchSimilarBtn.onclick = () => {
-            // 关闭当前详情模态框
-            const modal = bootstrap.Modal.getInstance(elements.photoModal);
-            if (modal) {
-                modal.hide();
-            }
-            // 搜索相似照片
-            searchSimilarPhotos(photo.id);
-        };
     }
     
     // 绑定编辑按钮事件
@@ -720,12 +700,6 @@ function bindPhotoDetailEvents(photo) {
     const favoriteBtn = elements.photoModal.querySelector('#addToFavoritesBtn');
     if (favoriteBtn) {
         favoriteBtn.onclick = () => toggleFavorite(photo.id);
-    }
-    
-    // 绑定删除按钮事件
-    const deleteBtn = elements.photoModal.querySelector('#deletePhotoBtn');
-    if (deleteBtn) {
-        deleteBtn.onclick = () => deletePhoto(photo.id);
     }
 }
 
@@ -827,11 +801,29 @@ function handleImageError(img) {
     const isHeicFormat = img.src.toLowerCase().includes('.heic') || img.src.toLowerCase().includes('.heif');
     
     if (isHeicFormat) {
-        // HEIC 格式：显示初始提示，尝试缩略图
-        showHeicFormatTipInitial();
-        tryThumbnailFallback(img);
+        // HEIC 格式：可能是浏览器正在转换（Edge）或需要等待插件处理
+        // 先等待一小段时间，看是否有转换进行中
+        console.log('HEIC图片加载失败，等待浏览器转换...');
+        
+        // 延迟判断，给Edge等浏览器的转换机制时间
+        setTimeout(() => {
+            // 检查图片是否实际已加载（Edge可能在转换后自动恢复）
+            if (img.complete && img.naturalWidth > 0) {
+                console.log('HEIC图片加载成功（可能是浏览器转换）：', img.src);
+                img.errorHandled = true;
+                hideAllHeicTips();
+                return;
+            }
+            
+            // 仍然失败，才尝试缩略图
+            console.log('HEIC图片确实无法加载，切换到缩略图');
+            img.errorHandled = true;
+            showHeicFormatTipInitial();
+            tryThumbnailFallback(img);
+        }, 3000); // 等待500ms，给转换时间
     } else {
         // 非 HEIC 格式：直接显示占位符
+        img.errorHandled = true;
         showGenericPlaceholder(img);
     }
 }
@@ -845,16 +837,19 @@ function handleImageLoad(img) {
     
     const isOriginalPhotoHeic = img.dataset.originalFormat === 'heic';
     const isCurrentlyShowingThumbnail = img.src.includes('/thumbnails/') || img.src.includes('_thumb.');
-    const isHeicPluginActive = img.dataset.heicOverlay === 'true';
     
-    if (isOriginalPhotoHeic && isHeicPluginActive) {
-        // 原始 HEIC 图片，且插件已激活（说明原图通过插件成功显示）
-        hideAllHeicTips();
-    } else if (isOriginalPhotoHeic && isCurrentlyShowingThumbnail && !isHeicPluginActive) {
-        // 原始图片是 HEIC，显示缩略图，且插件未激活（说明原图加载失败，降级显示）
-        showThumbnailFallbackTip();
+    if (isOriginalPhotoHeic) {
+        if (isCurrentlyShowingThumbnail) {
+            // 显示的是缩略图（原图加载失败后降级）
+            console.log('HEIC原图加载失败，显示缩略图');
+            showThumbnailFallbackTip();
+        } else {
+            // 显示的是原图（浏览器支持或转换成功）
+            console.log('HEIC原图加载成功（浏览器支持或已转换）');
+            hideAllHeicTips();
+        }
     } else {
-        // 其他情况：非 HEIC 格式，或 HEIC 原图直接成功加载
+        // 非 HEIC 格式
         hideAllHeicTips();
     }
 }
@@ -873,11 +868,11 @@ function showHeicFormatTipInitial() {
             <small class="text-muted">
                 • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图,可能需科学上网<br>
                 • Safari 浏览器：通常原生支持 HEIC 格式<br>
-                • 其他浏览器：请先确认该浏览器是否支持、或者是否可以安装HEIC插件查看HEIC格式原图
+                • 其他浏览器如EDGE浏览器：请尝试安装HEIC转换插件来显示高清图
             </small>
             <br>
             <small class="text-muted">
-                你也可以点击下方按钮下载原图后用本地自带图片查看工具查看。
+                你也可以点击右上角下载按钮下载原图后用电脑自带图片查看工具查看。
             </small>
         `;
         tipElement.style.display = 'block';
@@ -925,11 +920,11 @@ function showThumbnailFallbackTip() {
             <small class="text-muted">
                 • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图,可能需科学上网<br>
                 • Safari 浏览器：通常原生支持 HEIC 格式<br>
-                • 其他浏览器：请先确认该浏览器是否支持、或者是否可以安装HEIC插件查看HEIC格式原图
+                • 其他浏览器如EDGE浏览器：请尝试安装HEIC转换插件来显示高清图
             </small>
             <br>
             <small class="text-muted">
-                你也可以点击下方按钮下载原图后用本地自带图片查看工具查看。
+                你也可以点击右上角下载按钮下载原图后用电脑自带图片查看工具查看。
             </small>
         `;
         tipElement.style.display = 'block';
@@ -1125,3 +1120,201 @@ function testHeicTipDisplay() {
 window.testHeicImageLoad = testHeicImageLoad;
 window.checkBrowserHeicSupport = checkBrowserHeicSupport;
 window.testHeicTipDisplay = testHeicTipDisplay;
+
+// ============ 照片缩放功能 ============
+
+let photoZoomState = {
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    currentTranslateX: 0,
+    currentTranslateY: 0
+};
+
+/**
+ * 初始化照片缩放功能
+ */
+function initPhotoZoom() {
+    try {
+        const container = document.getElementById('photoImageContainer');
+        const wrapper = document.getElementById('imageZoomWrapper');
+        const img = document.getElementById('zoomablePhoto');
+        
+        if (!container || !wrapper || !img) {
+            return;
+        }
+        
+        // 确保状态已初始化
+        if (!window.photoZoomState) {
+            window.photoZoomState = {
+                scale: 1,
+                translateX: 0,
+                translateY: 0,
+                isDragging: false,
+                startX: 0,
+                startY: 0,
+                currentTranslateX: 0,
+                currentTranslateY: 0
+            };
+        }
+        const zoomState = window.photoZoomState;
+        
+        // 重置缩放状态
+        zoomState.scale = 1;
+        zoomState.translateX = 0;
+        zoomState.translateY = 0;
+        
+        // 重置样式
+        img.style.transform = 'scale(1)';
+        wrapper.style.transform = 'translate(0, 0)';
+        wrapper.style.cursor = 'move';
+        
+        const zoomLevel = document.getElementById('zoomLevel');
+        if (zoomLevel) {
+            zoomLevel.textContent = '100%';
+        }
+        
+        // 绑定滚轮事件
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            updateZoom(delta);
+        }, { passive: false });
+        
+        // 绑定双击事件（重置）
+        img.addEventListener('dblclick', () => {
+            resetZoom();
+        });
+        
+        // 绑定拖拽事件
+        let isDragging = false;
+        let startX, startY, currentX = 0, currentY = 0;
+        
+        wrapper.addEventListener('mousedown', (e) => {
+            if (zoomState.scale > 1) {
+                isDragging = true;
+                startX = e.clientX - currentX;
+                startY = e.clientY - currentY;
+                wrapper.style.cursor = 'grabbing';
+            }
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging && zoomState.scale > 1) {
+                e.preventDefault();
+                currentX = e.clientX - startX;
+                currentY = e.clientY - startY;
+                
+                // 限制拖拽范围（使用原始图片尺寸计算）
+                const containerRect = container.getBoundingClientRect();
+                const originalWidth = img.naturalWidth || img.width;
+                const originalHeight = img.naturalHeight || img.height;
+                
+                // 计算实际缩放后的尺寸
+                const scaledWidth = originalWidth * zoomState.scale;
+                const scaledHeight = originalHeight * zoomState.scale;
+                
+                // 允许拖拽的范围
+                const maxX = Math.max(0, (scaledWidth - containerRect.width) / 2);
+                const maxY = Math.max(0, (scaledHeight - containerRect.height) / 2);
+                
+                // 应用边界限制
+                currentX = Math.max(-maxX, Math.min(maxX, currentX));
+                currentY = Math.max(-maxY, Math.min(maxY, currentY));
+                
+                wrapper.style.transform = `translate(${currentX}px, ${currentY}px)`;
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                wrapper.style.cursor = zoomState.scale > 1 ? 'grab' : 'move';
+            }
+        });
+        
+        // 更新样式
+        wrapper.style.cursor = zoomState.scale > 1 ? 'grab' : 'move';
+    } catch (error) {
+        console.error('照片缩放功能初始化失败:', error);
+    }
+}
+
+/**
+ * 更新缩放
+ */
+function updateZoom(delta) {
+    const zoomState = window.photoZoomState || { scale: 1 };
+    const newScale = Math.max(0.5, Math.min(zoomState.scale + delta, 5));
+    
+    if (newScale !== zoomState.scale) {
+        zoomState.scale = newScale;
+        applyZoom();
+    }
+}
+
+/**
+ * 应用缩放变换
+ */
+function applyZoom() {
+    const zoomState = window.photoZoomState || { scale: 1 };
+    const img = document.getElementById('zoomablePhoto');
+    const zoomLevel = document.getElementById('zoomLevel');
+    
+    if (img) {
+        img.style.transform = `scale(${zoomState.scale})`;
+    }
+    
+    if (zoomLevel) {
+        zoomLevel.textContent = `${Math.round(zoomState.scale * 100)}%`;
+    }
+}
+
+/**
+ * 放大照片
+ */
+function zoomInPhoto() {
+    updateZoom(0.2);
+}
+
+/**
+ * 缩小照片
+ */
+function zoomOutPhoto() {
+    updateZoom(-0.2);
+}
+
+/**
+ * 重置缩放
+ */
+function resetZoom() {
+    const zoomState = window.photoZoomState || { scale: 1, translateX: 0, translateY: 0 };
+    zoomState.scale = 1;
+    zoomState.translateX = 0;
+    zoomState.translateY = 0;
+    
+    const img = document.getElementById('zoomablePhoto');
+    const wrapper = document.getElementById('imageZoomWrapper');
+    const zoomLevel = document.getElementById('zoomLevel');
+    
+    if (img) {
+        img.style.transform = 'scale(1)';
+    }
+    
+    if (wrapper) {
+        wrapper.style.transform = 'translate(0, 0)';
+        wrapper.style.cursor = 'move';
+    }
+    
+    if (zoomLevel) {
+        zoomLevel.textContent = '100%';
+    }
+}
+
+// 导出缩放函数供全局使用
+window.zoomInPhoto = zoomInPhoto;
+window.zoomOutPhoto = zoomOutPhoto;
+window.resetZoom = resetZoom;

@@ -263,6 +263,30 @@ async def root():
 
 if __name__ == "__main__":
     import logging
+    import asyncio
+    
+    # ===== Windows 下处理 ConnectionResetError =====
+    if sys.platform == 'win32':
+        # 静默 asyncio 的 ConnectionResetError 日志
+        logging.getLogger('asyncio').setLevel(logging.CRITICAL)
+        
+        # 创建自定义事件循环策略（必须在导入 uvicorn 之前）
+        class CustomEventLoopPolicy(asyncio.WindowsProactorEventLoopPolicy):
+            def new_event_loop(self):
+                loop = super().new_event_loop()
+                def exception_handler(loop, context):
+                    exception = context.get('exception')
+                    if isinstance(exception, ConnectionResetError):
+                        # 忽略 ConnectionResetError，避免阻塞关闭
+                        pass
+                    else:
+                        # 其他异常正常处理
+                        loop.default_exception_handler(context)
+                loop.set_exception_handler(exception_handler)
+                return loop
+        
+        # 立即设置全局策略，这样 uvicorn 创建的事件循环会使用它
+        asyncio.set_event_loop_policy(CustomEventLoopPolicy())
 
     # ===== 应用初始化开始 =====
     print("\n" + "="*60)
@@ -383,11 +407,6 @@ if __name__ == "__main__":
 
     # ===== 系统状态检查 =====
 
-    # 检查API_KEY配置
-    print("🔑 正在检查API配置...")
-    api_key_status = "✅ 已配置" if settings.dashscope.api_key else "❌ 未配置"
-    api_key_warning = "" if settings.dashscope.api_key else "⚠️  未配置API_KEY，AI分析功能将不可用"
-    print(f"   API_KEY状态: {api_key_status}")
 
     # 检查FTS表状态
     print("🔍 正在检查搜索功能...")
@@ -404,9 +423,7 @@ if __name__ == "__main__":
     print("="*60)
     print(f"📁 配置存储路径: {settings.storage.base_path}")
     print(f"📂 实际存储路径: {photos_storage_dir}")
-    print(f"🔑 API_KEY状态: {api_key_status}")
-    if api_key_warning:
-        print(f"   {api_key_warning}")
+
 
     # 启动定期缓存清理任务
     print("🧹 启动定期缓存清理任务...")
@@ -450,19 +467,21 @@ if __name__ == "__main__":
     print(f"🌐 本机访问: http://127.0.0.1:{settings.server_port}")
     print(f"📖 本机帮助页面: http://127.0.0.1:{settings.server_port}/help-overview")
     print(f"⚙️ 本机配置页面: http://127.0.0.1:{settings.server_port}/settings")
-    if not settings.dashscope.api_key:
-        print(f"🔧 配置API_KEY: http://127.0.0.1:{settings.server_port}/settings")
     print("-" * 15+"其他设备访问地址（同一网络）"+"-" * 15)
     print(f"🌐 网络访问: http://{local_ip}:{settings.server_port}")
     print(f"📖 网络帮助页面: http://{local_ip}:{settings.server_port}/help-overview")
     print(f"⚙️ 网络配置页面: http://{local_ip}:{settings.server_port}/settings")
     print("=" * 60)
-    # 禁用reload模式，避免watchfiles检测问题
-    uvicorn.run(
-        app,  # 直接传递app对象，避免PyInstaller环境下的模块导入问题
+    
+    # 启动服务器
+    config = uvicorn.Config(
+        app,
         host=settings.server_host,
         port=settings.server_port,
-        reload=False,  # 完全禁用reload模式
         log_level=settings.logging.level.lower(),
-        access_log=False  # 完全禁用访问日志
+        access_log=False,
+        reload=False,
+        loop='auto'  # 使用自动选择的事件循环
     )
+    server = uvicorn.Server(config)
+    server.run()

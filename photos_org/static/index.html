@@ -780,37 +780,20 @@
                 <div class="modal-header">
                     <h5 class="modal-title" id="photoModalTitle">照片详情</h5>
                     <div class="d-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-success btn-sm" id="startSlideshowBtn">
-                            <i class="bi bi-play-circle-fill me-1"></i>幻灯片播放
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="downloadPhotoBtn">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="editPhotoBtn">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="addToFavoritesBtn">
+                            <i class="bi bi-heart"></i>
                         </button>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                 </div>
                 <div class="modal-body">
                     <!-- 照片详情内容将通过JavaScript动态生成 -->
-                </div>
-                <div class="modal-footer d-flex justify-content-between">
-                    <div class="btn-group">
-                        <!-- 幻灯片播放按钮已移至右上角 -->
-                    </div>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-outline-primary" id="downloadPhotoBtn">
-                            <i class="bi bi-download me-2"></i>下载原图
-                        </button>
-                        <button type="button" class="btn btn-outline-info" id="searchSimilarBtn">
-                            <i class="bi bi-search me-2"></i>搜索相似照片
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" id="editPhotoBtn">
-                            <i class="bi bi-pencil me-2"></i>编辑照片
-                        </button>
-                        <button type="button" class="btn btn-outline-success" id="addToFavoritesBtn">
-                            <i class="bi bi-heart me-2"></i>添加到收藏
-                        </button>
-                        <button type="button" class="btn btn-outline-danger" id="deletePhotoBtn">
-                            <i class="bi bi-trash me-2"></i>删除照片
-                        </button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    </div>
                 </div>
             </div>
         </div>
