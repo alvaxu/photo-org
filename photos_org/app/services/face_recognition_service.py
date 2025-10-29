@@ -165,7 +165,7 @@ class FaceRecognitionService:
         """
         if not self.is_initialized:
             logger.warning("人脸识别服务未初始化")
-            return []
+            return {'detections': [], 'real_face_count': 0}
             
         try:
             # 🔥 异步执行：检查文件路径（避免阻塞事件循环）
@@ -174,12 +174,21 @@ class FaceRecognitionService:
             
             if not file_exists:
                 logger.error(f"文件不存在: {photo_path}")
-                return []
+                return {'detections': [], 'real_face_count': 0}
             
             # 🔥 异步执行：读取图像（文件IO操作在线程池中执行）
-            # 检查是否为 HEIC 格式
+            # 检查文件格式
             photo_path_lower = photo_path.lower()
             is_heic = photo_path_lower.endswith(('.heic', '.heif'))
+            is_gif = photo_path_lower.endswith('.gif')
+            is_bmp = photo_path_lower.endswith(('.bmp', '.dib'))
+            is_tiff = photo_path_lower.endswith(('.tiff', '.tif'))
+            is_webp = photo_path_lower.endswith('.webp')
+            
+            # GIF 格式不支持人脸识别（动画格式，OpenCV 读取可能有问题）
+            if is_gif:
+                logger.warning(f"[格式检测] 跳过 GIF 格式文件（不支持人脸识别，动画格式）: {photo_path}, photo_id={photo_id}")
+                return {'detections': [], 'real_face_count': 0, 'skipped': True, 'skip_reason': 'gif_format'}
             
             if is_heic and HEIC_SUPPORT and Image:
                 # HEIC 格式：使用 PIL 读取并转换为 OpenCV 格式
@@ -203,32 +212,76 @@ class FaceRecognitionService:
                     logger.info(f"HEIC 图像读取成功: {photo_path}")
                 except Exception as e:
                     logger.error(f"HEIC 图像读取失败: {e}")
-                    return []
+                    return {'detections': [], 'real_face_count': 0}
             else:
-                # 非 HEIC 格式：使用 OpenCV 读取
+                # 非 HEIC 格式：先尝试 OpenCV 读取，失败则使用 PIL 备用方案（适用于 TIFF/WebP）
+                file_ext = Path(photo_path).suffix.lower()
+                if is_bmp:
+                    logger.info(f"[格式检测] 检测到 BMP 格式文件: {photo_path}, photo_id={photo_id}, 扩展名={file_ext}")
+                if is_tiff:
+                    logger.info(f"[格式检测] 检测到 TIFF 格式文件: {photo_path}, photo_id={photo_id}, 扩展名={file_ext}")
+                if is_webp:
+                    logger.info(f"[格式检测] 检测到 WebP 格式文件: {photo_path}, photo_id={photo_id}, 扩展名={file_ext}")
+                
                 def read_image():
+                    # 首先尝试 OpenCV 读取
                     img = cv2.imread(photo_path)
                     
                     if img is None:
-                        # 尝试其他方法读取
+                        # OpenCV 读取失败，尝试其他方法
+                        logger.debug(f"[图像读取] cv2.imread 失败，尝试备用方法: {photo_path}, photo_id={photo_id}")
                         with open(photo_path, 'rb') as f:
                             img_data = f.read()
                         nparr = np.frombuffer(img_data, np.uint8)
                         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    
+                    # 如果 OpenCV 读取失败，且是 TIFF/WebP 格式，尝试使用 PIL 读取
+                    if img is None and (is_tiff or is_webp) and Image:
+                        logger.info(f"[图像读取] OpenCV 读取失败，尝试使用 PIL 读取: {photo_path}, photo_id={photo_id}, 格式={file_ext}")
+                        try:
+                            pil_img = Image.open(photo_path)
+                            # 转换为 RGB（处理 RGBA、CMYK 等格式）
+                            if pil_img.mode == 'RGBA':
+                                # 创建白色背景
+                                background = Image.new('RGB', pil_img.size, (255, 255, 255))
+                                background.paste(pil_img, mask=pil_img.split()[3])  # 3 是 alpha 通道
+                                pil_img = background
+                            elif pil_img.mode != 'RGB':
+                                pil_img = pil_img.convert('RGB')
+                            
+                            # 转换为 numpy 数组并转为 BGR（OpenCV 格式）
+                            img_array = np.array(pil_img)
+                            img = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+                            logger.info(f"[图像读取] PIL 读取成功: {photo_path}, photo_id={photo_id}, 格式={file_ext}")
+                        except Exception as pil_error:
+                            logger.error(f"[图像读取] PIL 读取也失败: {photo_path}, photo_id={photo_id}, 格式={file_ext}, 错误={pil_error}")
                     
                     return img
                 
                 try:
                     img = await asyncio.to_thread(read_image)
                     if img is None:
-                        logger.error(f"图像读取失败: {photo_path}")
-                        return []
+                        logger.error(f"[图像读取失败] 无法读取图像文件（可能是格式不支持或文件损坏）: {photo_path}, photo_id={photo_id}, 格式={file_ext}")
+                        return {'detections': [], 'real_face_count': 0}
+                    else:
+                        if is_bmp:
+                            logger.info(f"[格式检测] BMP 格式文件读取成功: {photo_path}, photo_id={photo_id}")
+                        elif is_tiff:
+                            logger.info(f"[格式检测] TIFF 格式文件读取成功: {photo_path}, photo_id={photo_id}")
+                        elif is_webp:
+                            logger.info(f"[格式检测] WebP 格式文件读取成功: {photo_path}, photo_id={photo_id}")
                 except Exception as e:
-                    logger.error(f"图像读取失败: {e}")
-                    return []
+                    logger.error(f"[图像读取异常] 读取图像时发生异常: {photo_path}, photo_id={photo_id}, 格式={file_ext}, 错误={e}")
+                    return {'detections': [], 'real_face_count': 0}
             
             # 🔥 质量优化：使用原始图像进行人脸检测
             # 移除图像缩放，确保坐标一致性
+            # 验证图像有效性
+            if img is None or not hasattr(img, 'shape') or len(img.shape) < 2:
+                file_ext = Path(photo_path).suffix.lower()
+                logger.error(f"[图像验证失败] 读取的图像无效（可能是格式问题或文件损坏）: {photo_path}, photo_id={photo_id}, 格式={file_ext}")
+                return {'detections': [], 'real_face_count': 0}
+            
             height, width = img.shape[:2]
             # logger.info(f"使用原始图像进行人脸检测: {width}x{height}")
             

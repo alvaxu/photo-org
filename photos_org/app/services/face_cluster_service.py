@@ -315,31 +315,6 @@ class FaceClusterService:
             logger.info("有效人脸特征不足，跳过聚类")
             return 0
         
-        # 🔥 性能优化：批量加载所有照片质量分数到缓存
-        logger.info("批量加载照片质量分数...")
-        all_photo_ids = list(set([f.photo_id for f in faces if f.photo_id]))
-        photo_quality_cache = {}
-        
-        if all_photo_ids:
-            try:
-                from app.models.photo import PhotoQuality
-                
-                # 批量查询所有照片质量
-                qualities = db.query(PhotoQuality).filter(
-                    PhotoQuality.photo_id.in_(all_photo_ids)
-                ).all()
-                
-                for q in qualities:
-                    if q.quality_score:
-                        photo_quality_cache[q.photo_id] = min(q.quality_score / 100.0, 1.0)
-                    else:
-                        photo_quality_cache[q.photo_id] = 0.5
-                
-                logger.info(f"成功加载 {len(photo_quality_cache)} 个照片质量分数到缓存")
-            except Exception as e:
-                logger.warning(f"批量加载照片质量失败: {e}")
-                photo_quality_cache = {}
-        
         features = np.array(features)
         
         # 使用DBSCAN进行聚类
@@ -409,16 +384,58 @@ class FaceClusterService:
             top_clusters = valid_clusters[:self.max_clusters]
             
             if top_clusters:
+                # 🔥 性能优化：只加载需要显示的聚类对应的照片质量分数（延迟加载）
+                logger.info(f"批量加载前 {len(top_clusters)} 个聚类的照片质量分数...")
+                top_cluster_face_ids = []
+                for _, cluster_faces, _ in top_clusters:
+                    top_cluster_face_ids.extend(cluster_faces)
+                
+                # 获取这些聚类中所有人脸对应的照片ID
+                top_photo_ids = []
+                face_map = {f.face_id: f for f in faces}
+                for face_id in top_cluster_face_ids:
+                    if face_id in face_map:
+                        photo_id = face_map[face_id].photo_id
+                        if photo_id:
+                            top_photo_ids.append(photo_id)
+                
+                photo_quality_cache = {}
+                if top_photo_ids:
+                    try:
+                        from app.models.photo import PhotoQuality
+                        
+                        # 去重
+                        unique_photo_ids = list(set(top_photo_ids))
+                        
+                        # 批量查询照片质量
+                        qualities = db.query(PhotoQuality).filter(
+                            PhotoQuality.photo_id.in_(unique_photo_ids)
+                        ).all()
+                        
+                        for q in qualities:
+                            if q.quality_score:
+                                photo_quality_cache[q.photo_id] = min(q.quality_score / 100.0, 1.0)
+                            else:
+                                photo_quality_cache[q.photo_id] = 0.5
+                        
+                        logger.info(f"成功加载 {len(photo_quality_cache)} 个照片质量分数到缓存（仅前 {len(top_clusters)} 个聚类）")
+                    except Exception as e:
+                        logger.warning(f"批量加载照片质量失败: {e}")
+                        photo_quality_cache = {}
+                else:
+                    photo_quality_cache = {}
+                
                 logger.info(f"对 {len(top_clusters)} 个需要显示的聚类进行详细代表人脸选择（符合 min_cluster_size={self.min_cluster_size}，前 max_clusters={self.max_clusters} 个）...")
                 
                 for idx, (cluster_id, cluster_faces, _) in enumerate(top_clusters):
                     if idx % 100 == 0:
                         logger.info(f"代表人脸选择进度: {idx + 1}/{len(top_clusters)}")
                     
-                    # 详细选择最佳代表人脸
+                    # 🔥 优化：首次聚类时不使用轮换逻辑（cluster_id=None），只选择1个最佳代表人脸
+                    # 轮换功能仅在用户点击"优化肖像"按钮时使用（reselect_cluster_representative）
                     best_representative = self._select_best_representative_face(
                         cluster_faces, faces, db, 
-                        cluster_id=cluster_id,
+                        cluster_id=None,  # 首次选择不使用轮换逻辑
                         photo_quality_cache=photo_quality_cache
                     )
                     
@@ -481,11 +498,14 @@ class FaceClusterService:
     
     def _select_best_representative_face(self, cluster_face_ids: List[str], faces: List, db: Session, cluster_id: str = None, photo_quality_cache: Dict[int, float] = None) -> str:
         """
-        选择最佳代表人脸（支持轮换）
+        选择最佳代表人脸
+        
         :param cluster_face_ids: 聚类中的人脸ID列表
         :param faces: 人脸数据
         :param db: 数据库会话
-        :param cluster_id: 聚类ID（用于轮换）
+        :param cluster_id: 聚类ID
+            - None: 首次聚类时，只选择1个最佳代表人脸（不使用轮换）
+            - 不为None: 优化肖像按钮点击时，使用轮换逻辑从前10个优质人脸中选择
         :param photo_quality_cache: 照片质量分数缓存 {photo_id: quality_score}
         :return: 最佳代表人脸ID
         """

@@ -57,6 +57,7 @@ async def start_face_recognition_task(photo_ids: List[int]) -> Dict:
             "total_photos": len(photo_ids),
             "completed_photos": 0,
             "failed_photos": 0,
+            "skipped_photos": 0,  # 🔥 新增：跳过的照片（如GIF格式）
             "progress_percentage": 0.0,
             "start_time": datetime.now(),
             "current_batch": 0,
@@ -127,6 +128,7 @@ async def process_face_recognition_task(task_id: str, photo_ids: List[int]):
                 "total_photos": len(batch_photo_ids),
                 "completed_photos": 0,
                 "failed_photos": 0,
+                "skipped_photos": 0,  # 🔥 新增：跳过的照片（如GIF格式）
                 "faces_detected": 0,
                 "status": "processing",
                 "error": None,
@@ -194,6 +196,15 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
         db = next(get_db())
         
         try:
+            # 🔥 性能优化：批量预查询所有照片信息（避免并发时创建过多数据库会话）
+            logger.info(f"批量预查询 {len(photo_ids)} 张照片信息...")
+            def batch_query_photos():
+                photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
+                return {photo.id: photo for photo in photos}
+            
+            photo_cache = await asyncio.to_thread(batch_query_photos)
+            logger.info(f"成功预查询 {len(photo_cache)} 张照片信息")
+            
             # 使用信号量控制单批次内的并发数
             max_concurrent_photos = settings.face_recognition.max_concurrent_photos
             semaphore = asyncio.Semaphore(max_concurrent_photos)
@@ -202,11 +213,8 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
             async def process_single_photo_with_semaphore(photo_id: int):
                 """使用信号量控制并发处理单张照片（只控制人脸检测部分）"""
                 try:
-                    # 🔥 异步执行：数据库查询（避免阻塞事件循环）
-                    def query_photo():
-                        return db.query(Photo).filter(Photo.id == photo_id).first()
-                    
-                    photo = await asyncio.to_thread(query_photo)
+                    # 🔥 从缓存获取照片信息（不再为每个任务创建数据库会话）
+                    photo = photo_cache.get(photo_id)
                     
                     if not photo:
                         return {"photo_id": photo_id, "status": "skipped", "reason": "photo_not_found"}
@@ -225,6 +233,17 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
                     # 🔥 关键：只有人脸检测部分使用信号量控制并发
                     async with semaphore:
                         detection_result = await face_service.detect_faces_in_photo(str(full_path), photo_id)
+                    
+                    # 🔥 检查是否因为格式问题跳过（如GIF格式）
+                    if detection_result.get('skipped', False):
+                        skip_reason = detection_result.get('skip_reason', 'unknown')
+                        return {
+                            "photo_id": photo_id,
+                            "status": "skipped",
+                            "reason": skip_reason,
+                            "detections": detection_result.get('detections', []),
+                            "real_face_count": detection_result.get('real_face_count', 0)
+                        }
                     
                     return {
                         "photo_id": photo_id, 
@@ -286,6 +305,7 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
         # 处理结果和更新状态
         successful_analyses = 0
         failed_analyses = 0
+        skipped_analyses = 0  # 🔥 新增：统计跳过的照片（如GIF格式）
         
         for result in results:
             if isinstance(result, Exception):
@@ -310,14 +330,21 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
                     "error_type": "face_detection_error",
                     "timestamp": datetime.now().isoformat()
                 })
+            elif result["status"] == "skipped":
+                # 🔥 新增：GIF格式等跳过的文件，不被算作成功
+                skipped_analyses += 1
+                skip_reason = result.get("reason", "unknown")
+                logger.info(f"跳过照片 {result.get('photo_id')}: {skip_reason}")
         
         # 🔥 优化：更新任务状态（包含人脸检测数量）
         face_recognition_task_status[task_id]["completed_photos"] += successful_analyses
         face_recognition_task_status[task_id]["failed_photos"] += failed_analyses
+        face_recognition_task_status[task_id]["skipped_photos"] += skipped_analyses  # 🔥 新增：统计跳过的照片
         face_recognition_task_status[task_id]["processing_photos"] = (
             face_recognition_task_status[task_id]["total_photos"] - 
             face_recognition_task_status[task_id]["completed_photos"] - 
-            face_recognition_task_status[task_id]["failed_photos"]
+            face_recognition_task_status[task_id]["failed_photos"] -
+            face_recognition_task_status[task_id]["skipped_photos"]  # 🔥 新增：跳过的照片也不计入处理中
         )
         face_recognition_task_status[task_id]["progress_percentage"] = round(
             (face_recognition_task_status[task_id]["completed_photos"] / 
@@ -332,8 +359,9 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
             batch_details[batch_idx]["faces_detected"] = total_faces_detected
             batch_details[batch_idx]["completed_photos"] = successful_analyses
             batch_details[batch_idx]["failed_photos"] = failed_analyses
+            batch_details[batch_idx]["skipped_photos"] = skipped_analyses  # 🔥 新增：批次的跳过统计
         
-        logger.info(f"✅ 批次 {batch_idx + 1} 完成: 成功 {successful_analyses}, 失败 {failed_analyses}, 检测到 {total_faces_detected} 个人脸")
+        logger.info(f"✅ 批次 {batch_idx + 1} 完成: 成功 {successful_analyses}, 失败 {failed_analyses}, 跳过 {skipped_analyses}, 检测到 {total_faces_detected} 个人脸")
         
     except Exception as e:
         logger.error(f"处理人脸识别批次失败: {str(e)}")
@@ -393,13 +421,18 @@ def get_face_recognition_task_status(task_id: str) -> Dict:
             if "end_time" in status and status["end_time"]:
                 status["end_time"] = status["end_time"].isoformat()
             
-            # 确保processing_photos字段存在
+            # 确保processing_photos字段存在（需要减去已完成的、失败的、跳过的）
             if "processing_photos" not in status:
+                skipped = status.get("skipped_photos", 0)
                 status["processing_photos"] = (
                     status["total_photos"] - 
                     status["completed_photos"] - 
-                    status["failed_photos"]
+                    status["failed_photos"] -
+                    skipped
                 )
+            # 确保skipped_photos字段存在（向后兼容）
+            if "skipped_photos" not in status:
+                status["skipped_photos"] = 0
             
             return status
         

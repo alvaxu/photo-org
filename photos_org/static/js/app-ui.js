@@ -464,22 +464,65 @@ function createPhotoDetailModal(photo) {
     if (photo.updated_at) fileInfo.push(`修改时间：${formatDateTime(photo.updated_at)}`);
     if (photo.file_hash) fileInfo.push(`文件哈希：${photo.file_hash}`);
     
+    // 判断是否需要双图策略（HEIC/TIFF且有缩略图）
+    const fn = photo.filename.toLowerCase();
+    const isHeic = fn.endsWith('.heic') || fn.endsWith('.heif');
+    const isTiff = fn.endsWith('.tiff') || fn.endsWith('.tif');
+    const isWebp = fn.endsWith('.webp');
+    const needsDualImage = (isHeic || isTiff || isWebp) && photo.thumbnail_path;
+    
+    const originalFormat = (function() {
+        if (isHeic) return 'heic';
+        if (isTiff) return 'tiff';
+        if (isWebp) return 'webp';
+        return 'other';
+    })();
+    
+    // 标准图片路径
+    const standardSrc = '/photos_storage/' + (photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/');
+    const thumbnailSrc = photo.thumbnail_path ? '/photos_storage/' + photo.thumbnail_path.replace(/\\/g, '/') : '';
+    const originalSrc = photo.original_path ? '/photos_storage/' + photo.original_path.replace(/\\/g, '/') : '';
+    
     return `
         <!-- 照片显示区域 -->
         <div class="text-center mb-4">
             <div id="photoImageContainer" style="overflow: hidden; position: relative; height: 60vh; background: #000;">
-                <div id="imageZoomWrapper" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: move;">
+                <div id="imageZoomWrapper" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: move; position: relative;">
+                    ${needsDualImage ? `
+                    <!-- 双图策略：底层显示缩略图（HEIC/TIFF/WebP格式） -->
+                    <img id="zoomablePhotoThumbnail" 
+                         src="${thumbnailSrc}" 
+                         alt="${photo.filename} (缩略图)" 
+                         class="img-fluid rounded shadow" 
+                         style="max-height: 60vh; max-width: 100%; object-fit: contain; user-select: none; position: absolute; z-index: 1;">
+                    <!-- 上层尝试加载原图 -->
                     <img id="zoomablePhoto" 
-                         src="/photos_storage/${(photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
+                         src="${originalSrc}" 
+                     alt="${photo.filename}" 
+                     class="img-fluid rounded shadow" 
+                         style="max-height: 60vh; max-width: 100%; object-fit: contain; user-select: none; transition: transform 0.1s, opacity 0.3s; position: relative; z-index: 2; opacity: 0;"
+                         data-thumbnail="${thumbnailSrc}"
+                         data-original-format="${originalFormat}"
+                     data-original-path="${photo.original_path || ''}"
+                     data-photo-id="${photo.id || ''}"
+                         data-is-dual-image="true"
+                     onerror="handleImageError(this);"
+                     onload="handleImageLoad(this);">
+                    ` : `
+                    <!-- 标准单图策略（JPEG等格式） -->
+                    <img id="zoomablePhoto" 
+                         src="${standardSrc}" 
                          alt="${photo.filename}" 
                          class="img-fluid rounded shadow" 
                          style="max-height: 60vh; max-width: 100%; object-fit: contain; user-select: none; transition: transform 0.1s;"
-                         data-thumbnail="${photo.thumbnail_path ? '/photos_storage/' + photo.thumbnail_path.replace(/\\/g, '/') : ''}"
-                         data-original-format="${photo.filename.toLowerCase().endsWith('.heic') || photo.filename.toLowerCase().endsWith('.heif') ? 'heic' : 'other'}"
+                         data-thumbnail="${thumbnailSrc}"
+                         data-original-format="${originalFormat}"
                          data-original-path="${photo.original_path || ''}"
                          data-photo-id="${photo.id || ''}"
+                         data-is-dual-image="false"
                          onerror="handleImageError(this);"
                          onload="handleImageLoad(this);">
+                    `}
                 </div>
                 
                 <!-- 缩放控制按钮 -->
@@ -498,20 +541,20 @@ function createPhotoDetailModal(photo) {
             </div>
             
             <!-- HEIC格式提示（移到容器外面） -->
-            <div id="heicFormatTip" class="alert alert-info mt-2" style="display: none;">
-                <i class="bi bi-info-circle me-2"></i>
-                <strong>HEIC 格式提示：</strong>您的浏览器无法直接显示 HEIC 格式原图，当前显示的是 JPEG 缩略图。
-                <br>
-                <small class="text-muted">
-                    • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图,可能需科学上网<br>
-                    • Safari 浏览器：通常原生支持 HEIC 格式<br>
+                <div id="heicFormatTip" class="alert alert-info mt-2" style="display: none;">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>HEIC 格式提示：</strong>您的浏览器无法直接显示 HEIC 格式原图，当前显示的是 JPEG 缩略图。
+                    <br>
+                    <small class="text-muted">
+                        • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图,可能需科学上网<br>
+                        • Safari 浏览器：通常原生支持 HEIC 格式<br>
                     • 其他浏览器如EDGE浏览器：请尝试安装HEIC转换插件来显示高清图
-                </small>
-                <br>
-                <small class="text-muted">
+                    </small>
+                    <br>
+                    <small class="text-muted">
                     你也可以点击右上角下载按钮下载原图后用电脑自带图片查看工具查看。
-                </small>
-            </div>
+                    </small>
+                </div>
             
             <small class="text-muted d-block mt-2">💡 提示：滚动鼠标滚轮可缩放照片，双击可重置，拖拽可移动</small>
         </div>
@@ -797,32 +840,30 @@ function handleImageError(img) {
         return;
     }
     
-    // 检查是否为 HEIC 格式
-    const isHeicFormat = img.src.toLowerCase().includes('.heic') || img.src.toLowerCase().includes('.heif');
+    // 检查图片格式（支持 HEIC、TIFF、WebP）
+    const imgSrcLower = img.src.toLowerCase();
+    const originalFormat = img.dataset.originalFormat || 'other';
+    const isDualImage = img.dataset.isDualImage === 'true';
     
-    if (isHeicFormat) {
-        // HEIC 格式：可能是浏览器正在转换（Edge）或需要等待插件处理
-        // 先等待一小段时间，看是否有转换进行中
-        console.log('HEIC图片加载失败，等待浏览器转换...');
-        
-        // 延迟判断，给Edge等浏览器的转换机制时间
-        setTimeout(() => {
-            // 检查图片是否实际已加载（Edge可能在转换后自动恢复）
-            if (img.complete && img.naturalWidth > 0) {
-                console.log('HEIC图片加载成功（可能是浏览器转换）：', img.src);
-                img.errorHandled = true;
-                hideAllHeicTips();
-                return;
-            }
-            
-            // 仍然失败，才尝试缩略图
-            console.log('HEIC图片确实无法加载，切换到缩略图');
-            img.errorHandled = true;
-            showHeicFormatTipInitial();
-            tryThumbnailFallback(img);
-        }, 3000); // 等待500ms，给转换时间
+    const isHeicFormat = originalFormat === 'heic' || imgSrcLower.includes('.heic') || imgSrcLower.includes('.heif');
+    const isTiffFormat = originalFormat === 'tiff' || imgSrcLower.includes('.tiff') || imgSrcLower.includes('.tif');
+    const isWebpFormat = originalFormat === 'webp' || imgSrcLower.includes('.webp');
+    const isBrowserUnsupportedFormat = isHeicFormat || isTiffFormat || isWebpFormat;
+    
+    if (isDualImage && isBrowserUnsupportedFormat) {
+        // 双图策略：原图加载失败，保持隐藏状态，让底层缩略图显示
+        console.log(`${originalFormat.toUpperCase()}原图加载失败（双图策略），底层缩略图继续显示`);
+        img.errorHandled = true;
+        img.style.opacity = '0';  // 确保原图隐藏
+        showFormatTip(originalFormat);
+    } else if (isBrowserUnsupportedFormat && !isDualImage) {
+        // 单图策略：浏览器不支持的格式，尝试缩略图降级
+        console.log(`${originalFormat.toUpperCase()}图片加载失败，尝试缩略图降级`);
+        img.errorHandled = true;
+        showFormatTip(originalFormat);
+        tryThumbnailFallback(img);
     } else {
-        // 非 HEIC 格式：直接显示占位符
+        // 其他格式：直接显示占位符
         img.errorHandled = true;
         showGenericPlaceholder(img);
     }
@@ -835,51 +876,110 @@ function handleImageError(img) {
 function handleImageLoad(img) {
     console.log('图片加载成功:', img.src);
     
-    const isOriginalPhotoHeic = img.dataset.originalFormat === 'heic';
-    const isCurrentlyShowingThumbnail = img.src.includes('/thumbnails/') || img.src.includes('_thumb.');
+    const originalFormat = img.dataset.originalFormat || 'other';
+    const isBrowserUnsupportedFormat = originalFormat === 'heic' || originalFormat === 'tiff' || originalFormat === 'webp';
+    const isDualImage = img.dataset.isDualImage === 'true';
     
-    if (isOriginalPhotoHeic) {
-        if (isCurrentlyShowingThumbnail) {
-            // 显示的是缩略图（原图加载失败后降级）
-            console.log('HEIC原图加载失败，显示缩略图');
-            showThumbnailFallbackTip();
-        } else {
-            // 显示的是原图（浏览器支持或转换成功）
-            console.log('HEIC原图加载成功（浏览器支持或已转换）');
-            hideAllHeicTips();
-        }
+    if (isDualImage) {
+        // 双图策略：原图加载成功，显示原图（覆盖缩略图）
+        console.log(`${originalFormat.toUpperCase()}原图加载成功（浏览器支持或已转换），覆盖缩略图显示`);
+        img.style.opacity = '1';  // 让原图显示，覆盖底层缩略图
+        hideAllFormatTips();
     } else {
-        // 非 HEIC 格式
-        hideAllHeicTips();
+        // 单图策略
+        if (isBrowserUnsupportedFormat) {
+            const isCurrentlyShowingThumbnail = img.src.includes('/thumbnails/') || img.src.includes('_thumb.');
+            if (isCurrentlyShowingThumbnail) {
+                // 显示的是缩略图（原图加载失败后降级）
+                console.log(`${originalFormat.toUpperCase()}原图加载失败，显示缩略图`);
+                showThumbnailFallbackTip(originalFormat);
+            } else {
+                // 显示的是原图（浏览器支持或转换成功）
+                console.log(`${originalFormat.toUpperCase()}原图加载成功（浏览器支持或已转换）`);
+                hideAllFormatTips();
+            }
+        } else {
+            // 其他格式
+            hideAllFormatTips();
+        }
     }
 }
 
 /**
- * 显示 HEIC 格式初始提示
+ * 显示格式提示（支持 HEIC、TIFF、WebP）
+ * @param {string} format - 图片格式 ('heic', 'tiff', 'webp')
  */
-function showHeicFormatTipInitial() {
-    const tipElement = document.getElementById('heicFormatTip');
-    if (tipElement) {
-        // 设置初始提示内容
-        tipElement.innerHTML = `
+function showFormatTip(format) {
+    const tipElement = document.getElementById('heicFormatTip'); // 复用同一个元素
+    if (!tipElement) {
+        console.error('未找到格式提示元素');
+        return;
+    }
+    
+    let formatName, formatUpper, tipContent;
+    
+    switch(format) {
+        case 'heic':
+            formatName = 'HEIC';
+            formatUpper = 'HEIC';
+            tipContent = `
             <i class="bi bi-info-circle me-2"></i>
             <strong>HEIC 格式提示：</strong>您的浏览器无法直接显示 HEIC 格式原图，当前显示的是 JPEG 缩略图。
             <br>
             <small class="text-muted">
                 • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图,可能需科学上网<br>
                 • Safari 浏览器：通常原生支持 HEIC 格式<br>
-                • 其他浏览器如EDGE浏览器：请尝试安装HEIC转换插件来显示高清图
+                    • 其他浏览器如EDGE浏览器：请尝试安装HEIC转换插件来显示高清图
             </small>
             <br>
             <small class="text-muted">
-                你也可以点击右上角下载按钮下载原图后用电脑自带图片查看工具查看。
+                    你也可以点击右上角下载按钮下载原图后用电脑自带图片查看工具查看。
             </small>
         `;
-        tipElement.style.display = 'block';
-        console.log('HEIC 格式初始提示已显示');
-    } else {
-        console.error('未找到 heicFormatTip 元素');
+            break;
+        case 'tiff':
+            formatName = 'TIFF';
+            formatUpper = 'TIFF';
+            tipContent = `
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>TIFF 格式提示：</strong>您的浏览器无法直接显示 TIFF 格式原图，当前显示的是 JPEG 缩略图。
+                <br>
+                <small class="text-muted">
+                    • 大多数浏览器不支持直接显示 TIFF 格式<br>
+                    • 你可以点击右上角下载按钮下载原图后用电脑自带图片查看工具查看<br>
+                    • 或者使用专业的图片查看软件（如 Photoshop、Windows 照片查看器等）
+                </small>
+            `;
+            break;
+        case 'webp':
+            formatName = 'WebP';
+            formatUpper = 'WebP';
+            tipContent = `
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>WebP 格式提示：</strong>您的浏览器可能无法直接显示 WebP 格式原图，当前显示的是 JPEG 缩略图。
+                <br>
+                <small class="text-muted">
+                    • 现代浏览器（Chrome、Edge、Firefox 等）通常支持 WebP 格式<br>
+                    • 如果原图无法显示，当前显示的是 JPEG 缩略图<br>
+                    • 你可以点击右上角下载按钮下载原图查看
+                </small>
+            `;
+            break;
+        default:
+            console.warn('未知的格式类型:', format);
+            return;
     }
+    
+    tipElement.innerHTML = tipContent;
+        tipElement.style.display = 'block';
+    console.log(`${formatUpper} 格式初始提示已显示`);
+}
+
+/**
+ * 显示 HEIC 格式初始提示（兼容旧代码）
+ */
+function showHeicFormatTipInitial() {
+    showFormatTip('heic');
 }
 
 /**
@@ -908,52 +1008,35 @@ function hideHeicFormatTip() {
 
 /**
  * 显示缩略图降级提示
+ * @param {string} format - 图片格式 ('heic', 'tiff', 'webp')
  */
-function showThumbnailFallbackTip() {
-    const tipElement = document.getElementById('heicFormatTip');
-    if (tipElement) {
-        // 修改提示内容
-        tipElement.innerHTML = `
-            <i class="bi bi-info-circle me-2"></i>
-            <strong>HEIC 格式提示：</strong>您的浏览器无法直接显示 HEIC 格式原图，当前显示的是 JPEG 缩略图。
-            <br>
-            <small class="text-muted">
-                • Chrome 浏览器：请安装 <a href="https://chrome.google.com/webstore/search/heic" target="_blank">HEIC 插件</a> 查看原图,可能需科学上网<br>
-                • Safari 浏览器：通常原生支持 HEIC 格式<br>
-                • 其他浏览器如EDGE浏览器：请尝试安装HEIC转换插件来显示高清图
-            </small>
-            <br>
-            <small class="text-muted">
-                你也可以点击右上角下载按钮下载原图后用电脑自带图片查看工具查看。
-            </small>
-        `;
-        tipElement.style.display = 'block';
-        console.log('缩略图降级提示已显示');
-    } else {
-        console.error('未找到 heicFormatTip 元素');
-    }
+function showThumbnailFallbackTip(format = 'heic') {
+    showFormatTip(format);
 }
 
 /**
  * 隐藏缩略图降级提示
  */
 function hideThumbnailFallbackTip() {
+    hideAllFormatTips();
+}
+
+/**
+ * 隐藏所有格式提示（支持 HEIC、TIFF、WebP）
+ */
+function hideAllFormatTips() {
     const tipElement = document.getElementById('heicFormatTip');
     if (tipElement) {
         tipElement.style.display = 'none';
-        console.log('缩略图降级提示已隐藏');
+        console.log('所有格式提示已隐藏');
     }
 }
 
 /**
- * 隐藏所有 HEIC 格式提示
+ * 隐藏所有 HEIC 格式提示（兼容旧代码）
  */
 function hideAllHeicTips() {
-    const tipElement = document.getElementById('heicFormatTip');
-    if (tipElement) {
-        tipElement.style.display = 'none';
-        console.log('所有 HEIC 格式提示已隐藏');
-    }
+    hideAllFormatTips();
 }
 
 /**
@@ -1167,7 +1250,11 @@ function initPhotoZoom() {
         zoomState.translateX = 0;
         zoomState.translateY = 0;
         
-        // 重置样式
+        // 重置样式（支持双图策略）
+        const thumbnailImg = document.getElementById('zoomablePhotoThumbnail');
+        if (thumbnailImg) {
+            thumbnailImg.style.transform = 'scale(1)';
+        }
         img.style.transform = 'scale(1)';
         wrapper.style.transform = 'translate(0, 0)';
         wrapper.style.cursor = 'move';
@@ -1257,15 +1344,20 @@ function updateZoom(delta) {
 }
 
 /**
- * 应用缩放变换
+ * 应用缩放变换（支持双图策略）
  */
 function applyZoom() {
     const zoomState = window.photoZoomState || { scale: 1 };
     const img = document.getElementById('zoomablePhoto');
+    const thumbnailImg = document.getElementById('zoomablePhotoThumbnail');
     const zoomLevel = document.getElementById('zoomLevel');
     
+    // 同时缩放原图和缩略图（双图策略）
     if (img) {
         img.style.transform = `scale(${zoomState.scale})`;
+    }
+    if (thumbnailImg) {
+        thumbnailImg.style.transform = `scale(${zoomState.scale})`;
     }
     
     if (zoomLevel) {
@@ -1297,11 +1389,16 @@ function resetZoom() {
     zoomState.translateY = 0;
     
     const img = document.getElementById('zoomablePhoto');
+    const thumbnailImg = document.getElementById('zoomablePhotoThumbnail');
     const wrapper = document.getElementById('imageZoomWrapper');
     const zoomLevel = document.getElementById('zoomLevel');
     
+    // 重置原图和缩略图（双图策略）
     if (img) {
         img.style.transform = 'scale(1)';
+    }
+    if (thumbnailImg) {
+        thumbnailImg.style.transform = 'scale(1)';
     }
     
     if (wrapper) {

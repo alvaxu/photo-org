@@ -568,6 +568,7 @@ class PeopleManagementStandalone {
                 total_files: totalPhotos,
                 processed_photos: 0,
                 failed_photos: 0,
+                skipped_photos: 0,  // 🔥 新增：跳过的照片统计
                 batch_count: batchInfo.length,
                 completed_batches: 0,
                 failed_batches: 0,
@@ -583,6 +584,8 @@ class PeopleManagementStandalone {
                     batch_index: batch.batchIndex || (i + 1),  // 确保有批次索引
                     task_id: batch.taskId || `batch_${i + 1}`,  // 确保有任务ID
                     completed_photos: progress?.completed_photos || 0,
+                    skipped_photos: progress?.skipped_photos || 0,  // 🔥 新增：批次跳过数量
+                    failed_photos: progress?.failed_photos || 0,
                     total_photos: progress?.total_photos || batch.photoIds?.length || 0,
                     status: progress?.status || batch.status || 'unknown',
                     error: progress?.error || batch.error || null
@@ -593,6 +596,7 @@ class PeopleManagementStandalone {
                 if (progress?.status === 'completed' || batch.status === 'completed') {
                     aggregatedResults.completed_batches++;
                     aggregatedResults.processed_photos += progress?.completed_photos || batch.photoIds?.length || 0;
+                    aggregatedResults.skipped_photos += progress?.skipped_photos || 0;  // 🔥 新增：累计跳过数量
                 } else if (progress?.status === 'failed' || batch.status === 'failed') {
                     aggregatedResults.failed_batches++;
                     aggregatedResults.failed_photos += progress?.failed_photos || batch.photoIds?.length || 0;
@@ -615,12 +619,18 @@ class PeopleManagementStandalone {
         const totalPhotos = results.total_files || results.total_photos || 0;
         const successfulPhotos = results.processed_photos || results.completed_photos || 0;
         const failedPhotos = results.failed_photos || 0;
+        const skippedPhotos = results.skipped_photos || 0;  // 🔥 新增：跳过的照片（如GIF格式）
 
         let icon, alertClass, summaryText;
         if (failedPhotos > 0) {
             icon = '⚠️';
             alertClass = 'alert-warning';
-            summaryText = `人脸识别完成：${totalPhotos}张照片中，${successfulPhotos}张成功识别，${failedPhotos}张识别失败`;
+            let skipText = skippedPhotos > 0 ? `，${skippedPhotos}张跳过` : '';
+            summaryText = `人脸识别完成：${totalPhotos}张照片中，${successfulPhotos}张成功识别，${failedPhotos}张识别失败${skipText}`;
+        } else if (skippedPhotos > 0) {
+            icon = 'ℹ️';
+            alertClass = 'alert-info';
+            summaryText = `人脸识别完成：${totalPhotos}张照片中，${successfulPhotos}张成功识别，${skippedPhotos}张跳过（不支持格式）`;
         } else if (successfulPhotos > 0) {
             icon = '✅';
             alertClass = 'alert-success';
@@ -648,7 +658,7 @@ class PeopleManagementStandalone {
                             </div>
 
                             <div class="row mb-3">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <div class="card text-center">
                                         <div class="card-body">
                                             <h5 class="card-title text-primary">${totalPhotos}</h5>
@@ -656,7 +666,7 @@ class PeopleManagementStandalone {
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <div class="card text-center">
                                         <div class="card-body">
                                             <h5 class="card-title text-success">${successfulPhotos}</h5>
@@ -664,7 +674,15 @@ class PeopleManagementStandalone {
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <h5 class="card-title text-warning">${skippedPhotos}</h5>
+                                            <p class="card-text">跳过</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
                                     <div class="card text-center">
                                         <div class="card-body">
                                             <h5 class="card-title text-danger">${failedPhotos}</h5>
@@ -674,14 +692,21 @@ class PeopleManagementStandalone {
                                 </div>
                             </div>
 
-                            ${failedPhotos > 0 ? `
+                            ${failedPhotos > 0 || skippedPhotos > 0 ? `
                             <div class="mt-4">
                                 <h6>处理详情：</h6>
-                                <div class="alert alert-info">
-                                    <i class="bi bi-info-circle me-2"></i>
-                                    有 ${failedPhotos} 张照片人脸识别失败；
-                                    请检查这些照片是否包含清晰的人脸，或尝试重新处理。
+                                ${failedPhotos > 0 ? `
+                                <div class="alert alert-danger mb-2">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    有 ${failedPhotos} 张照片人脸识别失败；请检查这些照片是否包含清晰的人脸，或尝试重新处理。
                                 </div>
+                                ` : ''}
+                                ${skippedPhotos > 0 ? `
+                                <div class="alert alert-warning mb-2">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    有 ${skippedPhotos} 张照片被跳过（如GIF格式不支持人脸识别）；这些照片不会被计入识别统计。
+                                </div>
+                                ` : ''}
                             </div>
                             ` : `
                             <div class="mt-4">
@@ -708,6 +733,8 @@ class PeopleManagementStandalone {
                                                 <th>批次</th>
                                                 <th>照片数量</th>
                                                 <th>完成数量</th>
+                                                <th>跳过数量</th>
+                                                <th>失败数量</th>
                                                 <th>状态</th>
                                                 <th>详情</th>
                                             </tr>
@@ -717,7 +744,9 @@ class PeopleManagementStandalone {
                                                 <tr>
                                                     <td>${batch.batch_index}</td>
                                                     <td>${batch.total_photos}</td>
-                                                    <td>${batch.completed_photos}</td>
+                                                    <td>${batch.completed_photos || 0}</td>
+                                                    <td>${batch.skipped_photos || 0}</td>
+                                                    <td>${batch.failed_photos || 0}</td>
                                                     <td>
                                                         <span class="badge ${batch.status === 'completed' ? 'bg-success' : 'bg-danger'}">
                                                             ${batch.status === 'completed' ? '完成' : '失败'}
@@ -898,6 +927,7 @@ class PeopleManagementStandalone {
                                         total_files: status.total_photos,
                                         processed_photos: status.completed_photos,
                                         failed_photos: status.failed_photos,
+                                        skipped_photos: status.skipped_photos || 0,  // 🔥 新增：跳过的照片
                                         // 🔥 修复：使用后端返回的实际批次信息
                                         batch_count: status.total_batches || 1,
                                         completed_batches: status.completed_batches || 1,
@@ -906,6 +936,8 @@ class PeopleManagementStandalone {
                                             batch_index: 1,
                                             task_id: taskId,
                                             completed_photos: status.completed_photos,
+                                            skipped_photos: status.skipped_photos || 0,  // 🔥 新增：批次跳过数量
+                                            failed_photos: status.failed_photos || 0,
                                             total_photos: status.total_photos,
                                             status: 'completed',
                                             error: null
