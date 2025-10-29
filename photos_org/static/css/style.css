@@ -1007,6 +1007,12 @@
     border: 2px solid #2196f3;
 }
 
+.portrait-card.selected {
+    background-color: #fff3cd;
+    border: 2px solid #ffc107;
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.3);
+}
+
 .portrait-img-container {
     width: 60px;
     height: 60px;
@@ -1015,6 +1021,7 @@
     overflow: hidden;
     border: 3px solid transparent;
     transition: all 0.3s ease;
+    position: relative;
 }
 
 .portrait-img {
@@ -1026,6 +1033,24 @@
 .portrait-card.active .portrait-img-container {
     border-color: #2196f3;
     box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.3);
+}
+
+.portrait-card.selected .portrait-img-container {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.3);
+}
+
+/* 选中标记图标样式 */
+.checkmark-icon {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    color: #ffc107;
+    background-color: white;
+    border-radius: 50%;
+    font-size: 20px;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .portrait-name {

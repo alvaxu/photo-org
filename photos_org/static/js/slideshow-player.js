@@ -562,25 +562,39 @@ async function generateSlideshowPlaylistAll() {
         // 获取当前筛选条件
         const filters = AppState.searchFilters;
 
-        // 构建API参数 - 获取符合条件的照片（API最大限制100）
+        // 构建API参数 - 获取符合条件的照片（API最大限制1000）
         const params = new URLSearchParams({
             offset: 0,
             limit: 1000,  // API最大限制为1000
             sort_by: filters.sortBy,
             sort_order: filters.sortOrder,
-            keyword: filters.keyword,
-            search_type: filters.searchType,
-            date_filter: filters.dateFilter,
-            quality_filter: filters.qualityFilter
+            keyword: filters.keyword || '',
+            search_type: filters.searchType || 'all',
+            date_filter: filters.dateFilter || '',
+            quality_filter: filters.qualityFilter || ''
         });
 
+        // 添加筛选参数（与loadPhotos保持一致）
+        if (filters.faceCountFilter) {
+            params.append('face_count_filter', filters.faceCountFilter);
+        }
+        if (filters.formatFilter) {
+            params.append('format_filter', filters.formatFilter);
+        }
+        if (filters.cameraFilter) {
+            params.append('camera_filter', filters.cameraFilter);
+        }
+        if (filters.person_filter && filters.person_filter !== 'all') {
+            params.append('person_filter', filters.person_filter);
+        }
+
         // 添加标签筛选参数
-        if (filters.selectedTags.length > 0) {
+        if (filters.selectedTags && filters.selectedTags.length > 0) {
             params.append('tag_ids', filters.selectedTags.join(','));
         }
 
         // 添加分类筛选参数
-        if (filters.selectedCategories.length > 0) {
+        if (filters.selectedCategories && filters.selectedCategories.length > 0) {
             params.append('category_ids', filters.selectedCategories.join(','));
         }
 
