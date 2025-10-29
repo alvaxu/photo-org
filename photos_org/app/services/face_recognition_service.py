@@ -28,6 +28,10 @@ ins_get_image = None
 cv2 = None
 DBSCAN = None
 cosine_similarity = None
+PIL = None
+Image = None
+np = None
+HEIC_SUPPORT = False
 
 from app.core.config import settings
 from app.db.session import get_db
@@ -49,7 +53,7 @@ class FaceRecognitionService:
         
     def _lazy_import_dependencies(self):
         """延迟导入重型库"""
-        global insightface, FaceAnalysis, ins_get_image, cv2, DBSCAN, cosine_similarity
+        global insightface, FaceAnalysis, ins_get_image, cv2, DBSCAN, cosine_similarity, PIL, Image, np, HEIC_SUPPORT
         
         if insightface is None:
             try:
@@ -74,6 +78,26 @@ class FaceRecognitionService:
                 from sklearn.cluster import DBSCAN
                 from sklearn.metrics.pairwise import cosine_similarity
                 logger.info("✓ 已加载 sklearn")
+                
+                # 导入 PIL 支持（用于 HEIC 格式）
+                try:
+                    from PIL import Image
+                    PIL = True
+                    logger.info("✓ 已加载 PIL")
+                    
+                    # 尝试导入 HEIC 支持
+                    try:
+                        from pillow_heif import register_heif_opener
+                        register_heif_opener()
+                        HEIC_SUPPORT = True
+                        logger.info("✓ 已加载 HEIC 格式支持")
+                    except ImportError:
+                        HEIC_SUPPORT = False
+                        logger.warning("⚠ HEIC 格式支持未安装 (pillow-heif)")
+                except ImportError:
+                    PIL = False
+                    logger.warning("⚠ PIL 未安装")
+                
                 logger.info("✅ 人脸识别依赖库加载完成")
             except ImportError as e:
                 logger.error(f"人脸识别依赖导入失败: {e}")
@@ -144,26 +168,60 @@ class FaceRecognitionService:
             return []
             
         try:
-            # 检查文件路径
+            # 🔥 异步执行：检查文件路径（避免阻塞事件循环）
             import os
-            file_exists = os.path.exists(photo_path)
+            file_exists = await asyncio.to_thread(os.path.exists, photo_path)
             
             if not file_exists:
                 logger.error(f"文件不存在: {photo_path}")
                 return []
             
-            # 读取图像
-            img = cv2.imread(photo_path)
+            # 🔥 异步执行：读取图像（文件IO操作在线程池中执行）
+            # 检查是否为 HEIC 格式
+            photo_path_lower = photo_path.lower()
+            is_heic = photo_path_lower.endswith(('.heic', '.heif'))
             
-            if img is None:
-                # 尝试其他方法读取
+            if is_heic and HEIC_SUPPORT and Image:
+                # HEIC 格式：使用 PIL 读取并转换为 OpenCV 格式
+                def read_heic_image():
+                    pil_img = Image.open(photo_path)
+                    # 转换为 RGB（HEIC 可能是 RGBA）
+                    if pil_img.mode == 'RGBA':
+                        # 创建白色背景
+                        background = Image.new('RGB', pil_img.size, (255, 255, 255))
+                        background.paste(pil_img, mask=pil_img.split()[3])  # 3 是 alpha 通道
+                        pil_img = background
+                    elif pil_img.mode != 'RGB':
+                        pil_img = pil_img.convert('RGB')
+                    
+                    # 转换为 numpy 数组并转为 BGR（OpenCV 格式）
+                    img_array = np.array(pil_img)
+                    return cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+                
                 try:
-                    with open(photo_path, 'rb') as f:
-                        img_data = f.read()
-                    import numpy as np
-                    nparr = np.frombuffer(img_data, np.uint8)
-                    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    img = await asyncio.to_thread(read_heic_image)
+                    logger.info(f"HEIC 图像读取成功: {photo_path}")
+                except Exception as e:
+                    logger.error(f"HEIC 图像读取失败: {e}")
+                    return []
+            else:
+                # 非 HEIC 格式：使用 OpenCV 读取
+                def read_image():
+                    img = cv2.imread(photo_path)
+                    
                     if img is None:
+                        # 尝试其他方法读取
+                        with open(photo_path, 'rb') as f:
+                            img_data = f.read()
+                        nparr = np.frombuffer(img_data, np.uint8)
+                        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    
+                    return img
+                
+                try:
+                    img = await asyncio.to_thread(read_image)
+                    if img is None:
+                        logger.error(f"图像读取失败: {photo_path}")
                         return []
                 except Exception as e:
                     logger.error(f"图像读取失败: {e}")

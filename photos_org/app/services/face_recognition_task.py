@@ -202,8 +202,11 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
             async def process_single_photo_with_semaphore(photo_id: int):
                 """使用信号量控制并发处理单张照片（只控制人脸检测部分）"""
                 try:
-                    # 🔥 优化：数据库查询和文件检查可以并发
-                    photo = db.query(Photo).filter(Photo.id == photo_id).first()
+                    # 🔥 异步执行：数据库查询（避免阻塞事件循环）
+                    def query_photo():
+                        return db.query(Photo).filter(Photo.id == photo_id).first()
+                    
+                    photo = await asyncio.to_thread(query_photo)
                     
                     if not photo:
                         return {"photo_id": photo_id, "status": "skipped", "reason": "photo_not_found"}
@@ -212,7 +215,10 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
                     storage_base = Path(settings.storage.base_path)
                     full_path = storage_base / photo.original_path
                     
-                    if not full_path.exists():
+                    # 🔥 异步执行：文件检查（避免阻塞事件循环）
+                    file_exists = await asyncio.to_thread(full_path.exists)
+                    
+                    if not file_exists:
                         logger.warning(f"照片文件不存在: {full_path}")
                         return {"photo_id": photo_id, "status": "skipped", "reason": "file_not_found"}
                     

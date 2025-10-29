@@ -120,6 +120,10 @@ a = Analysis(
         'PIL.ImageEnhance',
         'imagehash',
         'cv2',              # OpenCV for image quality assessment
+        
+        # HEIC format support
+        'PIL._heif',        # HEIC image format support
+        'pillow_heif',      # HEIC format support library
         # Core modules - PyInstaller will auto-collect dependencies with --collect-all
         'uvicorn.loops',
         'uvicorn.loops.auto',
@@ -324,6 +328,7 @@ a = Analysis(
         'jieba',            # Chinese text segmentation
         'opencv-python',    # Computer vision library
         'pillow',           # Image processing library
+        'pillow-heif',      # HEIC format support library
         'numpy',            # Numerical computing library
         # 'insightface',      # Face recognition library - NEEDED for face recognition
         # 'onnx',             # ONNX for InsightFace - NEEDED for face recognition

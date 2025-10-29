@@ -263,6 +263,30 @@ async def root():
 
 if __name__ == "__main__":
     import logging
+    import asyncio
+    
+    # ===== Windows 下处理 ConnectionResetError =====
+    if sys.platform == 'win32':
+        # 静默 asyncio 的 ConnectionResetError 日志
+        logging.getLogger('asyncio').setLevel(logging.CRITICAL)
+        
+        # 创建自定义事件循环策略（必须在导入 uvicorn 之前）
+        class CustomEventLoopPolicy(asyncio.WindowsProactorEventLoopPolicy):
+            def new_event_loop(self):
+                loop = super().new_event_loop()
+                def exception_handler(loop, context):
+                    exception = context.get('exception')
+                    if isinstance(exception, ConnectionResetError):
+                        # 忽略 ConnectionResetError，避免阻塞关闭
+                        pass
+                    else:
+                        # 其他异常正常处理
+                        loop.default_exception_handler(context)
+                loop.set_exception_handler(exception_handler)
+                return loop
+        
+        # 立即设置全局策略，这样 uvicorn 创建的事件循环会使用它
+        asyncio.set_event_loop_policy(CustomEventLoopPolicy())
 
     # ===== 应用初始化开始 =====
     print("\n" + "="*60)
@@ -448,12 +472,16 @@ if __name__ == "__main__":
     print(f"📖 网络帮助页面: http://{local_ip}:{settings.server_port}/help-overview")
     print(f"⚙️ 网络配置页面: http://{local_ip}:{settings.server_port}/settings")
     print("=" * 60)
-    # 禁用reload模式，避免watchfiles检测问题
-    uvicorn.run(
-        app,  # 直接传递app对象，避免PyInstaller环境下的模块导入问题
+    
+    # 启动服务器
+    config = uvicorn.Config(
+        app,
         host=settings.server_host,
         port=settings.server_port,
-        reload=False,  # 完全禁用reload模式
         log_level=settings.logging.level.lower(),
-        access_log=False  # 完全禁用访问日志
+        access_log=False,
+        reload=False,
+        loop='auto'  # 使用自动选择的事件循环
     )
+    server = uvicorn.Server(config)
+    server.run()
