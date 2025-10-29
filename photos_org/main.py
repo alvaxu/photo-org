@@ -383,11 +383,6 @@ if __name__ == "__main__":
 
     # ===== 系统状态检查 =====
 
-    # 检查API_KEY配置
-    print("🔑 正在检查API配置...")
-    api_key_status = "✅ 已配置" if settings.dashscope.api_key else "❌ 未配置"
-    api_key_warning = "" if settings.dashscope.api_key else "⚠️  未配置API_KEY，AI分析功能将不可用"
-    print(f"   API_KEY状态: {api_key_status}")
 
     # 检查FTS表状态
     print("🔍 正在检查搜索功能...")
@@ -404,9 +399,7 @@ if __name__ == "__main__":
     print("="*60)
     print(f"📁 配置存储路径: {settings.storage.base_path}")
     print(f"📂 实际存储路径: {photos_storage_dir}")
-    print(f"🔑 API_KEY状态: {api_key_status}")
-    if api_key_warning:
-        print(f"   {api_key_warning}")
+
 
     # 启动定期缓存清理任务
     print("🧹 启动定期缓存清理任务...")
@@ -450,8 +443,6 @@ if __name__ == "__main__":
     print(f"🌐 本机访问: http://127.0.0.1:{settings.server_port}")
     print(f"📖 本机帮助页面: http://127.0.0.1:{settings.server_port}/help-overview")
     print(f"⚙️ 本机配置页面: http://127.0.0.1:{settings.server_port}/settings")
-    if not settings.dashscope.api_key:
-        print(f"🔧 配置API_KEY: http://127.0.0.1:{settings.server_port}/settings")
     print("-" * 15+"其他设备访问地址（同一网络）"+"-" * 15)
     print(f"🌐 网络访问: http://{local_ip}:{settings.server_port}")
     print(f"📖 网络帮助页面: http://{local_ip}:{settings.server_port}/help-overview")
