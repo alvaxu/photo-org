@@ -120,7 +120,7 @@ class SearchService:
 
             # 人物筛选
             if person_filter != "all":
-                query = self._apply_person_filter(query, person_filter)
+                query = self._apply_person_filter(query, person_filter, db)
 
             # 日期筛选
             if date_from == "no_date" and date_to == "no_date":
@@ -718,7 +718,7 @@ class SearchService:
 
             # 人物筛选
             if person_filter and person_filter != 'all':
-                base_query = self._apply_person_filter(base_query, person_filter)
+                base_query = self._apply_person_filter(base_query, person_filter, db)
 
             # 年份筛选（特殊处理）
             if year_filter:
@@ -1041,19 +1041,25 @@ class SearchService:
             self.logger.error(f"检查FTS表存在性失败: {e}")
             return False
 
-    def _apply_person_filter(self, query, person_filter: str):
+    def _apply_person_filter(self, query, person_filter: str, db: Session):
         """
         应用人物筛选条件
         
         Args:
             query: SQLAlchemy查询对象
-            person_filter: 人物筛选条件
+            person_filter: 人物筛选条件，支持：
+                - "all": 所有照片
+                - "unlabeled": 未标记人物
+                - "cluster_001": 单个聚类
+                - "cluster_001,cluster_002": 多个聚类（逗号分隔，AND关系：照片必须同时包含所有选中的人物）
+            db: 数据库会话
             
         Returns:
             修改后的查询对象
         """
         try:
             from app.models.face import FaceDetection, FaceClusterMember, FaceCluster
+            from sqlalchemy import func
             
             if person_filter == "unlabeled":
                 # 查询未标记人物的照片
@@ -1061,14 +1067,50 @@ class SearchService:
                            .join(FaceClusterMember, FaceDetection.face_id == FaceClusterMember.face_id)\
                            .join(FaceCluster, FaceClusterMember.cluster_id == FaceCluster.cluster_id)\
                            .filter(FaceCluster.is_labeled == False)
-            else:
-                # 查询特定聚类的照片
-                query = query.join(FaceDetection, Photo.id == FaceDetection.photo_id)\
-                           .join(FaceClusterMember, FaceDetection.face_id == FaceClusterMember.face_id)\
-                           .filter(FaceClusterMember.cluster_id == person_filter)
+            elif person_filter and person_filter != "all":
+                # 处理单个或多个聚类筛选
+                cluster_ids = [cid.strip() for cid in person_filter.split(',') if cid.strip()]
+                
+                if len(cluster_ids) == 1:
+                    # 单个聚类：直接筛选
+                    query = query.join(FaceDetection, Photo.id == FaceDetection.photo_id)\
+                               .join(FaceClusterMember, FaceDetection.face_id == FaceClusterMember.face_id)\
+                               .filter(FaceClusterMember.cluster_id == cluster_ids[0])
+                elif len(cluster_ids) > 1:
+                    # 多个聚类：AND关系（照片必须同时包含所有选中的人物）
+                    # 使用子查询：对每个cluster_id，确保照片中有人脸属于该cluster
+                    # 方法：GROUP BY photo_id，HAVING COUNT(DISTINCT cluster_id) = 选中的cluster数量
+                    
+                    # 第一步：找到包含任意一个选中cluster的照片（已去重）
+                    subquery = (
+                        db.query(FaceDetection.photo_id, FaceClusterMember.cluster_id)
+                        .join(FaceClusterMember, FaceDetection.face_id == FaceClusterMember.face_id)
+                        .filter(FaceClusterMember.cluster_id.in_(cluster_ids))
+                        .distinct()
+                        .subquery()
+                    )
+                    
+                    # 第二步：GROUP BY photo_id，统计每个照片包含的distinct cluster数量
+                    # 使用 func.count() 统计 distinct 的 cluster_id 数量
+                    # 注意：SQLAlchemy中 COUNT(DISTINCT column) 的正确写法
+                    from sqlalchemy.sql import distinct as distinct_func
+                    photo_ids_with_all_clusters = (
+                        db.query(subquery.c.photo_id)
+                        .group_by(subquery.c.photo_id)
+                        .having(func.count(distinct_func(subquery.c.cluster_id)) == len(cluster_ids))
+                        .subquery()
+                    )
+                    
+                    # 第三步：在原始查询中筛选这些photo_id
+                    query = query.filter(Photo.id.in_(
+                        db.query(photo_ids_with_all_clusters.c.photo_id)
+                    ))
+                # else: person_filter == "all" 或为空，不做任何筛选
             
             return query
 
         except Exception as e:
             self.logger.error(f"应用人物筛选条件失败: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             return query

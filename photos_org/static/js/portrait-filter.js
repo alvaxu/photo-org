@@ -10,7 +10,7 @@
 class PortraitFilterPanel {
     constructor() {
         this.clusters = [];
-        this.selectedClusterId = 'all';
+        this.selectedClusterIds = []; // 改为数组，支持多选
         this.isExpanded = false;
         // 分页显示状态
         this.displayedCount = 10; // 初始显示10个
@@ -129,10 +129,15 @@ class PortraitFilterPanel {
         // 只显示前 displayCount 个
         const displayedClusters = sortedClusters.slice(0, this.displayedCount);
         
-        let html = displayedClusters.map(cluster => `
+        let html = displayedClusters.map(cluster => {
+            const isSelected = this.selectedClusterIds.includes(cluster.cluster_id);
+            const selectedClass = isSelected ? 'selected' : '';
+            const checkmarkIcon = isSelected ? '<i class="bi bi-check-circle-fill checkmark-icon"></i>' : '';
+            return `
             <div class="col-auto">
-                <div class="portrait-card" data-cluster-id="${cluster.cluster_id}">
+                <div class="portrait-card ${selectedClass}" data-cluster-id="${cluster.cluster_id}">
                     <div class="portrait-img-container">
+                        ${checkmarkIcon}
                         <img src="${cluster.face_crop_url || '/static/images/placeholder.jpg'}" 
                              class="portrait-img" alt="${cluster.person_name || '未命名人物'}">
                     </div>
@@ -140,7 +145,8 @@ class PortraitFilterPanel {
                     <small class="portrait-count">(${cluster.face_count})</small>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
         
         // 添加操作按钮
         const remainingCount = this.totalClusters - this.displayedCount;
@@ -197,6 +203,9 @@ class PortraitFilterPanel {
         
         // 绑定按钮事件
         this.bindLoadMoreEvents();
+        
+        // 更新选中状态UI（因为重新渲染了HTML）
+        this.updateSelectionUI();
     }
     
     bindLoadMoreEvents() {
@@ -284,20 +293,104 @@ class PortraitFilterPanel {
     }
     
     async selectCluster(clusterId) {
-        // 更新选中状态
-        document.querySelectorAll('.portrait-card').forEach(card => {
-            card.classList.remove('active');
-        });
-        document.querySelector(`[data-cluster-id="${clusterId}"]`).classList.add('active');
+        // 切换选中状态（支持多选）
+        const index = this.selectedClusterIds.indexOf(clusterId);
+        if (index > -1) {
+            // 已选中，取消选中
+            this.selectedClusterIds.splice(index, 1);
+        } else {
+            // 未选中，添加到选中列表
+            this.selectedClusterIds.push(clusterId);
+        }
+        
+        // 更新UI显示
+        this.updateSelectionUI();
         
         // 执行筛选
-        await this.filterPhotosByCluster(clusterId);
+        await this.filterPhotosByCluster();
     }
     
-    async filterPhotosByCluster(clusterId) {
-        // 更新筛选条件
+    updateSelectionUI() {
+        // 更新所有肖像卡的选中状态
+        document.querySelectorAll('.portrait-card').forEach(card => {
+            const clusterId = card.dataset.clusterId;
+            const isSelected = this.selectedClusterIds.includes(clusterId);
+            if (isSelected) {
+                card.classList.add('selected');
+                // 添加选中标记图标（如果还没有）
+                const imgContainer = card.querySelector('.portrait-img-container');
+                if (imgContainer && !imgContainer.querySelector('.checkmark-icon')) {
+                    const checkmark = document.createElement('i');
+                    checkmark.className = 'bi bi-check-circle-fill checkmark-icon';
+                    imgContainer.insertBefore(checkmark, imgContainer.firstChild);
+                }
+            } else {
+                card.classList.remove('selected');
+                // 移除选中标记图标
+                const checkmark = card.querySelector('.checkmark-icon');
+                if (checkmark) {
+                    checkmark.remove();
+                }
+            }
+        });
+        
+        // 更新已选数量提示
+        this.updateSelectedCountHint();
+    }
+    
+    updateSelectedCountHint() {
+        const count = this.selectedClusterIds.length;
+        let hintElement = document.getElementById('selectedPortraitsHint');
+        
+        if (count > 0) {
+            if (!hintElement) {
+                // 创建提示元素
+                const container = document.getElementById('portraitFilterContent');
+                if (container) {
+                    hintElement = document.createElement('div');
+                    hintElement.id = 'selectedPortraitsHint';
+                    hintElement.className = 'alert alert-info mb-2';
+                    hintElement.style.marginBottom = '0.5rem';
+                    container.insertBefore(hintElement, container.firstChild);
+                }
+            }
+            
+            if (hintElement) {
+                const clustersInfo = this.selectedClusterIds.map(id => {
+                    const cluster = this.clusters.find(c => c.cluster_id === id);
+                    return cluster ? (cluster.person_name || '未命名人物') : id;
+                }).join('、');
+                
+                hintElement.innerHTML = `
+                    <i class="bi bi-people-fill me-2"></i>
+                    <strong>已选 ${count} 个人物：</strong>${clustersInfo}
+                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="window.portraitFilterPanel.clearFilter()">
+                        <i class="bi bi-x-circle"></i> 清除
+                    </button>
+                `;
+                hintElement.style.display = 'block';
+            }
+        } else {
+            // 没有选中，隐藏提示
+            if (hintElement) {
+                hintElement.style.display = 'none';
+            }
+        }
+    }
+    
+    async filterPhotosByCluster() {
+        // 更新筛选条件（支持多选：使用逗号分隔）
         if (window.AppState && window.AppState.searchFilters) {
-            window.AppState.searchFilters.person_filter = clusterId;
+            if (this.selectedClusterIds.length === 0) {
+                // 没有选中，显示所有照片
+                window.AppState.searchFilters.person_filter = 'all';
+            } else if (this.selectedClusterIds.length === 1) {
+                // 单个选中，向后兼容
+                window.AppState.searchFilters.person_filter = this.selectedClusterIds[0];
+            } else {
+                // 多个选中，使用逗号分隔（AND关系：显示同时包含所有选中人物的照片）
+                window.AppState.searchFilters.person_filter = this.selectedClusterIds.join(',');
+            }
         }
         
         // 重新加载照片和统计
@@ -314,16 +407,23 @@ class PortraitFilterPanel {
     
     // 清除筛选
     clearFilter() {
-        this.selectedClusterId = 'all';
-        document.querySelectorAll('.portrait-card').forEach(card => {
-            card.classList.remove('active');
-        });
+        this.selectedClusterIds = [];
+        this.updateSelectionUI();
         
         if (window.AppState && window.AppState.searchFilters) {
             window.AppState.searchFilters.person_filter = 'all';
         }
         
-        // 注意：不在这里重新加载照片，由调用方处理
+        // 重新加载照片和统计
+        if (typeof window.loadPhotos === 'function') {
+            window.loadPhotos(1);
+        }
+        if (typeof window.loadStats === 'function') {
+            window.loadStats();
+        }
+        if (typeof window.updateFilterStatus === 'function') {
+            window.updateFilterStatus();
+        }
     }
 }
 

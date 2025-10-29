@@ -78,33 +78,58 @@ class FaceCropService:
             if cache_path.exists():
                 return str(cache_path.relative_to(storage_base))
             
-            # 读取照片（支持HEIC格式）
+            # 读取照片（支持HEIC、TIFF、WebP格式）
             photo_path_lower = str(full_photo_path).lower()
             is_heic = photo_path_lower.endswith(('.heic', '.heif'))
+            is_tiff = photo_path_lower.endswith(('.tiff', '.tif'))
+            is_webp = photo_path_lower.endswith('.webp')
+            
+            def convert_pil_to_cv2(pil_img):
+                """将 PIL 图像转换为 OpenCV BGR 格式"""
+                # 转换为 RGB（处理 RGBA、CMYK 等格式）
+                if pil_img.mode == 'RGBA':
+                    # 创建白色背景
+                    background = Image.new('RGB', pil_img.size, (255, 255, 255))
+                    background.paste(pil_img, mask=pil_img.split()[3])  # 3 是 alpha 通道
+                    pil_img = background
+                elif pil_img.mode != 'RGB':
+                    pil_img = pil_img.convert('RGB')
+                
+                # 转换为 numpy 数组并转为 BGR（OpenCV 格式）
+                img_array = np.array(pil_img)
+                return cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
             
             if is_heic and HEIC_SUPPORT and PIL:
                 # HEIC 格式：使用 PIL 读取并转换为 OpenCV 格式
                 try:
                     pil_img = Image.open(str(full_photo_path))
-                    # 转换为 RGB（HEIC 可能是 RGBA）
-                    if pil_img.mode == 'RGBA':
-                        # 创建白色背景
-                        background = Image.new('RGB', pil_img.size, (255, 255, 255))
-                        background.paste(pil_img, mask=pil_img.split()[3])  # 3 是 alpha 通道
-                        pil_img = background
-                    elif pil_img.mode != 'RGB':
-                        pil_img = pil_img.convert('RGB')
-                    
-                    # 转换为 numpy 数组并转为 BGR（OpenCV 格式）
-                    img_array = np.array(pil_img)
-                    image = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+                    image = convert_pil_to_cv2(pil_img)
                     logger.info(f"HEIC 图像读取成功（肖像裁剪）: {full_photo_path}")
                 except Exception as e:
                     logger.error(f"HEIC 图像读取失败（肖像裁剪）: {e}")
                     return None
             else:
-                # 非 HEIC 格式：使用 OpenCV 读取
+                # 非 HEIC 格式：先尝试 OpenCV 读取，失败则使用 PIL 备用方案（适用于 TIFF/WebP）
                 image = cv2.imread(str(full_photo_path))
+                
+                if image is None:
+                    # OpenCV 读取失败，尝试其他方法
+                    with open(str(full_photo_path), 'rb') as f:
+                        img_data = f.read()
+                    nparr = np.frombuffer(img_data, np.uint8)
+                    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                
+                # 如果 OpenCV 读取失败，且是 TIFF/WebP 格式，尝试使用 PIL 读取
+                if image is None and (is_tiff or is_webp) and PIL:
+                    logger.info(f"OpenCV 读取失败，尝试使用 PIL 读取（肖像裁剪）: {full_photo_path}")
+                    try:
+                        pil_img = Image.open(str(full_photo_path))
+                        image = convert_pil_to_cv2(pil_img)
+                        logger.info(f"PIL 读取成功（肖像裁剪）: {full_photo_path}")
+                    except Exception as e:
+                        logger.error(f"PIL 读取也失败（肖像裁剪）: {full_photo_path}, 错误={e}")
+                        return None
+                
                 if image is None:
                     logger.error(f"无法读取照片: {full_photo_path}")
                     return None
