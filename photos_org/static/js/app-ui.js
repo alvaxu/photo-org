@@ -656,58 +656,10 @@ window.switchView = switchView;
 
 // 绑定照片详情事件
 function bindPhotoDetailEvents(photo) {
-    // 绑定幻灯片播放按钮事件
-    const slideshowBtn = elements.photoModal.querySelector('#startSlideshowBtn');
-    if (slideshowBtn) {
-        slideshowBtn.onclick = (e) => {
-            e.preventDefault();
-            // 关闭当前详情模态框
-            const modal = bootstrap.Modal.getInstance(elements.photoModal);
-            if (modal) {
-                modal.hide();
-                // 清除焦点以避免aria-hidden警告
-                setTimeout(() => {
-                    const focusedElement = document.activeElement;
-                    if (focusedElement && focusedElement.blur) {
-                        focusedElement.blur();
-                    }
-                }, 100);
-            }
-
-            // 检查函数是否已加载
-            const checkAndStart = () => {
-                if (typeof window.startSlideshowFromCurrent === 'function') {
-                    // 开始幻灯片播放
-                    window.startSlideshowFromCurrent(photo.id);
-                } else {
-                    console.warn('幻灯片播放功能尚未加载，1秒后重试...');
-                    // 1秒后重试一次
-                    setTimeout(checkAndStart, 1000);
-                }
-            };
-
-            checkAndStart();
-        };
-    }
-
     // 绑定下载按钮事件
     const downloadBtn = elements.photoModal.querySelector('#downloadPhotoBtn');
     if (downloadBtn) {
         downloadBtn.onclick = () => downloadPhoto(photo.id);
-    }
-    
-    // 绑定搜索相似照片按钮事件
-    const searchSimilarBtn = elements.photoModal.querySelector('#searchSimilarBtn');
-    if (searchSimilarBtn) {
-        searchSimilarBtn.onclick = () => {
-            // 关闭当前详情模态框
-            const modal = bootstrap.Modal.getInstance(elements.photoModal);
-            if (modal) {
-                modal.hide();
-            }
-            // 搜索相似照片
-            searchSimilarPhotos(photo.id);
-        };
     }
     
     // 绑定编辑按钮事件
@@ -720,12 +672,6 @@ function bindPhotoDetailEvents(photo) {
     const favoriteBtn = elements.photoModal.querySelector('#addToFavoritesBtn');
     if (favoriteBtn) {
         favoriteBtn.onclick = () => toggleFavorite(photo.id);
-    }
-    
-    // 绑定删除按钮事件
-    const deleteBtn = elements.photoModal.querySelector('#deletePhotoBtn');
-    if (deleteBtn) {
-        deleteBtn.onclick = () => deletePhoto(photo.id);
     }
 }
 
