@@ -51,16 +51,36 @@ class EnhancedSimilarityService:
         # 从配置文件读取预筛选参数
         self.time_margin_days = settings.similarity.pre_screening["time_margin_days"]
         self.location_margin = settings.similarity.pre_screening["location_margin"]
+        
+        # 存储基础路径（用于构建完整文件路径）
+        self.storage_base = Path(settings.storage.base_path).resolve()
+
+    def _get_full_path(self, image_path: str) -> Path:
+        """
+        构建完整的文件路径
+        
+        :param image_path: 相对路径或绝对路径
+        :return: 完整路径
+        """
+        path = Path(image_path)
+        # 如果是绝对路径，直接返回
+        if path.is_absolute():
+            return path
+        # 如果是相对路径，添加storage_base前缀
+        return self.storage_base / image_path
 
     def calculate_multiple_hashes(self, image_path: str) -> Dict[str, str]:
         """
         计算多种类型的哈希值
         
-        :param image_path: 图像文件路径
+        :param image_path: 图像文件路径（相对路径或绝对路径）
         :return: 包含多种哈希值的字典
         """
         try:
-            image = Image.open(image_path)
+            # 构建完整路径
+            full_path = self._get_full_path(image_path)
+            
+            image = Image.open(str(full_path))
             if image.mode != 'RGB':
                 image = image.convert('RGB')
             
@@ -82,12 +102,15 @@ class EnhancedSimilarityService:
         """
         计算颜色直方图特征
         
-        :param image_path: 图像文件路径
+        :param image_path: 图像文件路径（相对路径或绝对路径）
         :return: 颜色直方图特征向量
         """
         try:
+            # 构建完整路径
+            full_path = self._get_full_path(image_path)
+            
             # 使用OpenCV读取图像
-            image = cv2.imread(image_path)
+            image = cv2.imread(str(full_path))
             if image is None:
                 raise Exception("无法读取图像")
             
@@ -115,14 +138,18 @@ class EnhancedSimilarityService:
         """
         计算结构相似性（SSIM）
         
-        :param image_path1: 第一张图像路径
-        :param image_path2: 第二张图像路径
+        :param image_path1: 第一张图像路径（相对路径或绝对路径）
+        :param image_path2: 第二张图像路径（相对路径或绝对路径）
         :return: 结构相似性分数 (0-1)
         """
         try:
+            # 构建完整路径
+            full_path1 = self._get_full_path(image_path1)
+            full_path2 = self._get_full_path(image_path2)
+            
             # 读取图像
-            img1 = cv2.imread(image_path1, cv2.IMREAD_GRAYSCALE)
-            img2 = cv2.imread(image_path2, cv2.IMREAD_GRAYSCALE)
+            img1 = cv2.imread(str(full_path1), cv2.IMREAD_GRAYSCALE)
+            img2 = cv2.imread(str(full_path2), cv2.IMREAD_GRAYSCALE)
             
             if img1 is None or img2 is None:
                 return 0.0

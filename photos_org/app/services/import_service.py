@@ -462,13 +462,59 @@ class ImportService:
             print(f"缩略图生成失败: {str(e)}")
             return None
 
-    def move_to_storage(self, source_path: str, filename: str) -> str:
+    def convert_heic_to_jpeg(self, heic_path: str, jpeg_path: str, quality: int = 95) -> bool:
         """
-        将文件移动到存储目录
+        将HEIC格式转换为JPEG格式
+        
+        :param heic_path: HEIC源文件路径
+        :param jpeg_path: 目标JPEG文件路径
+        :param quality: JPEG质量 (1-100)，默认95保持高质量
+        :return: 是否转换成功
+        """
+        # 延迟导入PIL
+        _lazy_import_pil()
+        
+        if not HEIC_SUPPORT:
+            raise Exception("HEIC格式需要安装pillow-heif库支持")
+        
+        try:
+            # 使用PIL读取HEIC文件
+            with Image.open(heic_path) as img:
+                # 根据EXIF方向信息旋转图片（保持与缩略图生成一致）
+                img = self._fix_image_orientation(img)
+                
+                # 处理RGBA透明通道（转换为RGB+白色背景）
+                if img.mode in ('RGBA', 'LA'):
+                    # 创建白色背景
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'RGBA':
+                        background.paste(img, mask=img.split()[3])  # 使用alpha通道作为mask
+                    else:
+                        background.paste(img)
+                    img = background
+                elif img.mode != 'RGB':
+                    # 转换为RGB格式
+                    img = img.convert('RGB')
+                
+                # 保存为JPEG格式（高质量）
+                jpeg_path_obj = Path(jpeg_path)
+                jpeg_path_obj.parent.mkdir(parents=True, exist_ok=True)
+                img.save(jpeg_path, 'JPEG', quality=quality, optimize=True)
+                
+                return True
+                
+        except Exception as e:
+            print(f"HEIC转JPEG失败: {str(e)}")
+            return False
+
+    def move_to_storage(self, source_path: str, filename: str, file_hash: str = None) -> str:
+        """
+        将文件移动到存储目录（使用哈希值作为文件名以避免OpenCV中文路径问题）
 
         :param source_path: 源文件路径
-        :param filename: 目标文件名
-        :return: 存储路径
+        :param filename: 原始文件名（用于数据库filename字段，保留中文名）
+        :param file_hash: 文件哈希值（如果提供，将使用哈希值作为文件系统文件名）
+        :return: 存储路径（相对路径）
         """
         # 构造存储路径（按日期组织）
         now = datetime.now()
@@ -477,11 +523,35 @@ class ImportService:
         # 确保日期目录存在
         date_path.mkdir(parents=True, exist_ok=True)
 
-        # 构造目标路径
-        target_path = date_path / filename
+        # 生成文件系统文件名：如果提供了file_hash，使用哈希值（纯英文，OpenCV友好）
+        # 否则使用原始文件名（向后兼容）
+        if file_hash:
+            file_ext = Path(filename).suffix
+            target_filename = f"{file_hash}{file_ext}"
+        else:
+            target_filename = filename
 
-        # 如果文件已存在，添加时间戳避免冲突
-        if target_path.exists():
+        # 构造目标路径
+        target_path = date_path / target_filename
+
+        # 如果文件已存在，验证是否为重复文件（相同hash）
+        if target_path.exists() and file_hash:
+            # 验证已存在文件的hash
+            existing_hash = self.calculate_file_hash(str(target_path))
+            if existing_hash == file_hash:
+                # 是同一个文件，不重复保存，直接返回已存在的路径
+                try:
+                    relative_path = target_path.relative_to(self.storage_base)
+                    return str(relative_path)
+                except ValueError:
+                    return str(target_path)
+            # hash不同，极小概率的hash冲突，添加时间戳
+            timestamp = int(now.timestamp())
+            stem = target_path.stem
+            suffix = target_path.suffix
+            target_path = date_path / f"{stem}_{timestamp}{suffix}"
+        elif target_path.exists():
+            # 未提供file_hash，使用时间戳避免冲突
             timestamp = int(now.timestamp())
             stem = target_path.stem
             suffix = target_path.suffix
@@ -491,15 +561,22 @@ class ImportService:
         import shutil
         shutil.move(source_path, target_path)
 
-        return str(target_path)
+        # 返回相对路径（相对于storage_base）
+        try:
+            relative_path = target_path.relative_to(self.storage_base)
+            return str(relative_path)
+        except ValueError:
+            # 如果路径不在storage_base下，返回绝对路径
+            return str(target_path)
 
-    def copy_to_storage(self, source_path: str, filename: str) -> str:
+    def copy_to_storage(self, source_path: str, filename: str, file_hash: str = None) -> str:
         """
-        将文件复制到存储目录
+        将文件复制到存储目录（使用哈希值作为文件名以避免OpenCV中文路径问题）
 
         :param source_path: 源文件路径
-        :param filename: 目标文件名
-        :return: 存储路径
+        :param filename: 原始文件名（用于数据库filename字段，保留中文名）
+        :param file_hash: 文件哈希值（如果提供，将使用哈希值作为文件系统文件名）
+        :return: 存储路径（相对路径）
         """
         # 构造存储路径（按日期组织）
         now = datetime.now()
@@ -508,11 +585,35 @@ class ImportService:
         # 确保日期目录存在
         date_path.mkdir(parents=True, exist_ok=True)
 
-        # 构造目标路径
-        target_path = date_path / filename
+        # 生成文件系统文件名：如果提供了file_hash，使用哈希值（纯英文，OpenCV友好）
+        # 否则使用原始文件名（向后兼容）
+        if file_hash:
+            file_ext = Path(filename).suffix
+            target_filename = f"{file_hash}{file_ext}"
+        else:
+            target_filename = filename
 
-        # 如果文件已存在，添加时间戳避免冲突
-        if target_path.exists():
+        # 构造目标路径
+        target_path = date_path / target_filename
+
+        # 如果文件已存在，验证是否为重复文件（相同hash）
+        if target_path.exists() and file_hash:
+            # 验证已存在文件的hash
+            existing_hash = self.calculate_file_hash(str(target_path))
+            if existing_hash == file_hash:
+                # 是同一个文件，不重复保存，直接返回已存在的路径
+                try:
+                    relative_path = target_path.relative_to(self.storage_base)
+                    return str(relative_path)
+                except ValueError:
+                    return str(target_path)
+            # hash不同，极小概率的hash冲突，添加时间戳
+            timestamp = int(now.timestamp())
+            stem = target_path.stem
+            suffix = target_path.suffix
+            target_path = date_path / f"{stem}_{timestamp}{suffix}"
+        elif target_path.exists():
+            # 未提供file_hash，使用时间戳避免冲突
             timestamp = int(now.timestamp())
             stem = target_path.stem
             suffix = target_path.suffix
@@ -522,11 +623,17 @@ class ImportService:
         import shutil
         shutil.copy2(source_path, target_path)
 
-        return str(target_path)
+        # 返回相对路径（相对于storage_base）
+        try:
+            relative_path = target_path.relative_to(self.storage_base)
+            return str(relative_path)
+        except ValueError:
+            # 如果路径不在storage_base下，返回绝对路径
+            return str(target_path)
 
     def _check_duplicate_file(self, file_hash: str, db_session) -> Dict:
         """
-        检查文件是否重复的完整逻辑
+        检查文件是否重复（简化版：只检查数据库）
         
         :param file_hash: 文件哈希值
         :param db_session: 数据库会话
@@ -534,44 +641,21 @@ class ImportService:
         """
         from app.models.photo import Photo
         
-        # 情况1：数据库有记录 + 物理文件存在 = 完全重复
+        # 查询数据库是否有相同hash的记录
         existing_photo = db_session.query(Photo).filter(Photo.file_hash == file_hash).first()
-
-        if existing_photo:
-            # 检查是否有有效的文件路径
-            if existing_photo.original_path:
-                # 构建完整的文件路径
-                storage_base = Path(self.storage_base)
-                full_path = storage_base / existing_photo.original_path
-
-                if full_path.exists():
-                    # 检查智能处理状态
-                    if existing_photo.status == 'completed':
-                        return {
-                            "is_duplicate": True,
-                            "message": "文件已存在且已完成智能处理",
-                            "duplicate_type": "full_duplicate_completed",
-                            "existing_photo": existing_photo
-                        }
-                    elif existing_photo.status in ['imported', 'analyzing', 'error', 'quality_completed', 'content_completed']:
-                        return {
-                            "is_duplicate": True,
-                            "message": "文件已存在但未完成智能处理",
-                            "duplicate_type": "full_duplicate_incomplete",
-                            "existing_photo": existing_photo
-                        }
         
-        # 情况2：数据库有记录 + 物理文件不存在 = 孤儿记录
         if existing_photo:
-            db_session.delete(existing_photo)
-            db_session.commit()
+            # 数据库有记录 = 完全重复，跳过导入
+            # 数据库是权威来源，不需要检查文件是否存在
+            # 文件丢失/恢复应在维护流程中处理，不在导入流程中
             return {
-                "is_duplicate": False,
-                "message": "孤儿记录已清理",
-                "duplicate_type": "orphan_cleaned"
+                "is_duplicate": True,
+                "message": "文件已存在，跳过导入",
+                "duplicate_type": "full_duplicate",
+                "existing_photo": existing_photo
             }
         
-        # 情况3：数据库无记录 = 全新文件
+        # 数据库无记录 = 全新文件
         return {
             "is_duplicate": False,
             "message": "全新文件",
@@ -614,7 +698,7 @@ class ImportService:
         
         return False, "未知状态", None, None
 
-    def _handle_orphan_cleaned(self, duplicate_result: Dict, file_path: str, file_hash: str, db_session=None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
+    def _handle_orphan_cleaned(self, duplicate_result: Dict, file_path: str, file_hash: str, db_session=None, original_filename: Optional[str] = None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
         """处理孤儿记录清理后的文件"""
         print(f"孤儿记录已清理: {duplicate_result['message']}")
         
@@ -629,7 +713,7 @@ class ImportService:
             self._cleanup_orphan_analysis_results(file_hash, db_session)
         
         # 继续正常处理流程
-        return self._handle_new_file(file_path, file_hash, move_file=True, db_session=db_session)
+        return self._handle_new_file(file_path, file_hash, move_file=True, db_session=db_session, original_filename=original_filename)
 
     def _cleanup_orphan_analysis_results(self, file_hash: str, db_session=None):
         """清理孤儿记录的分析结果"""
@@ -674,8 +758,12 @@ class ImportService:
             print(f"清理孤儿分析结果失败: {e}")
             db_session.rollback()
 
-    def _handle_physical_duplicate(self, duplicate_result: Dict, file_path: str, file_hash: str) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
-        """处理物理重复的文件"""
+    def _handle_physical_duplicate(self, duplicate_result: Dict, file_path: str, file_hash: str, original_filename: Optional[str] = None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
+        """
+        处理物理重复的文件
+        
+        :param original_filename: 原始文件名（保留参数以保持API一致性，但不再使用）
+        """
         existing_path = duplicate_result['existing_path']
         
         # 检查缩略图是否已存在
@@ -688,7 +776,7 @@ class ImportService:
         # 提取元数据
         exif_data = self.extract_exif_metadata(existing_path)
         
-        # 创建数据库记录
+        # 创建数据库记录（filename会使用existing_path中的文件名，保持与original_path一致）
         photo_data = self.create_photo_record(existing_path, {
             'thumbnail_path': thumbnail_path,
             **exif_data
@@ -696,26 +784,100 @@ class ImportService:
         
         return True, "文件已存在，使用现有文件", photo_data, None
 
-    def _handle_new_file(self, file_path: str, file_hash: str, move_file: bool, db_session=None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
-        """处理全新文件"""
+    def _handle_new_file(self, file_path: str, file_hash: str, move_file: bool, db_session=None, original_filename: Optional[str] = None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
+        """
+        处理全新文件
+        
+        :param file_path: 文件路径
+        :param file_hash: 文件哈希值
+        :param move_file: 是否移动文件
+        :param db_session: 数据库会话
+        :param original_filename: 原始文件名（用户上传的文件名，用于存储文件时作为目标文件名）
+        :return: (是否成功, 消息, 照片数据, 重复信息)
+        """
         try:
-            # 存储文件
+            # 先验证文件，获取格式信息
+            is_valid, error_msg, file_info = self.validate_photo_file(file_path)
+            if not is_valid:
+                return False, error_msg, None, None
+            
+            format_name = file_info.get('format', '').upper() if file_info else ''
+            is_heic = format_name in ['HEIC', 'HEIF']
+            
+            # 确保有原始文件名（用于数据库filename字段，保留中文名）
+            if original_filename is None:
+                original_filename = Path(file_path).name
+            
+            # 存储文件（使用哈希值作为文件名，避免OpenCV中文路径问题）
+            # HEIC文件会先存储为HEIC格式，然后转换为JPEG，但保留HEIC原图
+            # 注意：存储方法返回的是相对路径（相对于storage_base）
             if move_file:
-                storage_path = self.move_to_storage(file_path, Path(file_path).name)
+                storage_path = self.move_to_storage(file_path, original_filename, file_hash=file_hash)
             else:
-                storage_path = self.copy_to_storage(file_path, Path(file_path).name)
+                storage_path = self.copy_to_storage(file_path, original_filename, file_hash=file_hash)
             
-            # 生成缩略图
-            thumbnail_path = self.generate_thumbnail(storage_path, file_hash=file_hash)
+            # 构建完整路径（用于后续的文件操作）
+            storage_base = self.storage_base
             
-            # 提取元数据
-            exif_data = self.extract_exif_metadata(storage_path)
+            # 如果是HEIC格式，需要特殊处理：先提取元数据，再转换
+            if is_heic:
+                # storage_path已经是相对路径，需要构建完整路径用于文件操作
+                heic_full_path = storage_base / storage_path  # 完整的HEIC文件路径
+                
+                # 🔥 关键修复：在转换前从原始HEIC文件提取EXIF元数据
+                # 这样可以确保获取到完整的元数据，因为转换后的JPEG可能丢失EXIF信息
+                exif_data = self.extract_exif_metadata(str(heic_full_path))
+                
+                # 生成JPEG路径（使用相同文件名但扩展名为.jpg）
+                jpeg_relative_path = Path(storage_path).with_suffix('.jpg')
+                jpeg_full_path = storage_base / jpeg_relative_path
+                
+                try:
+                    # 转换为JPEG（不删除HEIC原图，让它和JPEG共存）
+                    success = self.convert_heic_to_jpeg(str(heic_full_path), str(jpeg_full_path))
+                    if not success:
+                        return False, "HEIC转JPEG失败", None, None
+                    
+                    # 不删除HEIC原图，保留它用于下载
+                    # HEIC原图：originals/2025/10/{file_hash}.heic
+                    # JPEG文件：originals/2025/10/{file_hash}.jpg
+                    
+                    # 使用JPEG相对路径作为storage_path（用于所有处理）
+                    storage_path = str(jpeg_relative_path)
+                    storage_full_path = jpeg_full_path  # 更新为JPEG的完整路径
+                    print(f"HEIC已转换为JPEG，原图已保留: {heic_full_path}")
+                    
+                except Exception as e:
+                    print(f"HEIC转JPEG失败: {e}")
+                    return False, f"HEIC转JPEG失败: {str(e)}", None, None
+            else:
+                # 非HEIC格式：构建完整路径
+                storage_full_path = storage_base / storage_path
+                # 提取元数据（从原始文件）
+                exif_data = self.extract_exif_metadata(str(storage_full_path))
             
-            # 创建数据库记录
-            photo_data = self.create_photo_record(storage_path, {
+            # 生成缩略图（使用完整路径）
+            thumbnail_path = self.generate_thumbnail(str(storage_full_path), file_hash=file_hash)
+            
+            # 如果是HEIC格式，在metadata中传递原始format（用于数据库记录）
+            # 因为storage_path已经是JPEG了，create_photo_record会读取为JPEG
+            metadata_for_record = {
                 'thumbnail_path': thumbnail_path,
                 **exif_data
-            })
+            }
+            if is_heic:
+                # 传递原始格式信息，create_photo_record会优先使用这个
+                metadata_for_record['original_format'] = format_name  # 'HEIC'或'HEIF'
+            
+            # 创建数据库记录
+            # 对于HEIC格式，filename应该保持原始HEIC文件名（.heic扩展名），而不是转换后的JPEG文件名
+            # 但original_path指向转换后的JPEG路径（用于所有处理）
+            record_filename = None
+            if is_heic and original_filename:
+                # 保持原始HEIC文件名
+                record_filename = original_filename
+            # create_photo_record需要完整路径用于读取文件信息
+            photo_data = self.create_photo_record(str(storage_full_path), metadata_for_record, record_filename=record_filename)
             
             return True, "文件导入成功", photo_data, None
             
@@ -723,29 +885,45 @@ class ImportService:
             print(f"处理全新文件失败: {e}")
             return False, f"文件处理失败: {str(e)}", None, None
 
-    def create_photo_record(self, file_path: str, metadata: Dict[str, Any]) -> PhotoCreate:
+    def create_photo_record(self, file_path: str, metadata: Dict[str, Any], record_filename: Optional[str] = None) -> PhotoCreate:
         """
         创建照片记录
 
-        :param file_path: 文件路径
+        :param file_path: 文件路径（存储后的文件路径）
         :param metadata: 元数据
+        :param record_filename: 用于数据库filename字段的文件名（如果提供，优先使用；否则使用file_path中的文件名）
+                               对于HEIC格式，应该传递原始HEIC文件名以保持.heic扩展名
         :return: PhotoCreate对象
         """
         file_path_obj = Path(file_path)
 
         # 基本文件信息
-        filename = file_path_obj.name
+        # 如果提供了record_filename（如HEIC格式的原始文件名），优先使用
+        # 否则使用存储后的文件名（与original_path保持一致）
+        filename = record_filename if record_filename else file_path_obj.name
         file_size = file_path_obj.stat().st_size
 
         # 获取图像尺寸
         width, height = 0, 0
         format_name = ""
-        try:
-            with Image.open(file_path) as img:
-                width, height = img.size
-                format_name = img.format or ""
-        except Exception as e:
-            print(f"获取图像尺寸失败: {str(e)}")
+        
+        # 如果metadata中提供了original_format（HEIC转换的情况），优先使用原始格式
+        if metadata.get('original_format'):
+            format_name = metadata.get('original_format')
+            # 仍然需要从文件读取尺寸
+            try:
+                with Image.open(file_path) as img:
+                    width, height = img.size
+            except Exception as e:
+                print(f"获取图像尺寸失败: {str(e)}")
+        else:
+            # 正常情况：从文件读取格式和尺寸
+            try:
+                with Image.open(file_path) as img:
+                    width, height = img.size
+                    format_name = img.format or ""
+            except Exception as e:
+                print(f"获取图像尺寸失败: {str(e)}")
 
         # 计算文件哈希
         file_hash = self.calculate_file_hash(file_path)
@@ -819,13 +997,14 @@ class ImportService:
 
         return photo_files
 
-    def process_single_photo(self, file_path: str, move_file: bool = True, db_session=None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
+    def process_single_photo(self, file_path: str, move_file: bool = True, db_session=None, original_filename: Optional[str] = None) -> Tuple[bool, str, Optional[PhotoCreate], Optional[Dict]]:
         """
         处理单个照片文件的完整流程
 
         :param file_path: 文件路径
         :param move_file: 是否移动文件
         :param db_session: 数据库会话（用于重复检查）
+        :param original_filename: 原始文件名（用户上传的文件名，用于存储文件时作为目标文件名）
         :return: (是否成功, 消息, 照片数据, 重复信息)
         """
         try:
@@ -841,33 +1020,25 @@ class ImportService:
             if db_session:
                 duplicate_result = self._check_duplicate_file(file_hash, db_session)
                 
-                # 情况1.1：完全重复且已完成智能处理 - 跳过所有处理
-                if duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'full_duplicate_completed':
+                # 情况1：完全重复 - 统一跳过导入（无论状态如何，用户可在照片列表中手动触发智能处理）
+                if duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'full_duplicate':
                     return False, duplicate_result['message'], None, duplicate_result
                 
-                # 情况1.2：完全重复但未完成智能处理 - 继续智能处理
-                elif duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'full_duplicate_incomplete':
-                    # 需要更新数据库状态
-                    existing_photo = duplicate_result['existing_photo']
-                    if existing_photo.status == 'error':
-                        existing_photo.status = 'imported'
-                        db_session.commit()
-                    return True, "文件已存在，继续智能处理", None, duplicate_result
-                
-                # 情况2：孤儿记录 - 清理后继续正常处理
-                elif not duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'orphan_cleaned':
-                    return self._handle_orphan_cleaned(duplicate_result, file_path, file_hash, db_session)
-                
-                # 情况3：物理重复 - 使用现有文件，继续处理
+                # 情况2：物理重复 - 使用现有文件，继续处理
                 elif duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'physical_only':
-                    return self._handle_physical_duplicate(duplicate_result, file_path, file_hash)
+                    return self._handle_physical_duplicate(duplicate_result, file_path, file_hash, original_filename=original_filename)
                 
-                # 情况4：全新文件 - 正常处理
+                # 情况3：全新文件 - 正常处理
                 elif not duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'new_file':
                     pass  # 继续正常处理流程
             
-            # 4. 正常处理流程（适用于情况2和情况4）
-            success, message, photo_data, duplicate_info = self._handle_new_file(file_path, file_hash, move_file, db_session)
+            # 4. 正常处理流程（适用于全新文件）
+            # 如果没有提供original_filename，尝试从file_path推断（用于文件夹路径导入的情况）
+            if original_filename is None:
+                # 对于文件夹路径导入，file_path本身就是真实路径，文件名是正确的
+                original_filename = Path(file_path).name
+            
+            success, message, photo_data, duplicate_info = self._handle_new_file(file_path, file_hash, move_file, db_session, original_filename=original_filename)
             
             return success, message, photo_data, duplicate_info
             

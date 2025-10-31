@@ -678,31 +678,64 @@ async def download_photo(photo_id: int, db: Session = Depends(get_db)):
         if not photo:
             raise HTTPException(status_code=404, detail="照片不存在")
         
+        # 构建存储基础路径（处理相对路径和绝对路径）
+        config_path = Path(settings.storage.base_path)
+        if config_path.is_absolute():
+            storage_base = config_path
+        else:
+            # 相对路径：相对于项目根目录解析（与main.py的逻辑一致）
+            from pathlib import Path as PathLib
+            import sys
+            if getattr(sys, 'frozen', False):
+                # PyInstaller打包环境：相对于exe目录
+                exe_dir = PathLib(sys.executable).parent
+                storage_base = exe_dir / config_path
+            else:
+                # 开发环境：相对于项目根目录（main.py所在目录）
+                project_root = PathLib(__file__).parent.parent.parent  # app/api/photos.py -> app -> project_root
+                storage_base = project_root / config_path
+        
+        is_heic = photo.format and photo.format.upper() in ['HEIC', 'HEIF']
+        
         # 构建文件路径
-        storage_base = settings.storage.base_path
+        # HEIC格式：使用original_path但扩展名改为.heic（HEIC原图和JPEG在同一目录）
+        # 其他格式：直接使用original_path
         if photo.original_path:
-            # original_path已经是相对路径，直接拼接
-            file_path = os.path.join(storage_base, photo.original_path)
+            if is_heic:
+                # HEIC格式：修改original_path的扩展名为.heic
+                heic_path = Path(photo.original_path).with_suffix('.heic')
+                file_path = storage_base / heic_path
+            else:
+                # 非HEIC格式：直接使用original_path
+                file_path = storage_base / photo.original_path
+            file_path = str(file_path)
         else:
             # 如果没有original_path，尝试使用thumbnail_path
             if photo.thumbnail_path:
-                file_path = os.path.join(storage_base, photo.thumbnail_path)
+                file_path = storage_base / photo.thumbnail_path
+                file_path = str(file_path)
             else:
                 raise HTTPException(status_code=404, detail="照片文件路径不存在")
         
         # 检查文件是否存在
         if not os.path.exists(file_path):
+            logger.error(f"照片文件不存在: path={file_path}, photo_id={photo_id}, format={photo.format}")
             raise HTTPException(status_code=404, detail="照片文件不存在")
         
-        # 获取文件扩展名
-        file_extension = os.path.splitext(photo.filename)[1]
-        if not file_extension:
-            file_extension = '.jpg'  # 默认扩展名
-        
         # 生成下载文件名
-        download_filename = f"{photo.filename}{file_extension}"
+        # 去掉photo.filename的扩展名，得到文件名前缀
+        filename_stem = os.path.splitext(photo.filename)[0]
         
-        logger.info(f"用户下载照片: {photo.filename} -> {download_filename}")
+        # 根据format字段决定扩展名
+        if is_heic:
+            file_extension = '.heic'
+        else:
+            # 使用原文件名的扩展名，或从original_path推断，或默认.jpg
+            file_extension = os.path.splitext(photo.filename)[1] or os.path.splitext(photo.original_path or '')[1] or '.jpg'
+        
+        download_filename = f"{filename_stem}{file_extension}"
+        
+        logger.info(f"用户下载照片: {photo.filename} -> {download_filename} (格式: {photo.format})")
         
         # 返回文件
         return FileResponse(
