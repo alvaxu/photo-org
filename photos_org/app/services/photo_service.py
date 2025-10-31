@@ -101,7 +101,7 @@ class PhotoService:
             self.logger.error(f"获取照片失败 photo_id={photo_id}: {str(e)}")
             return None
 
-    def create_photo(self, db: Session, photo_data: PhotoCreate) -> Optional[Photo]:
+    def create_photo(self, db: Session, photo_data: PhotoCreate) -> Tuple[Optional[Photo], bool]:
         """
         创建照片记录
 
@@ -110,14 +110,16 @@ class PhotoService:
             photo_data: 照片数据
 
         Returns:
-            创建的照片对象或None
+            (photo, is_new): 照片对象和是否为新创建的标志
+            - photo: Photo对象或None（失败时）
+            - is_new: True表示新创建，False表示已存在（并发情况）
         """
         try:
             # 检查是否已存在相同哈希的照片
             existing_photo = db.query(Photo).filter(Photo.file_hash == photo_data.file_hash).first()
             if existing_photo:
                 self.logger.warning(f"照片已存在，跳过创建: {photo_data.filename}")
-                return existing_photo
+                return existing_photo, False  # 返回已存在的记录，is_new=False
             
             # 将Pydantic模型转换为字典
             photo_dict = photo_data.dict()
@@ -131,12 +133,22 @@ class PhotoService:
             db.refresh(photo)
             
             self.logger.info(f"照片创建成功: {photo.filename}")
-            return photo
+            return photo, True  # 返回新创建的记录，is_new=True
             
         except Exception as e:
             db.rollback()
+            # 检查是否是唯一约束冲突（file_hash重复）
+            from sqlalchemy.exc import IntegrityError
+            if isinstance(e, IntegrityError):
+                # 并发导入时可能发生：两个线程同时检查都看不到记录，都尝试插入
+                # 第二个会触发唯一约束冲突，此时查询已存在的记录并返回
+                existing_photo = db.query(Photo).filter(Photo.file_hash == photo_data.file_hash).first()
+                if existing_photo:
+                    self.logger.warning(f"照片已存在（并发冲突），跳过创建: {photo_data.filename}")
+                    return existing_photo, False  # 返回已存在的记录，is_new=False
+            
             self.logger.error(f"创建照片失败: {str(e)}")
-            return None
+            return None, False
 
     def update_photo(self, db: Session, photo_id: int, update_data: Dict[str, Any]) -> bool:
         """
@@ -199,14 +211,28 @@ class PhotoService:
                     storage_base = Path(settings.storage.base_path)
                     full_original_path = storage_base / photo.original_path
                     
+                    # 删除原图（JPEG或其他格式）
                     if full_original_path.exists():
                         os.remove(full_original_path)
+                        self.logger.info(f"已删除原图文件: {full_original_path}")
+                    
+                    # 如果是HEIC格式，还需要删除HEIC原图（与JPEG在同一目录，扩展名为.heic）
+                    is_heic = photo.format and photo.format.upper() in ['HEIC', 'HEIF']
+                    if is_heic:
+                        # HEIC原图与JPEG在同一目录，只需修改扩展名
+                        heic_original_path = full_original_path.with_suffix('.heic')
+                        if heic_original_path.exists():
+                            os.remove(heic_original_path)
+                            self.logger.info(f"已删除HEIC原图文件: {heic_original_path}")
+                        else:
+                            self.logger.warning(f"HEIC原图文件不存在: {heic_original_path}")
 
                     # 删除缩略图
                     if photo.thumbnail_path:
                         full_thumbnail_path = storage_base / photo.thumbnail_path
                         if full_thumbnail_path.exists():
                             os.remove(full_thumbnail_path)
+                            self.logger.info(f"已删除缩略图文件: {full_thumbnail_path}")
 
                 except Exception as e:
                     self.logger.warning(f"删除物理文件失败: {str(e)}")

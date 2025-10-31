@@ -95,32 +95,39 @@ async def process_single_file(
 
         if success and photo_data:
             # 保存到数据库
-            photo = photo_service.create_photo(db, photo_data)
-
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "success": True,
-                    "message": "照片处理成功",
-                    "data": {
-                        "photo_id": photo.id,
-                        "filename": photo.filename,
-                        "file_size": photo.file_size,
-                        "width": photo.width,
-                        "height": photo.height
+            photo, is_new = photo_service.create_photo(db, photo_data)
+            
+            if photo:
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "success": True,
+                        "message": "照片处理成功" if is_new else "照片已存在",
+                        "data": {
+                            "photo_id": photo.id,
+                            "filename": photo.filename,
+                            "file_size": photo.file_size,
+                            "width": photo.width,
+                            "height": photo.height
+                        }
                     }
-                }
-            )
+                )
+            else:
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "success": False,
+                        "message": "数据库保存失败"
+                    }
+                )
         elif duplicate_info:
             # 处理重复文件 - 改为统一响应格式，不抛出异常
             duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
             message = duplicate_info.get('message', '文件重复')
             
             # 根据重复类型生成更详细的提示
-            if duplicate_type == 'full_duplicate_completed':
-                status_text = f"文件已存在且已完成智能处理"
-            elif duplicate_type == 'full_duplicate_incomplete':
-                status_text = f"文件已存在但未完成智能处理 - 将重新处理"
+            if duplicate_type == 'full_duplicate':
+                status_text = f"文件已存在，跳过导入"
             elif duplicate_type == 'physical_only':
                 status_text = f"文件已存在（物理重复）"
             elif duplicate_type == 'orphan_cleaned':
@@ -331,8 +338,10 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
             """使用信号量控制并发处理单个文件"""
             async with semaphore:
                 try:
-                    # 验证文件类型
-                    file_ext = Path(file.filename).suffix.lower()
+                    # 清理文件名：移除可能包含的路径前缀（文件夹导入时可能有相对路径）
+                    # 例如：file.filename 可能是 "heic_all/南京2023001.heic"，需要提取为 "南京2023001.heic"
+                    clean_filename = Path(file.filename).name
+                    file_ext = Path(clean_filename).suffix.lower()
                     
                     # 特殊处理HEIC格式
                     if file_ext in ['.heic', '.heif']:
@@ -341,14 +350,14 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                     elif not file.content_type or not file.content_type.startswith('image/'):
                         return {
                             "file_index": file_index,
-                            "filename": file.filename,
+                            "filename": clean_filename,
                             "status": "failed",
                             "message": "不支持的文件类型"
                         }
 
                     # 🔥 异步执行：保存临时文件（避免阻塞事件循环）
                     def save_temp_file():
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
                             shutil.copyfileobj(file.file, temp_file)
                             return temp_file.name
                     
@@ -360,33 +369,45 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                         
                         try:
                             # 🔥 异步执行：处理单个照片（文件IO和图像处理都是阻塞操作）
+                            # 传递清理后的文件名（只包含文件名，不包含路径），用于保存到数据库
                             success, message, photo_data, duplicate_info = await asyncio.to_thread(
                                 import_service.process_single_photo,
-                                temp_path, False, task_db  # move_file=False, db_session=task_db
+                                temp_path, False, task_db, clean_filename  # move_file=False, db_session=task_db, original_filename=clean_filename
                             )
 
                             if success and photo_data:
                                 # 🔥 异步执行：保存到数据库
-                                photo = await asyncio.to_thread(
-                                    photo_service.create_photo,
-                                    task_db, photo_data
-                                )
+                                # 简化逻辑：直接调用 create_photo，它内部已经处理了并发检查
+                                def create_photo_record():
+                                    return photo_service.create_photo(task_db, photo_data)
+                                
+                                photo, is_new = await asyncio.to_thread(create_photo_record)
                                 
                                 # 提交当前任务的事务
                                 task_db.commit()
                                 
                                 if photo:
-                                    print(f"成功导入: {file.filename}")
-                                    return {
-                                        "file_index": file_index,
-                                        "filename": file.filename,
-                                        "status": "imported",
-                                        "message": "导入成功"
-                                    }
+                                    if is_new:
+                                        # 新创建的文件
+                                        print(f"成功导入: {clean_filename}")
+                                        return {
+                                            "file_index": file_index,
+                                            "filename": clean_filename,
+                                            "status": "imported",
+                                            "message": "导入成功"
+                                        }
+                                    else:
+                                        # 已存在的文件（并发情况）
+                                        return {
+                                            "file_index": file_index,
+                                            "filename": clean_filename,
+                                            "status": "skipped",
+                                            "message": "文件已存在，跳过导入"
+                                        }
                                 else:
                                     return {
                                         "file_index": file_index,
-                                        "filename": file.filename,
+                                        "filename": clean_filename,
                                         "status": "failed",
                                         "message": "数据库保存失败"
                                     }
@@ -396,19 +417,11 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                                 message = duplicate_info.get('message', '文件重复')
                                 
                                 # 根据重复类型生成更详细的提示
-                                if duplicate_type == 'full_duplicate_completed':
-                                    status_text = f"文件已存在且已完成智能处理"
+                                if duplicate_type == 'full_duplicate':
+                                    status_text = f"文件已存在，跳过导入"
                                     return {
                                         "file_index": file_index,
-                                        "filename": file.filename,
-                                        "status": "skipped",
-                                        "message": status_text
-                                    }
-                                elif duplicate_type == 'full_duplicate_incomplete':
-                                    status_text = f"文件已存在但未完成智能处理 - 将重新处理"
-                                    return {
-                                        "file_index": file_index,
-                                        "filename": file.filename,
+                                        "filename": clean_filename,
                                         "status": "skipped",
                                         "message": status_text
                                     }
@@ -416,7 +429,7 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                                     status_text = f"文件已存在（物理重复）"
                                     return {
                                         "file_index": file_index,
-                                        "filename": file.filename,
+                                        "filename": clean_filename,
                                         "status": "imported",
                                         "message": status_text
                                     }
@@ -424,21 +437,21 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                                     status_text = f"孤儿记录已清理，继续处理"
                                     return {
                                         "file_index": file_index,
-                                        "filename": file.filename,
+                                        "filename": clean_filename,
                                         "status": "imported",
                                         "message": status_text
                                     }
                                 else:
                                     return {
                                         "file_index": file_index,
-                                        "filename": file.filename,
+                                        "filename": clean_filename,
                                         "status": "failed",
                                         "message": message
                                     }
                             else:
                                 return {
                                     "file_index": file_index,
-                                    "filename": file.filename,
+                                    "filename": clean_filename,
                                     "status": "failed",
                                     "message": message
                                 }
@@ -456,9 +469,11 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                             os.unlink(temp_path)
 
                 except Exception as e:
+                    # 如果发生异常，尝试获取清理后的文件名，如果失败则使用原始文件名
+                    clean_filename = Path(file.filename).name if hasattr(file, 'filename') and file.filename else "unknown"
                     return {
                         "file_index": file_index,
-                        "filename": file.filename,
+                        "filename": clean_filename,
                         "status": "failed",
                         "message": f"处理异常 - {str(e)}"
                     }
