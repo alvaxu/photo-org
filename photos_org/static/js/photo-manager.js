@@ -420,6 +420,15 @@ class PhotoManager {
                 `<i class="bi bi-trash"></i> 删除选中`;
         }
 
+        // 更新批量编辑按钮状态
+        const batchEditBtn = document.getElementById('batchEditBtn');
+        if (batchEditBtn) {
+            batchEditBtn.disabled = selectedCount === 0;
+            batchEditBtn.innerHTML = selectedCount > 0 ?
+                `<i class="bi bi-pencil-square"></i> 批量编辑 (${selectedCount})` :
+                `<i class="bi bi-pencil-square"></i> 批量编辑`;
+        }
+
         // 更新基础分析按钮状态
         const basicBtn = document.getElementById('basicProcessSelectedBtn');
         if (basicBtn) {

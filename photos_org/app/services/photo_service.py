@@ -378,6 +378,220 @@ class PhotoService:
         self.logger.info(f"批量删除完成: {successful_deletions}成功, {len(failed_ids)}失败")
         return successful_deletions, failed_ids
 
+    def batch_edit_photos(self, db: Session, request) -> Tuple[int, List[int], Dict[str, Any]]:
+        """
+        批量编辑照片
+
+        Args:
+            db: 数据库会话
+            request: 批量编辑请求对象（BatchEditRequest）
+
+        Returns:
+            (成功编辑数量, 失败的ID列表, 详细操作结果)
+        """
+        successful_edits = 0
+        failed_ids = []
+        details = {
+            'tags_updated': 0,
+            'categories_updated': 0,
+            'taken_at_updated': 0,
+            'taken_at_filled': 0,
+            'location_name_updated': 0,
+            'location_name_filled': 0,
+            'description_updated': 0,
+            'description_appended': 0,
+            'filename_updated': 0
+        }
+
+        for photo_id in request.photo_ids:
+            try:
+                photo = self.get_photo_by_id(db, photo_id)
+                if not photo:
+                    failed_ids.append(photo_id)
+                    continue
+
+                update_data = {}
+                
+                # 处理拍摄时间
+                if request.taken_at_operation:
+                    if request.taken_at_operation == 'set':
+                        # 覆盖模式：为所有照片设置拍摄时间
+                        if request.taken_at:
+                            try:
+                                taken_at_str = request.taken_at.strip()
+                                if len(taken_at_str) == 19:
+                                    update_data["taken_at"] = datetime.strptime(taken_at_str, '%Y-%m-%dT%H:%M:%S')
+                                elif len(taken_at_str) == 16:
+                                    update_data["taken_at"] = datetime.strptime(taken_at_str, '%Y-%m-%dT%H:%M')
+                                else:
+                                    parsed = datetime.fromisoformat(taken_at_str.replace('Z', '+00:00'))
+                                    update_data["taken_at"] = parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+                                details['taken_at_updated'] += 1
+                            except (ValueError, TypeError) as e:
+                                self.logger.warning(f"照片 {photo_id} 拍摄时间解析失败: {e}")
+                        else:
+                            update_data["taken_at"] = None
+                            details['taken_at_updated'] += 1
+                    elif request.taken_at_operation == 'fill_empty':
+                        # 填充模式：只更新空值
+                        if not photo.taken_at and request.taken_at:
+                            try:
+                                taken_at_str = request.taken_at.strip()
+                                if len(taken_at_str) == 19:
+                                    update_data["taken_at"] = datetime.strptime(taken_at_str, '%Y-%m-%dT%H:%M:%S')
+                                elif len(taken_at_str) == 16:
+                                    update_data["taken_at"] = datetime.strptime(taken_at_str, '%Y-%m-%dT%H:%M')
+                                else:
+                                    parsed = datetime.fromisoformat(taken_at_str.replace('Z', '+00:00'))
+                                    update_data["taken_at"] = parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+                                details['taken_at_filled'] += 1
+                            except (ValueError, TypeError) as e:
+                                self.logger.warning(f"照片 {photo_id} 拍摄时间解析失败: {e}")
+                    elif request.taken_at_operation == 'clear':
+                        # 清空模式
+                        update_data["taken_at"] = None
+                        details['taken_at_updated'] += 1
+
+                # 处理位置
+                if request.location_name_operation:
+                    if request.location_name_operation == 'set':
+                        update_data["location_name"] = request.location_name
+                        details['location_name_updated'] += 1
+                    elif request.location_name_operation == 'fill_empty':
+                        if not photo.location_name and request.location_name:
+                            update_data["location_name"] = request.location_name
+                            details['location_name_filled'] += 1
+                    elif request.location_name_operation == 'clear':
+                        update_data["location_name"] = None
+                        details['location_name_updated'] += 1
+
+                # 处理描述
+                if request.description_operation:
+                    if request.description_operation == 'set':
+                        update_data["description"] = request.description
+                        details['description_updated'] += 1
+                    elif request.description_operation == 'append':
+                        if request.description:
+                            if photo.description:
+                                update_data["description"] = photo.description + request.description
+                            else:
+                                update_data["description"] = request.description
+                            details['description_appended'] += 1
+                    elif request.description_operation == 'clear':
+                        update_data["description"] = None
+                        details['description_updated'] += 1
+
+                # 处理文件名
+                if request.filename_operation:
+                    import os
+                    if request.filename_operation == 'add_prefix':
+                        # 添加前缀模式
+                        if request.filename_prefix:
+                            # 获取原文件名的扩展名
+                            name, ext = os.path.splitext(photo.filename)
+                            new_filename = f"{request.filename_prefix}{name}{ext}"
+                            update_data["filename"] = new_filename
+                            details['filename_updated'] += 1
+                    elif request.filename_operation == 'add_suffix':
+                        # 添加后缀模式（在扩展名前）
+                        if request.filename_suffix:
+                            name, ext = os.path.splitext(photo.filename)
+                            new_filename = f"{name}{request.filename_suffix}{ext}"
+                            update_data["filename"] = new_filename
+                            details['filename_updated'] += 1
+                    elif request.filename_operation == 'set':
+                        # 统一重命名模式（带序号）
+                        if request.filename_template:
+                            # 获取文件扩展名（保留原扩展名）
+                            _, ext = os.path.splitext(photo.filename)
+                            # 获取起始序号（默认为1）
+                            start_index = request.filename_start_index if hasattr(request, 'filename_start_index') and request.filename_start_index is not None else 1
+                            if start_index < 1:
+                                start_index = 1  # 确保起始序号至少为1
+                            # 计算当前照片在批量列表中的序号（从指定起始值开始）
+                            index = request.photo_ids.index(photo_id) + start_index
+                            # 替换模板中的{序号}占位符
+                            new_filename = request.filename_template.replace('{序号}', str(index))
+                            new_filename = new_filename.replace('{index}', str(index))  # 兼容英文
+                            # 如果模板中没有扩展名，则添加原扩展名
+                            if not os.path.splitext(new_filename)[1]:
+                                new_filename += ext
+                            update_data["filename"] = new_filename
+                            details['filename_updated'] += 1
+
+                # 更新基本信息
+                if update_data:
+                    for key, value in update_data.items():
+                        if hasattr(photo, key):
+                            setattr(photo, key, value)
+                    photo.updated_at = datetime.now()
+
+                # 处理标签
+                if request.tags_operation:
+                    if request.tags_operation == 'add':
+                        # 追加标签（不提交，由外层统一提交）
+                        if request.tags:
+                            self.add_tags_to_photo(db, photo_id, request.tags, auto_commit=False)
+                            details['tags_updated'] += 1
+                    elif request.tags_operation == 'remove':
+                        # 移除指定标签（不提交，由外层统一提交）
+                        if request.tags_to_remove:
+                            self.remove_tags_from_photo(db, photo_id, request.tags_to_remove, auto_commit=False)
+                            details['tags_updated'] += 1
+                    elif request.tags_operation == 'replace':
+                        # 替换所有标签（保留原有标签的source）
+                        existing_tags_source = {}
+                        if photo.tags:
+                            for photo_tag in photo.tags:
+                                existing_tags_source[photo_tag.tag.name] = photo_tag.source
+                        self.remove_tags_from_photo(db, photo_id, [tag.tag.name for tag in photo.tags] if photo.tags else [], auto_commit=False)
+                        if request.tags:
+                            self.add_tags_to_photo(db, photo_id, request.tags, tags_with_source=existing_tags_source, auto_commit=False)
+                        details['tags_updated'] += 1
+                    elif request.tags_operation == 'clear':
+                        # 清空所有标签（不提交，由外层统一提交）
+                        if photo.tags:
+                            self.remove_tags_from_photo(db, photo_id, [tag.tag.name for tag in photo.tags], auto_commit=False)
+                            details['tags_updated'] += 1
+
+                # 处理分类
+                if request.categories_operation:
+                    if request.categories_operation == 'add':
+                        # 追加分类（不提交，由外层统一提交）
+                        if request.category_ids:
+                            self.add_photo_to_categories(db, photo_id, request.category_ids, auto_commit=False)
+                            details['categories_updated'] += 1
+                    elif request.categories_operation == 'remove':
+                        # 移除指定分类（不提交，由外层统一提交）
+                        if request.category_ids_to_remove:
+                            self.remove_photo_from_categories(db, photo_id, request.category_ids_to_remove, auto_commit=False)
+                            details['categories_updated'] += 1
+                    elif request.categories_operation == 'replace':
+                        # 替换所有分类
+                        existing_category_ids = [cat.id for cat in photo.categories] if photo.categories else []
+                        if existing_category_ids:
+                            self.remove_photo_from_categories(db, photo_id, existing_category_ids, auto_commit=False)
+                        if request.category_ids:
+                            self.add_photo_to_categories(db, photo_id, request.category_ids, auto_commit=False)
+                        details['categories_updated'] += 1
+                    elif request.categories_operation == 'clear':
+                        # 清空所有分类（不提交，由外层统一提交）
+                        if photo.categories:
+                            self.remove_photo_from_categories(db, photo_id, [cat.id for cat in photo.categories], auto_commit=False)
+                            details['categories_updated'] += 1
+
+                # 提交更改
+                db.commit()
+                successful_edits += 1
+
+            except Exception as e:
+                db.rollback()
+                self.logger.error(f"批量编辑照片失败 photo_id={photo_id}: {str(e)}")
+                failed_ids.append(photo_id)
+
+        self.logger.info(f"批量编辑完成: {successful_edits}成功, {len(failed_ids)}失败")
+        return successful_edits, failed_ids, details
+
     def get_photo_statistics(self, db: Session) -> Dict[str, Any]:
         """
         获取照片统计信息
@@ -519,7 +733,7 @@ class PhotoService:
             self.logger.error(f"获取标签照片失败 tag_id={tag_id}: {str(e)}")
             return [], 0
 
-    def add_tags_to_photo(self, db: Session, photo_id: int, tag_names: List[str]) -> bool:
+    def add_tags_to_photo(self, db: Session, photo_id: int, tag_names: List[str], tags_with_source: Optional[Dict[str, str]] = None, auto_commit: bool = True) -> bool:
         """
         为照片添加标签
 
@@ -527,6 +741,7 @@ class PhotoService:
             db: 数据库会话
             photo_id: 照片ID
             tag_names: 标签名称列表
+            tags_with_source: 标签名称到source的映射（用于保留原有标签的source）
 
         Returns:
             添加是否成功
@@ -550,10 +765,17 @@ class PhotoService:
                 ).first()
 
                 if not existing:
-                    photo_tag = PhotoTag(photo_id=photo_id, tag_id=tag.id)
+                    # 🔥 修复：根据原有标签的source信息设置source，如果是新标签则设为'manual'
+                    source = 'manual'  # 默认为'manual'（用户手动添加）
+                    if tags_with_source and tag_name in tags_with_source:
+                        # 保留原有标签的source（'auto'或'manual'）
+                        source = tags_with_source[tag_name]
+                    
+                    photo_tag = PhotoTag(photo_id=photo_id, tag_id=tag.id, source=source)
                     db.add(photo_tag)
 
-            db.commit()
+            if auto_commit:
+                db.commit()
             self.logger.info(f"为照片添加标签成功 photo_id={photo_id}, tags={tag_names}")
             return True
 
@@ -562,7 +784,7 @@ class PhotoService:
             self.logger.error(f"为照片添加标签失败 photo_id={photo_id}: {str(e)}")
             return False
 
-    def remove_tags_from_photo(self, db: Session, photo_id: int, tag_names: List[str]) -> bool:
+    def remove_tags_from_photo(self, db: Session, photo_id: int, tag_names: List[str], auto_commit: bool = True) -> bool:
         """
         从照片移除标签
 
@@ -582,7 +804,8 @@ class PhotoService:
                         and_(PhotoTag.photo_id == photo_id, PhotoTag.tag_id == tag.id)
                     ).delete()
 
-            db.commit()
+            if auto_commit:
+                db.commit()
             self.logger.info(f"从照片移除标签成功 photo_id={photo_id}, tags={tag_names}")
             return True
 
@@ -591,7 +814,7 @@ class PhotoService:
             self.logger.error(f"从照片移除标签失败 photo_id={photo_id}: {str(e)}")
             return False
 
-    def add_photo_to_categories(self, db: Session, photo_id: int, category_ids: List[int]) -> bool:
+    def add_photo_to_categories(self, db: Session, photo_id: int, category_ids: List[int], auto_commit: bool = True) -> bool:
         """
         将照片添加到分类
 
@@ -623,7 +846,8 @@ class PhotoService:
                     photo_category = PhotoCategory(photo_id=photo_id, category_id=category_id)
                     db.add(photo_category)
 
-            db.commit()
+            if auto_commit:
+                db.commit()
             self.logger.info(f"将照片添加到分类成功 photo_id={photo_id}, categories={category_ids}")
             return True
 
@@ -632,7 +856,7 @@ class PhotoService:
             self.logger.error(f"将照片添加到分类失败 photo_id={photo_id}: {str(e)}")
             return False
 
-    def remove_photo_from_categories(self, db: Session, photo_id: int, category_ids: List[int]) -> bool:
+    def remove_photo_from_categories(self, db: Session, photo_id: int, category_ids: List[int], auto_commit: bool = True) -> bool:
         """
         从分类移除照片
 
@@ -650,7 +874,8 @@ class PhotoService:
                     and_(PhotoCategory.photo_id == photo_id, PhotoCategory.category_id == category_id)
                 ).delete()
 
-            db.commit()
+            if auto_commit:
+                db.commit()
             self.logger.info(f"从分类移除照片成功 photo_id={photo_id}, categories={category_ids}")
             return True
 

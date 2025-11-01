@@ -171,7 +171,7 @@
             <a class="navbar-brand" href="#">
                 <img src="images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
                 智能照片系统
-                <small class="ms-2 text-light opacity-75">2025-v4版</small>
+                <small class="ms-2 text-light opacity-75">2025-v4.3版</small>
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -704,6 +704,9 @@
                                 <button class="btn btn-sm btn-outline-danger" id="deleteSelectedBtn" disabled>
                                     <i class="bi bi-trash"></i> 删除选中
                                 </button>
+                                <button class="btn btn-sm btn-outline-primary" id="batchEditBtn" disabled>
+                                    <i class="bi bi-pencil-square"></i> 批量编辑
+                                </button>
                                 <button class="btn btn-sm btn-warning" id="basicProcessSelectedBtn" disabled>
                                     <i class="bi bi-graph-up-arrow"></i> 基础分析
                                 </button>
@@ -817,9 +820,31 @@
                                 <img id="editPhotoPreview" src="" class="img-fluid rounded" alt="照片预览">
                             </div>
                             <div class="col-md-8">
-                                <h6 id="editPhotoFilename">文件名</h6>
                                 <p class="text-muted" id="editPhotoMeta">元数据信息</p>
                             </div>
+                        </div>
+                        
+                        <!-- 文件名编辑 -->
+                        <div class="mb-3">
+                            <label for="editPhotoFilename" class="form-label">照片文件名</label>
+                            <input type="text" class="form-control" id="editPhotoFilename" 
+                                   placeholder="请输入照片文件名...">
+                            <div class="form-text">修改文件名不会改变物理文件，只更新数据库记录</div>
+                        </div>
+                        
+                        <!-- 拍摄时间编辑 -->
+                        <div class="mb-3">
+                            <label for="editPhotoTakenAt" class="form-label">拍摄时间</label>
+                            <input type="datetime-local" class="form-control" id="editPhotoTakenAt">
+                            <div class="form-text">可用于修正EXIF提取错误或补充缺失的拍摄时间</div>
+                        </div>
+                        
+                        <!-- 位置名称编辑 -->
+                        <div class="mb-3">
+                            <label for="editPhotoLocationName" class="form-label">位置名称</label>
+                            <input type="text" class="form-control" id="editPhotoLocationName" 
+                                   placeholder="请输入位置名称...">
+                            <div class="form-text">可用于修正GPS解析的位置名称或手动添加位置信息</div>
                         </div>
                         
                         <!-- 描述编辑 -->
@@ -860,6 +885,187 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                     <button type="button" class="btn btn-primary" id="savePhotoEdit">保存修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量编辑模态框 -->
+    <div class="modal fade" id="batchEditModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">批量编辑照片</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <span id="batchEditSelectedCount">已选择 0 张照片</span>
+                    </div>
+
+                    <form id="batchEditForm">
+                        <!-- 标签操作 -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">标签操作</label>
+                            <div class="mb-2">
+                                <select class="form-select" id="batchEditTagsOperation">
+                                    <option value="">不修改标签</option>
+                                    <option value="add">追加标签</option>
+                                    <option value="remove">移除标签</option>
+                                    <option value="replace">替换所有标签</option>
+                                    <option value="clear">清空所有标签</option>
+                                </select>
+                            </div>
+                            <div id="batchEditTagsInput" style="display: none;">
+                                <div class="d-flex gap-2 mb-2">
+                                    <input type="text" class="form-control" id="batchEditTags" 
+                                           placeholder="输入标签名称，用逗号分隔或单个输入...">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="batchEditAddTagBtn">
+                                        <i class="bi bi-plus"></i> 添加
+                                    </button>
+                                </div>
+                                <div id="batchEditSelectedTags" class="d-flex flex-wrap gap-1 mb-2">
+                                    <!-- 选中的标签将显示在这里 -->
+                                </div>
+                                <div id="batchEditTagsToRemove" style="display: none;">
+                                    <label class="form-label small">要移除的标签</label>
+                                    <div id="batchEditRemoveTags" class="d-flex flex-wrap gap-1">
+                                        <!-- 要移除的标签将显示在这里 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 分类操作 -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">分类操作</label>
+                            <div class="mb-2">
+                                <select class="form-select" id="batchEditCategoriesOperation">
+                                    <option value="">不修改分类</option>
+                                    <option value="add">追加分类</option>
+                                    <option value="remove">移除分类</option>
+                                    <option value="replace">替换所有分类</option>
+                                    <option value="clear">清空所有分类</option>
+                                </select>
+                            </div>
+                            <div id="batchEditCategoriesInput" style="display: none;">
+                                <select class="form-select" id="batchEditCategoryIds" multiple size="5">
+                                    <!-- 分类选项将通过JavaScript动态加载 -->
+                                </select>
+                                <div class="form-text small mt-1">按住 Ctrl/Cmd 键可多选</div>
+                            </div>
+                        </div>
+
+                        <!-- 拍摄时间操作 -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">拍摄时间操作</label>
+                            <div class="mb-2">
+                                <select class="form-select" id="batchEditTakenAtOperation">
+                                    <option value="">不修改拍摄时间</option>
+                                    <option value="set">统一设置（覆盖所有）</option>
+                                    <option value="fill_empty">只填充空值（保留已有）</option>
+                                    <option value="clear">清空所有拍摄时间</option>
+                                </select>
+                            </div>
+                            <div id="batchEditTakenAtInput" style="display: none;">
+                                <input type="datetime-local" class="form-control" id="batchEditTakenAt">
+                                <div class="form-text small mt-1">
+                                    统一设置模式：覆盖所有选中照片的拍摄时间<br>
+                                    填充模式：只更新没有拍摄时间的照片，保留已有时间
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 位置操作 -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">位置操作</label>
+                            <div class="mb-2">
+                                <select class="form-select" id="batchEditLocationOperation">
+                                    <option value="">不修改位置</option>
+                                    <option value="set">统一设置（覆盖所有）</option>
+                                    <option value="fill_empty">只填充空值（保留已有）</option>
+                                    <option value="clear">清空所有位置</option>
+                                </select>
+                            </div>
+                            <div id="batchEditLocationInput" style="display: none;">
+                                <input type="text" class="form-control" id="batchEditLocationName" 
+                                       placeholder="输入位置名称...">
+                                <div class="form-text small mt-1">
+                                    统一设置模式：覆盖所有选中照片的位置<br>
+                                    填充模式：只更新没有位置的照片，保留已有位置
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 描述操作 -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">描述操作</label>
+                            <div class="mb-2">
+                                <select class="form-select" id="batchEditDescriptionOperation">
+                                    <option value="">不修改描述</option>
+                                    <option value="set">统一设置（覆盖所有）</option>
+                                    <option value="append">追加描述（保留原有）</option>
+                                    <option value="clear">清空所有描述</option>
+                                </select>
+                            </div>
+                            <div id="batchEditDescriptionInput" style="display: none;">
+                                <textarea class="form-control" id="batchEditDescription" rows="3" 
+                                          placeholder="输入描述内容..."></textarea>
+                                <div class="form-text small mt-1">
+                                    统一设置模式：覆盖所有选中照片的描述<br>
+                                    追加模式：在所有选中照片的描述后追加文本
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 文件名操作 -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">文件名操作</label>
+                            <div class="mb-2">
+                                <select class="form-select" id="batchEditFilenameOperation">
+                                    <option value="">不修改文件名</option>
+                                    <option value="add_prefix">添加前缀</option>
+                                    <option value="add_suffix">添加后缀</option>
+                                    <option value="set">统一重命名（带序号）</option>
+                                </select>
+                            </div>
+                            <div id="batchEditFilenameInput" style="display: none;">
+                                <div id="batchEditFilenamePrefixInput" style="display: none;">
+                                    <input type="text" class="form-control" id="batchEditFilenamePrefix" 
+                                           placeholder="输入文件名前缀，如：旅行_">
+                                    <div class="form-text small mt-1">
+                                        将在所有选中照片的文件名前添加此前缀
+                                    </div>
+                                </div>
+                                <div id="batchEditFilenameSuffixInput" style="display: none;">
+                                    <input type="text" class="form-control" id="batchEditFilenameSuffix" 
+                                           placeholder="输入文件名后缀，如：_编辑">
+                                    <div class="form-text small mt-1">
+                                        将在所有选中照片的文件名后（扩展名前）添加此后缀
+                                    </div>
+                                </div>
+                                <div id="batchEditFilenameTemplateInput" style="display: none;">
+                                    <input type="text" class="form-control mb-2" id="batchEditFilenameTemplate" 
+                                           placeholder="输入文件名模板，如：照片_{序号}">
+                                    <div class="mb-2">
+                                        <label class="form-label small">起始序号</label>
+                                        <input type="number" class="form-control" id="batchEditFilenameStartIndex" 
+                                               min="1" value="1" placeholder="从哪个数字开始编号（默认：1）">
+                                    </div>
+                                    <div class="form-text small mt-1">
+                                        统一重命名所有照片，使用{序号}或{index}作为占位符<br>
+                                        起始序号：指定序号从哪个数字开始编号<br>
+                                        示例：模板"照片_{序号}"，起始序号10 → 照片_10.jpg, 照片_11.jpg, ...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveBatchEdit">保存修改</button>
                 </div>
             </div>
         </div>

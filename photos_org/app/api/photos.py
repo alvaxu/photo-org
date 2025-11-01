@@ -41,6 +41,9 @@ class PhotoUpdateRequest(BaseModel):
     description: Optional[str] = Field(None, description="照片描述")
     tags: Optional[List[str]] = Field(None, description="标签列表")
     categories: Optional[List[int]] = Field(None, description="分类ID列表")
+    filename: Optional[str] = Field(None, description="照片文件名")
+    taken_at: Optional[str] = Field(None, description="拍摄时间（ISO格式字符串）")
+    location_name: Optional[str] = Field(None, description="位置名称")
 
 
 class BatchDeleteRequest(BaseModel):
@@ -54,6 +57,49 @@ class BatchDeleteResponse(BaseModel):
     total_requested: int = Field(..., description="请求删除的数量")
     successful_deletions: int = Field(..., description="成功删除的数量")
     failed_deletions: List[int] = Field(..., description="失败删除的ID列表")
+
+
+class BatchEditRequest(BaseModel):
+    """批量编辑请求"""
+    photo_ids: List[int] = Field(..., description="要编辑的照片ID列表")
+    
+    # 标签操作
+    tags_operation: Optional[str] = Field(None, description="标签操作类型: add/remove/replace/clear")
+    tags: Optional[List[str]] = Field(None, description="标签列表（用于add/replace操作）")
+    tags_to_remove: Optional[List[str]] = Field(None, description="要移除的标签列表（用于remove操作）")
+    
+    # 分类操作
+    categories_operation: Optional[str] = Field(None, description="分类操作类型: add/remove/replace/clear")
+    category_ids: Optional[List[int]] = Field(None, description="分类ID列表（用于add/replace操作）")
+    category_ids_to_remove: Optional[List[int]] = Field(None, description="要移除的分类ID列表（用于remove操作）")
+    
+    # 拍摄时间操作
+    taken_at_operation: Optional[str] = Field(None, description="拍摄时间操作: set/fill_empty/clear")
+    taken_at: Optional[str] = Field(None, description="拍摄时间（ISO格式），用于set/fill_empty操作")
+    
+    # 位置操作
+    location_name_operation: Optional[str] = Field(None, description="位置操作: set/fill_empty/clear")
+    location_name: Optional[str] = Field(None, description="位置名称，用于set/fill_empty操作")
+    
+    # 描述操作
+    description_operation: Optional[str] = Field(None, description="描述操作: set/append/clear")
+    description: Optional[str] = Field(None, description="描述内容，用于set/append操作")
+    
+    # 文件名操作
+    filename_operation: Optional[str] = Field(None, description="文件名操作: add_prefix/add_suffix/set")
+    filename_prefix: Optional[str] = Field(None, description="文件名前缀（用于add_prefix操作）")
+    filename_suffix: Optional[str] = Field(None, description="文件名后缀（用于add_suffix操作）")
+    filename_template: Optional[str] = Field(None, description="文件名模板（用于set操作，支持{序号}占位符，如：照片_{序号}）")
+    filename_start_index: Optional[int] = Field(1, description="文件名序号起始值（用于set操作，默认从1开始）", ge=1)
+
+
+class BatchEditResponse(BaseModel):
+    """批量编辑响应"""
+    total_requested: int = Field(..., description="请求编辑的照片数量")
+    filename_updated: int = Field(0, description="文件名更新数量")
+    successful_edits: int = Field(..., description="成功编辑的数量")
+    failed_edits: List[int] = Field(default_factory=list, description="编辑失败的照片ID列表")
+    details: Dict[str, Any] = Field(default_factory=dict, description="详细操作结果")
 
 
 class PhotoStatistics(BaseModel):
@@ -309,6 +355,39 @@ async def update_photo(
         update_data = {}
         if update_request.description is not None:
             update_data["description"] = update_request.description
+        if update_request.filename is not None:
+            # 验证文件名不能为空
+            if not update_request.filename.strip():
+                raise HTTPException(status_code=400, detail="文件名不能为空")
+            update_data["filename"] = update_request.filename.strip()
+        if update_request.taken_at is not None:
+            # 🔥 修复：不考虑时区，直接解析为本地时间（naive datetime）
+            from datetime import datetime
+            try:
+                if update_request.taken_at.strip():  # 非空字符串
+                    # 格式可能是 YYYY-MM-DDTHH:mm:00 或 YYYY-MM-DDTHH:mm:SS
+                    # 使用strptime解析，当作本地时间（无时区）
+                    taken_at_str = update_request.taken_at.strip()
+                    # 尝试不同的格式
+                    if len(taken_at_str) == 19:  # YYYY-MM-DDTHH:mm:SS
+                        update_data["taken_at"] = datetime.strptime(taken_at_str, '%Y-%m-%dT%H:%M:%S')
+                    elif len(taken_at_str) == 16:  # YYYY-MM-DDTHH:mm
+                        update_data["taken_at"] = datetime.strptime(taken_at_str, '%Y-%m-%dT%H:%M')
+                    else:
+                        # 尝试ISO格式（可能带时区）
+                        parsed = datetime.fromisoformat(taken_at_str.replace('Z', '+00:00'))
+                        # 如果是带时区的，转换为本地时间（移除时区信息）
+                        if parsed.tzinfo:
+                            # 转为naive datetime（假设已经是本地时间）
+                            update_data["taken_at"] = parsed.replace(tzinfo=None)
+                        else:
+                            update_data["taken_at"] = parsed
+                else:
+                    update_data["taken_at"] = None  # 清空时间
+            except (ValueError, TypeError) as e:
+                raise HTTPException(status_code=400, detail=f"拍摄时间格式错误: {str(e)}，请使用格式：2023-12-19T14:30:00")
+        if update_request.location_name is not None:
+            update_data["location_name"] = update_request.location_name
 
         # 更新照片基本信息
         if update_data:
@@ -318,11 +397,17 @@ async def update_photo(
 
         # 更新标签
         if update_request.tags is not None:
+            # 🔥 修复：保存现有标签的source信息，以便在重新添加时保留
+            existing_tags_source = {}
+            if photo.tags:
+                for photo_tag in photo.tags:
+                    existing_tags_source[photo_tag.tag.name] = photo_tag.source
+            
             # 先移除所有现有标签
             photo_service.remove_tags_from_photo(db, photo_id, [tag.tag.name for tag in photo.tags] if photo.tags else [])
-            # 添加新标签
+            # 添加新标签，传入原有标签的source信息
             if update_request.tags:
-                photo_service.add_tags_to_photo(db, photo_id, update_request.tags)
+                photo_service.add_tags_to_photo(db, photo_id, update_request.tags, tags_with_source=existing_tags_source)
 
         # 更新分类
         if update_request.categories is not None:
@@ -338,6 +423,8 @@ async def update_photo(
             "id": updated_photo.id,
             "filename": updated_photo.filename,
             "description": updated_photo.description,
+            "taken_at": updated_photo.taken_at.isoformat() if updated_photo.taken_at else None,
+            "location_name": updated_photo.location_name,
             "updated_at": updated_photo.updated_at.isoformat() if updated_photo.updated_at else None,
             "tags": [tag.tag.name for tag in updated_photo.tags] if updated_photo.tags else [],
             "categories": [cat.category.name for cat in updated_photo.categories] if updated_photo.categories else [],
@@ -466,6 +553,39 @@ async def batch_delete_photos(request: BatchDeleteRequest, db: Session = Depends
     except Exception as e:
         logger.error(f"批量删除照片失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"批量删除照片失败: {str(e)}")
+
+
+@router.post("/batch-edit", response_model=BatchEditResponse)
+async def batch_edit_photos(
+    request: BatchEditRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    批量编辑照片
+
+    - **request**: 批量编辑请求
+    """
+    try:
+        if not request.photo_ids:
+            raise HTTPException(status_code=400, detail="照片ID列表不能为空")
+
+        photo_service = PhotoService()
+        successful_edits, failed_ids, details = photo_service.batch_edit_photos(
+            db, request
+        )
+
+        return BatchEditResponse(
+            total_requested=len(request.photo_ids),
+            successful_edits=successful_edits,
+            failed_edits=failed_ids,
+            details=details
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"批量编辑照片失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"批量编辑照片失败: {str(e)}")
 
 
 @router.get("/statistics", response_model=PhotoStatistics)
