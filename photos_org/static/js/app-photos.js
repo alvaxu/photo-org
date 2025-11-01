@@ -869,14 +869,35 @@ function showPhotoEditModal(photo) {
     // 填充照片信息
     document.getElementById('editPhotoId').value = photo.id;
     document.getElementById('editPhotoPreview').src = `/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}`;
-    document.getElementById('editPhotoFilename').textContent = photo.filename;
     
-    // 填充元数据
+    // 填充元数据（只显示不可编辑的信息）
     const meta = [];
-    if (photo.taken_at) meta.push(`拍摄时间: ${formatDate(photo.taken_at)}`);
     if (photo.width && photo.height) meta.push(`分辨率: ${photo.width} × ${photo.height}`);
     if (photo.file_size) meta.push(`文件大小: ${formatFileSize(photo.file_size)}`);
+    if (photo.format) meta.push(`格式: ${photo.format}`);
     document.getElementById('editPhotoMeta').textContent = meta.join(' | ');
+    
+    // 填充文件名
+    document.getElementById('editPhotoFilename').value = photo.filename || '';
+    
+    // 填充拍摄时间（转换为datetime-local格式）
+    // 🔥 修复：不考虑时区，直接使用数据库中的时间（已经是本地时间）
+    if (photo.taken_at) {
+        const date = new Date(photo.taken_at);
+        // 使用本地时间的年月日和时分，不转换时区
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        document.getElementById('editPhotoTakenAt').value = localDateTime;
+    } else {
+        document.getElementById('editPhotoTakenAt').value = '';
+    }
+    
+    // 填充位置名称
+    document.getElementById('editPhotoLocationName').value = photo.location_name || '';
     
     // 填充描述
     document.getElementById('editPhotoDescription').value = photo.description || '';
@@ -979,16 +1000,44 @@ function removeTag(tagName) {
  */
 async function savePhotoEdit() {
     const photoId = document.getElementById('editPhotoId').value;
-    const description = document.getElementById('editPhotoDescription').value;
+    const filename = document.getElementById('editPhotoFilename').value.trim();
+    const takenAt = document.getElementById('editPhotoTakenAt').value;
+    const locationName = document.getElementById('editPhotoLocationName').value.trim();
+    const description = document.getElementById('editPhotoDescription').value.trim();
     
     // 使用选中的标签
     const tags = selectedTags;
     
     // 准备更新数据
-    const updateData = {
-        description: description || null,
-        tags: tags
-    };
+    const updateData = {};
+    
+    // 文件名必须提供（不能为空）
+    if (filename) {
+        updateData.filename = filename;
+    } else {
+        alert('文件名不能为空');
+        return;
+    }
+    
+    // 拍摄时间：如果有值则更新，如果清空则设为空字符串（后端会处理为null）
+    // 🔥 修复：不考虑时区，直接使用datetime-local的值（补全秒数）
+    if (takenAt) {
+        // datetime-local格式是 YYYY-MM-DDTHH:mm，补全秒数为 YYYY-MM-DDTHH:mm:00
+        // 不转换为ISO（避免时区转换），后端会当作本地时间解析
+        updateData.taken_at = takenAt + ':00';
+    } else {
+        // 允许清空时间
+        updateData.taken_at = '';
+    }
+    
+    // 位置名称：允许清空
+    updateData.location_name = locationName || null;
+    
+    // 描述：允许清空
+    updateData.description = description || null;
+    
+    // 标签
+    updateData.tags = tags;
     
     try {
         const response = await fetch(`/api/v1/photos/${photoId}`, {
@@ -1004,8 +1053,10 @@ async function savePhotoEdit() {
             const modal = bootstrap.Modal.getInstance(document.getElementById('photoEditModal'));
             modal.hide();
 
-            // 重新加载照片
-            loadPhotos();
+            // 🔥 修复：保持当前页面，不回到首页
+            // 获取当前页码（如果有的话），否则使用第1页
+            const currentPage = (typeof AppState !== 'undefined' && AppState.currentPage) ? AppState.currentPage : 1;
+            loadPhotos(currentPage);
             loadStats();
 
             alert('照片信息更新成功');
@@ -1661,8 +1712,10 @@ async function forceBasicAnalysis(photoId) {
         const result = await response.json();
 
         if (response.ok && result.success) {
-            // 分析完成，立即刷新照片列表
-            await window.loadPhotos();
+            // 🔥 修复：保持当前页面，不回到首页
+            // 获取当前页码（如果有的话），否则使用第1页
+            const currentPage = (typeof AppState !== 'undefined' && AppState.currentPage) ? AppState.currentPage : 1;
+            await window.loadPhotos(currentPage);
             await window.loadStats();
             
             showToast('基础分析完成', 'success');
@@ -1723,8 +1776,10 @@ async function forceAIAnalysis(photoId) {
         const result = await response.json();
 
         if (response.ok && result.success) {
-            // 分析完成，立即刷新照片列表
-            await window.loadPhotos();
+            // 🔥 修复：保持当前页面，不回到首页
+            // 获取当前页码（如果有的话），否则使用第1页
+            const currentPage = (typeof AppState !== 'undefined' && AppState.currentPage) ? AppState.currentPage : 1;
+            await window.loadPhotos(currentPage);
             await window.loadStats();
             
             showToast('AI分析完成', 'success');
@@ -1873,3 +1928,541 @@ async function downloadSinglePhoto(photoId) {
 }
 
 window.forceAIAnalysis = forceAIAnalysis;
+
+/**
+ * 批量编辑选中照片
+ */
+function batchEditSelectedPhotos() {
+    if (!window.PhotoManager) {
+        showError('照片管理器未初始化，请刷新页面重试');
+        return;
+    }
+
+    const selectedIds = window.PhotoManager.getSelectedPhotoIds();
+    if (selectedIds.length === 0) {
+        showWarning('请先选择要编辑的照片');
+        return;
+    }
+
+    // 显示批量编辑模态框
+    showBatchEditModal(selectedIds);
+}
+
+/**
+ * 显示批量编辑模态框
+ * @param {number[]} photoIds - 选中的照片ID列表
+ */
+function showBatchEditModal(photoIds) {
+    // 更新选中数量
+    document.getElementById('batchEditSelectedCount').textContent = `已选择 ${photoIds.length} 张照片`;
+    
+    // 重置表单和状态
+    document.getElementById('batchEditForm').reset();
+    batchEditSelectedTags = [];
+    batchEditRemoveTags = [];
+    document.getElementById('batchEditSelectedTags').innerHTML = '';
+    document.getElementById('batchEditRemoveTags').innerHTML = '';
+    
+    // 隐藏所有输入区域
+    document.getElementById('batchEditTagsInput').style.display = 'none';
+    document.getElementById('batchEditTagsToRemove').style.display = 'none';
+    document.getElementById('batchEditCategoriesInput').style.display = 'none';
+    document.getElementById('batchEditTakenAtInput').style.display = 'none';
+    document.getElementById('batchEditLocationInput').style.display = 'none';
+    document.getElementById('batchEditDescriptionInput').style.display = 'none';
+    document.getElementById('batchEditFilenameInput').style.display = 'none';
+    document.getElementById('batchEditFilenamePrefixInput').style.display = 'none';
+    document.getElementById('batchEditFilenameSuffixInput').style.display = 'none';
+    document.getElementById('batchEditFilenameTemplateInput').style.display = 'none';
+    // 重置起始序号为默认值1
+    const startIndexInput = document.getElementById('batchEditFilenameStartIndex');
+    if (startIndexInput) {
+        startIndexInput.value = '1';
+    }
+    
+    // 加载分类选项
+    loadCategoriesForBatchEdit();
+    
+    // 绑定标签操作选择器的事件
+    bindBatchEditTagOperationEvents();
+    bindBatchEditCategoriesOperationEvents();
+    bindBatchEditTakenAtOperationEvents();
+    bindBatchEditLocationOperationEvents();
+    bindBatchEditDescriptionOperationEvents();
+    bindBatchEditFilenameOperationEvents();
+    bindBatchEditTagInputEvents();
+    
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('batchEditModal'));
+    modal.show();
+}
+
+/**
+ * 绑定标签操作选择器事件
+ */
+function bindBatchEditTagOperationEvents() {
+    const select = document.getElementById('batchEditTagsOperation');
+    if (!select) return;
+    
+    // 移除旧的事件监听器
+    const newSelect = select.cloneNode(true);
+    select.parentNode.replaceChild(newSelect, select);
+    
+    newSelect.addEventListener('change', function() {
+        const inputDiv = document.getElementById('batchEditTagsInput');
+        const removeDiv = document.getElementById('batchEditTagsToRemove');
+        const value = this.value;
+        
+        if (value === '' || value === 'clear') {
+            // 不修改标签或清空所有标签，都不需要输入框
+            inputDiv.style.display = 'none';
+            removeDiv.style.display = 'none';
+            batchEditSelectedTags = [];
+            batchEditRemoveTags = [];
+            document.getElementById('batchEditSelectedTags').innerHTML = '';
+            document.getElementById('batchEditRemoveTags').innerHTML = '';
+        } else if (value === 'remove') {
+            // 移除标签：需要输入框来输入要移除的标签
+            inputDiv.style.display = 'block';
+            removeDiv.style.display = 'block';
+            batchEditSelectedTags = [];
+            document.getElementById('batchEditSelectedTags').innerHTML = '';
+        } else {
+            // 追加或替换标签：需要输入框来输入要添加的标签
+            inputDiv.style.display = 'block';
+            removeDiv.style.display = 'none';
+            batchEditRemoveTags = [];
+            document.getElementById('batchEditRemoveTags').innerHTML = '';
+        }
+    });
+}
+
+/**
+ * 绑定分类操作选择器事件
+ */
+function bindBatchEditCategoriesOperationEvents() {
+    const select = document.getElementById('batchEditCategoriesOperation');
+    if (!select) return;
+    
+    const newSelect = select.cloneNode(true);
+    select.parentNode.replaceChild(newSelect, select);
+    
+    newSelect.addEventListener('change', function() {
+        const inputDiv = document.getElementById('batchEditCategoriesInput');
+        const value = this.value;
+        
+        if (value === '' || value === 'clear') {
+            // 不修改分类或清空所有分类，都不需要输入框
+            inputDiv.style.display = 'none';
+        } else {
+            // 追加、移除或替换分类：需要输入框来选择分类
+            inputDiv.style.display = 'block';
+        }
+    });
+}
+
+/**
+ * 绑定拍摄时间操作选择器事件
+ */
+function bindBatchEditTakenAtOperationEvents() {
+    const select = document.getElementById('batchEditTakenAtOperation');
+    if (!select) return;
+    
+    const newSelect = select.cloneNode(true);
+    select.parentNode.replaceChild(newSelect, select);
+    
+    newSelect.addEventListener('change', function() {
+        const inputDiv = document.getElementById('batchEditTakenAtInput');
+        const value = this.value;
+        
+        if (value === '' || value === 'clear') {
+            inputDiv.style.display = 'none';
+        } else {
+            inputDiv.style.display = 'block';
+        }
+    });
+}
+
+/**
+ * 绑定位置操作选择器事件
+ */
+function bindBatchEditLocationOperationEvents() {
+    const select = document.getElementById('batchEditLocationOperation');
+    if (!select) return;
+    
+    const newSelect = select.cloneNode(true);
+    select.parentNode.replaceChild(newSelect, select);
+    
+    newSelect.addEventListener('change', function() {
+        const inputDiv = document.getElementById('batchEditLocationInput');
+        const value = this.value;
+        
+        if (value === '' || value === 'clear') {
+            inputDiv.style.display = 'none';
+        } else {
+            inputDiv.style.display = 'block';
+        }
+    });
+}
+
+/**
+ * 绑定描述操作选择器事件
+ */
+function bindBatchEditDescriptionOperationEvents() {
+    const select = document.getElementById('batchEditDescriptionOperation');
+    if (!select) return;
+    
+    const newSelect = select.cloneNode(true);
+    select.parentNode.replaceChild(newSelect, select);
+    
+    newSelect.addEventListener('change', function() {
+        const inputDiv = document.getElementById('batchEditDescriptionInput');
+        const value = this.value;
+        
+        if (value === '' || value === 'clear') {
+            inputDiv.style.display = 'none';
+        } else {
+            inputDiv.style.display = 'block';
+        }
+    });
+}
+
+/**
+ * 绑定文件名操作选择器事件
+ */
+function bindBatchEditFilenameOperationEvents() {
+    const select = document.getElementById('batchEditFilenameOperation');
+    if (!select) return;
+    
+    const newSelect = select.cloneNode(true);
+    select.parentNode.replaceChild(newSelect, select);
+    
+    newSelect.addEventListener('change', function() {
+        const inputDiv = document.getElementById('batchEditFilenameInput');
+        const prefixInput = document.getElementById('batchEditFilenamePrefixInput');
+        const suffixInput = document.getElementById('batchEditFilenameSuffixInput');
+        const templateInput = document.getElementById('batchEditFilenameTemplateInput');
+        const value = this.value;
+        
+        if (value === '') {
+            inputDiv.style.display = 'none';
+            prefixInput.style.display = 'none';
+            suffixInput.style.display = 'none';
+            templateInput.style.display = 'none';
+        } else {
+            inputDiv.style.display = 'block';
+            if (value === 'add_prefix') {
+                prefixInput.style.display = 'block';
+                suffixInput.style.display = 'none';
+                templateInput.style.display = 'none';
+            } else if (value === 'add_suffix') {
+                prefixInput.style.display = 'none';
+                suffixInput.style.display = 'block';
+                templateInput.style.display = 'none';
+            } else if (value === 'set') {
+                prefixInput.style.display = 'none';
+                suffixInput.style.display = 'none';
+                templateInput.style.display = 'block';
+                // 重置起始序号为默认值1
+                document.getElementById('batchEditFilenameStartIndex').value = '1';
+            }
+        }
+    });
+}
+
+/**
+ * 绑定标签输入框事件
+ */
+function bindBatchEditTagInputEvents() {
+    const input = document.getElementById('batchEditTags');
+    const addBtn = document.getElementById('batchEditAddTagBtn');
+    
+    if (!input || !addBtn) return;
+    
+    // 移除旧的事件监听器
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+    
+    const newAddBtn = addBtn.cloneNode(true);
+    addBtn.parentNode.replaceChild(newAddBtn, addBtn);
+    
+    // Enter键添加标签
+    newInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const tagName = this.value.trim();
+            if (tagName) {
+                addBatchEditTag(tagName);
+            }
+        }
+    });
+    
+    // 按钮点击添加标签
+    newAddBtn.addEventListener('click', function() {
+        const tagName = document.getElementById('batchEditTags').value.trim();
+        if (tagName) {
+            addBatchEditTag(tagName);
+        }
+    });
+    
+    // 支持逗号分隔的多个标签
+    newInput.addEventListener('blur', function() {
+        const value = this.value.trim();
+        if (value.includes(',')) {
+            const tags = value.split(',').map(t => t.trim()).filter(t => t);
+            tags.forEach(tag => addBatchEditTag(tag));
+            this.value = '';
+        }
+    });
+}
+
+// 批量编辑相关的变量
+let batchEditSelectedTags = [];
+let batchEditRemoveTags = [];
+
+/**
+ * 加载分类选项供批量编辑使用
+ */
+async function loadCategoriesForBatchEdit() {
+    try {
+        const response = await fetch('/api/v1/categories');
+        if (response.ok) {
+            const categories = await response.json();
+            const select = document.getElementById('batchEditCategoryIds');
+            select.innerHTML = '';
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('加载分类失败:', error);
+    }
+}
+
+/**
+ * 保存批量编辑
+ */
+async function saveBatchEdit() {
+    if (!window.PhotoManager) {
+        showError('照片管理器未初始化');
+        return;
+    }
+
+    const selectedIds = window.PhotoManager.getSelectedPhotoIds();
+    if (selectedIds.length === 0) {
+        showWarning('没有选中的照片');
+        return;
+    }
+
+    // 准备请求数据
+    const requestData = {
+        photo_ids: selectedIds
+    };
+
+    // 标签操作
+    const tagsOperation = document.getElementById('batchEditTagsOperation').value;
+    if (tagsOperation) {
+        requestData.tags_operation = tagsOperation;
+        if (tagsOperation === 'add' || tagsOperation === 'replace') {
+            requestData.tags = batchEditSelectedTags;
+        }
+        if (tagsOperation === 'remove') {
+            requestData.tags_to_remove = batchEditRemoveTags;
+        }
+    }
+
+    // 分类操作
+    const categoriesOperation = document.getElementById('batchEditCategoriesOperation').value;
+    if (categoriesOperation) {
+        requestData.categories_operation = categoriesOperation;
+        const categorySelect = document.getElementById('batchEditCategoryIds');
+        const selectedCategories = Array.from(categorySelect.selectedOptions).map(opt => parseInt(opt.value));
+        if (categoriesOperation === 'add' || categoriesOperation === 'replace') {
+            requestData.category_ids = selectedCategories;
+        }
+        if (categoriesOperation === 'remove') {
+            requestData.category_ids_to_remove = selectedCategories;
+        }
+    }
+
+    // 拍摄时间操作
+    const takenAtOperation = document.getElementById('batchEditTakenAtOperation').value;
+    if (takenAtOperation) {
+        requestData.taken_at_operation = takenAtOperation;
+        if (takenAtOperation === 'set' || takenAtOperation === 'fill_empty') {
+            const takenAt = document.getElementById('batchEditTakenAt').value;
+            if (takenAt) {
+                requestData.taken_at = takenAt + ':00';  // 补全秒数
+            }
+        }
+    }
+
+    // 位置操作
+    const locationOperation = document.getElementById('batchEditLocationOperation').value;
+    if (locationOperation) {
+        requestData.location_name_operation = locationOperation;
+        if (locationOperation === 'set' || locationOperation === 'fill_empty') {
+            requestData.location_name = document.getElementById('batchEditLocationName').value.trim();
+        }
+    }
+
+    // 描述操作
+    const descriptionOperation = document.getElementById('batchEditDescriptionOperation').value;
+    if (descriptionOperation) {
+        requestData.description_operation = descriptionOperation;
+        if (descriptionOperation === 'set' || descriptionOperation === 'append') {
+            requestData.description = document.getElementById('batchEditDescription').value.trim();
+        }
+    }
+
+    // 文件名操作
+    const filenameOperation = document.getElementById('batchEditFilenameOperation').value;
+    if (filenameOperation) {
+        requestData.filename_operation = filenameOperation;
+        if (filenameOperation === 'add_prefix') {
+            requestData.filename_prefix = document.getElementById('batchEditFilenamePrefix').value.trim();
+            if (!requestData.filename_prefix) {
+                showWarning('请输入文件名前缀');
+                return;
+            }
+        } else if (filenameOperation === 'add_suffix') {
+            requestData.filename_suffix = document.getElementById('batchEditFilenameSuffix').value.trim();
+            if (!requestData.filename_suffix) {
+                showWarning('请输入文件名后缀');
+                return;
+            }
+        } else if (filenameOperation === 'set') {
+            requestData.filename_template = document.getElementById('batchEditFilenameTemplate').value.trim();
+            if (!requestData.filename_template) {
+                showWarning('请输入文件名模板');
+                return;
+            }
+            // 读取起始序号，如果为空或无效则使用默认值1
+            const startIndexInput = document.getElementById('batchEditFilenameStartIndex').value;
+            const startIndex = parseInt(startIndexInput);
+            if (!isNaN(startIndex) && startIndex >= 1) {
+                requestData.filename_start_index = startIndex;
+            } else {
+                requestData.filename_start_index = 1;  // 默认从1开始
+            }
+        }
+    }
+
+    // 检查是否有任何操作
+    if (!tagsOperation && !categoriesOperation && !takenAtOperation && !locationOperation && !descriptionOperation && !filenameOperation) {
+        showWarning('请至少选择一种操作');
+        return;
+    }
+
+    try {
+        // 显示加载状态
+        const saveBtn = document.getElementById('saveBatchEdit');
+        const originalText = saveBtn.textContent;
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+
+        const response = await fetch('/api/v1/photos/batch-edit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            // 关闭模态框
+            const modal = bootstrap.Modal.getInstance(document.getElementById('batchEditModal'));
+            modal.hide();
+
+            // 刷新照片列表（保持当前页面）
+            const currentPage = (typeof AppState !== 'undefined' && AppState.currentPage) ? AppState.currentPage : 1;
+            await window.loadPhotos(currentPage);
+            await window.loadStats();
+
+            // 显示成功消息
+            const details = [];
+            if (result.details.tags_updated > 0) details.push(`标签: ${result.details.tags_updated}`);
+            if (result.details.categories_updated > 0) details.push(`分类: ${result.details.categories_updated}`);
+            if (result.details.taken_at_updated > 0) details.push(`拍摄时间: ${result.details.taken_at_updated}`);
+            if (result.details.taken_at_filled > 0) details.push(`拍摄时间(填充): ${result.details.taken_at_filled}`);
+            if (result.details.location_name_updated > 0) details.push(`位置: ${result.details.location_name_updated}`);
+            if (result.details.location_name_filled > 0) details.push(`位置(填充): ${result.details.location_name_filled}`);
+            if (result.details.description_updated > 0) details.push(`描述: ${result.details.description_updated}`);
+            if (result.details.description_appended > 0) details.push(`描述(追加): ${result.details.description_appended}`);
+            if (result.details.filename_updated > 0) details.push(`文件名: ${result.details.filename_updated}`);
+
+            const message = `批量编辑完成：成功 ${result.successful_edits}/${result.total_requested} 张照片${details.length > 0 ? '\n' + details.join(', ') : ''}`;
+            showToast(message, 'success');
+        } else {
+            const error = await response.json();
+            showToast('批量编辑失败: ' + (error.detail || '未知错误'), 'error');
+        }
+    } catch (error) {
+        console.error('批量编辑失败:', error);
+        showToast('批量编辑失败: ' + error.message, 'error');
+    } finally {
+        const saveBtn = document.getElementById('saveBatchEdit');
+        saveBtn.disabled = false;
+        saveBtn.textContent = '保存修改';
+    }
+}
+
+// 批量编辑标签管理
+function addBatchEditTag(tagName) {
+    const operation = document.getElementById('batchEditTagsOperation').value;
+    if (operation === 'remove') {
+        if (!batchEditRemoveTags.includes(tagName)) {
+            batchEditRemoveTags.push(tagName);
+            renderBatchEditRemoveTags();
+        }
+    } else {
+        if (!batchEditSelectedTags.includes(tagName)) {
+            batchEditSelectedTags.push(tagName);
+            renderBatchEditSelectedTags();
+        }
+    }
+    document.getElementById('batchEditTags').value = '';
+}
+
+function removeBatchEditTag(tagName) {
+    const operation = document.getElementById('batchEditTagsOperation').value;
+    if (operation === 'remove') {
+        batchEditRemoveTags = batchEditRemoveTags.filter(t => t !== tagName);
+        renderBatchEditRemoveTags();
+    } else {
+        batchEditSelectedTags = batchEditSelectedTags.filter(t => t !== tagName);
+        renderBatchEditSelectedTags();
+    }
+}
+
+function renderBatchEditSelectedTags() {
+    const container = document.getElementById('batchEditSelectedTags');
+    container.innerHTML = batchEditSelectedTags.map(tag => 
+        `<span class="badge bg-primary me-1 mb-1" style="cursor: pointer;" onclick="removeBatchEditTag('${tag}')">${tag} <i class="bi bi-x"></i></span>`
+    ).join('');
+}
+
+function renderBatchEditRemoveTags() {
+    const container = document.getElementById('batchEditRemoveTags');
+    container.innerHTML = batchEditRemoveTags.map(tag => 
+        `<span class="badge bg-danger me-1 mb-1" style="cursor: pointer;" onclick="removeBatchEditTag('${tag}')">${tag} <i class="bi bi-x"></i></span>`
+    ).join('');
+}
+
+// 绑定批量编辑保存按钮事件
+document.addEventListener('DOMContentLoaded', function() {
+    const saveBatchEditBtn = document.getElementById('saveBatchEdit');
+    if (saveBatchEditBtn) {
+        saveBatchEditBtn.addEventListener('click', saveBatchEdit);
+    }
+});
+
+// 导出到全局
+window.batchEditSelectedPhotos = batchEditSelectedPhotos;
+window.saveBatchEdit = saveBatchEdit;
+window.addBatchEditTag = addBatchEditTag;
+window.removeBatchEditTag = removeBatchEditTag;

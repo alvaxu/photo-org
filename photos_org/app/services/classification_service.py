@@ -765,9 +765,14 @@ class ClassificationService:
                 # 更新标签使用次数（只有新增关联时才增加计数）
                 tag.usage_count = (tag.usage_count or 0) + 1
             else:
-                # 如果关联已存在，只更新置信度（如果新的置信度更高）
-                if tag_data['confidence'] > existing_photo_tag.confidence:
-                    existing_photo_tag.confidence = tag_data['confidence']
+                # 如果关联已存在，只更新置信度（如果新的置信度更高或现有置信度为None）
+                # 🔥 修复：处理 existing_photo_tag.confidence 可能为 None 的情况
+                # 注意：对于时间标签，在强制质量分析时，所有时间标签都已被清理，所以不会进入这个分支
+                existing_confidence = existing_photo_tag.confidence
+                new_confidence = tag_data['confidence']
+                
+                if existing_confidence is None or new_confidence > existing_confidence:
+                    existing_photo_tag.confidence = new_confidence
 
             saved_tags.append(tag_data['name'])
 

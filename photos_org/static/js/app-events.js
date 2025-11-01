@@ -54,6 +54,19 @@ function bindBasicEvents() {
     window.elements.selectAllBtn.addEventListener('click', selectAllPhotos);
     window.elements.clearSelectionBtn.addEventListener('click', clearSelection);
     window.elements.deleteSelectedBtn.addEventListener('click', deleteSelectedPhotos);
+    
+    // 批量编辑按钮事件
+    const batchEditBtn = document.getElementById('batchEditBtn');
+    if (batchEditBtn) {
+        batchEditBtn.addEventListener('click', () => {
+            if (typeof window.batchEditSelectedPhotos === 'function') {
+                window.batchEditSelectedPhotos();
+            } else {
+                console.warn('批量编辑功能尚未加载');
+                showWarning('批量编辑功能尚未加载，请刷新页面重试');
+            }
+        });
+    }
 
     // 幻灯片播放按钮事件
     const slideshowSelectedBtn = document.getElementById('slideshowSelectedBtn');
