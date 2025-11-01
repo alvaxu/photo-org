@@ -215,6 +215,9 @@ class ImportService:
         metadata = {}
 
         try:
+            # 🔥 简化：直接提取EXIF，失败就返回空metadata
+            # 在并发场景下，如果提取失败，另一个线程可能已经成功提取并保存到数据库
+            # 最终的数据库记录会通过IntegrityError检测返回已存在记录（包含EXIF）
             with Image.open(file_path) as img:
                 # 获取EXIF数据 - 同时获取处理过的和原始的EXIF数据
                 processed_exif = {}
@@ -290,6 +293,9 @@ class ImportService:
                     metadata.update(gps_info)
 
         except Exception as e:
+            # EXIF提取失败，返回空metadata
+            # 在并发场景下，另一个线程可能已经成功提取并保存到数据库
+            # 最终的数据库记录会通过IntegrityError检测返回已存在记录（包含EXIF）
             print(f"EXIF提取失败: {str(e)}")
 
         return metadata
@@ -433,6 +439,13 @@ class ImportService:
         if max_size is None:
             max_size = settings.storage.thumbnail_size
 
+        # 🔥 优化：如果提供了file_hash，先检查缩略图是否已存在（避免并发时重复生成）
+        if file_hash:
+            existing_thumbnail = self._check_thumbnail_by_hash(file_hash)
+            if existing_thumbnail:
+                # 缩略图已存在，直接返回，避免重复I/O
+                return existing_thumbnail
+
         try:
             with Image.open(source_path) as img:
                 # 🔥 修复：根据EXIF方向信息旋转图片
@@ -534,12 +547,18 @@ class ImportService:
         # 构造目标路径
         target_path = date_path / target_filename
 
-        # 如果文件已存在，验证是否为重复文件（相同hash）
+        # 🔥 修复并发竞态条件：先检查文件是否存在，如果存在则验证hash
         if target_path.exists() and file_hash:
             # 验证已存在文件的hash
             existing_hash = self.calculate_file_hash(str(target_path))
             if existing_hash == file_hash:
-                # 是同一个文件，不重复保存，直接返回已存在的路径
+                # 是同一个文件，不重复保存
+                # 如果是move操作，删除源文件（因为已经有相同文件）
+                if Path(source_path).exists():
+                    try:
+                        Path(source_path).unlink()
+                    except Exception:
+                        pass  # 忽略删除失败（可能已被其他线程处理）
                 try:
                     relative_path = target_path.relative_to(self.storage_base)
                     return str(relative_path)
@@ -557,9 +576,49 @@ class ImportService:
             suffix = target_path.suffix
             target_path = date_path / f"{stem}_{timestamp}{suffix}"
 
-        # 移动文件
+        # 🔥 修复并发竞态条件：使用异常处理捕获文件已存在的情况
         import shutil
-        shutil.move(source_path, target_path)
+        try:
+            # 尝试移动文件（原子操作）
+            shutil.move(source_path, target_path)
+        except (FileExistsError, OSError) as e:
+            # 文件已存在（可能是并发导致的），检查是否为相同文件
+            if file_hash and target_path.exists():
+                existing_hash = self.calculate_file_hash(str(target_path))
+                if existing_hash == file_hash:
+                    # 是同一个文件，删除源文件，返回已存在路径
+                    try:
+                        if Path(source_path).exists():
+                            Path(source_path).unlink()
+                    except Exception:
+                        pass
+                    try:
+                        relative_path = target_path.relative_to(self.storage_base)
+                        return str(relative_path)
+                    except ValueError:
+                        return str(target_path)
+            # hash不同或无法判断，添加时间戳重试
+            timestamp = int(datetime.now().timestamp())
+            stem = Path(target_path).stem
+            suffix = Path(target_path).suffix
+            target_path = date_path / f"{stem}_{timestamp}{suffix}"
+            # 如果源文件还存在，重试移动
+            if Path(source_path).exists():
+                shutil.move(source_path, target_path)
+            else:
+                # 源文件已被删除（可能被其他线程处理），检查目标文件是否已存在
+                if target_path.exists():
+                    try:
+                        relative_path = target_path.relative_to(self.storage_base)
+                        return str(relative_path)
+                    except ValueError:
+                        return str(target_path)
+                # 如果目标文件也不存在，返回原目标路径（虽然不应该到这里）
+                try:
+                    relative_path = target_path.relative_to(self.storage_base)
+                    return str(relative_path)
+                except ValueError:
+                    return str(target_path)
 
         # 返回相对路径（相对于storage_base）
         try:
@@ -596,7 +655,7 @@ class ImportService:
         # 构造目标路径
         target_path = date_path / target_filename
 
-        # 如果文件已存在，验证是否为重复文件（相同hash）
+        # 🔥 修复并发竞态条件：先检查文件是否存在，如果存在则验证hash
         if target_path.exists() and file_hash:
             # 验证已存在文件的hash
             existing_hash = self.calculate_file_hash(str(target_path))
@@ -619,9 +678,29 @@ class ImportService:
             suffix = target_path.suffix
             target_path = date_path / f"{stem}_{timestamp}{suffix}"
 
-        # 复制文件
+        # 🔥 修复并发竞态条件：使用异常处理捕获文件已存在的情况
         import shutil
-        shutil.copy2(source_path, target_path)
+        try:
+            # 尝试复制文件（原子操作）
+            shutil.copy2(source_path, target_path)
+        except (FileExistsError, OSError) as e:
+            # 文件已存在（可能是并发导致的），检查是否为相同文件
+            if file_hash and target_path.exists():
+                existing_hash = self.calculate_file_hash(str(target_path))
+                if existing_hash == file_hash:
+                    # 是同一个文件，返回已存在路径（copy操作不需要删除源文件）
+                    try:
+                        relative_path = target_path.relative_to(self.storage_base)
+                        return str(relative_path)
+                    except ValueError:
+                        return str(target_path)
+            # hash不同或无法判断，添加时间戳重试
+            timestamp = int(datetime.now().timestamp())
+            stem = Path(target_path).stem
+            suffix = Path(target_path).suffix
+            target_path = date_path / f"{stem}_{timestamp}{suffix}"
+            # 重试复制
+            shutil.copy2(source_path, target_path)
 
         # 返回相对路径（相对于storage_base）
         try:
@@ -796,6 +875,20 @@ class ImportService:
         :return: (是否成功, 消息, 照片数据, 重复信息)
         """
         try:
+            # 🔥 优化：在文件系统操作前检查数据库（唯一检查点，减少并发窗口期）
+            # 这样即使第一个线程刚commit，第二个线程也能立即看到并跳过文件系统操作
+            if db_session:
+                from app.models.photo import Photo
+                existing_photo = db_session.query(Photo).filter(Photo.file_hash == file_hash).first()
+                if existing_photo:
+                    # 数据库已有记录，跳过导入（不操作文件系统）
+                    return False, "文件已存在，跳过导入", None, {
+                        "is_duplicate": True,
+                        "message": "文件已存在，跳过导入",
+                        "duplicate_type": "full_duplicate",
+                        "existing_photo": existing_photo
+                    }
+            
             # 先验证文件，获取格式信息
             is_valid, error_msg, file_info = self.validate_photo_file(file_path)
             if not is_valid:
@@ -832,24 +925,32 @@ class ImportService:
                 jpeg_relative_path = Path(storage_path).with_suffix('.jpg')
                 jpeg_full_path = storage_base / jpeg_relative_path
                 
-                try:
-                    # 转换为JPEG（不删除HEIC原图，让它和JPEG共存）
-                    success = self.convert_heic_to_jpeg(str(heic_full_path), str(jpeg_full_path))
-                    if not success:
-                        return False, "HEIC转JPEG失败", None, None
-                    
-                    # 不删除HEIC原图，保留它用于下载
-                    # HEIC原图：originals/2025/10/{file_hash}.heic
-                    # JPEG文件：originals/2025/10/{file_hash}.jpg
-                    
-                    # 使用JPEG相对路径作为storage_path（用于所有处理）
+                # 🔥 优化：检查JPEG是否已存在（避免重复转换和不必要的提示）
+                if jpeg_full_path.exists():
+                    # JPEG已存在，直接使用，不进行转换
                     storage_path = str(jpeg_relative_path)
-                    storage_full_path = jpeg_full_path  # 更新为JPEG的完整路径
-                    print(f"HEIC已转换为JPEG，原图已保留: {heic_full_path}")
-                    
-                except Exception as e:
-                    print(f"HEIC转JPEG失败: {e}")
-                    return False, f"HEIC转JPEG失败: {str(e)}", None, None
+                    storage_full_path = jpeg_full_path
+                    # 不输出提示，因为并没有进行转换
+                else:
+                    # JPEG不存在，需要转换
+                    try:
+                        # 转换为JPEG（不删除HEIC原图，让它和JPEG共存）
+                        success = self.convert_heic_to_jpeg(str(heic_full_path), str(jpeg_full_path))
+                        if not success:
+                            return False, "HEIC转JPEG失败", None, None
+                        
+                        # 不删除HEIC原图，保留它用于下载
+                        # HEIC原图：originals/2025/10/{file_hash}.heic
+                        # JPEG文件：originals/2025/10/{file_hash}.jpg
+                        
+                        # 使用JPEG相对路径作为storage_path（用于所有处理）
+                        storage_path = str(jpeg_relative_path)
+                        storage_full_path = jpeg_full_path
+                        print(f"HEIC已转换为JPEG，原图已保留: {heic_full_path}")
+                        
+                    except Exception as e:
+                        print(f"HEIC转JPEG失败: {e}")
+                        return False, f"HEIC转JPEG失败: {str(e)}", None, None
             else:
                 # 非HEIC格式：构建完整路径
                 storage_full_path = storage_base / storage_path
@@ -1016,23 +1117,7 @@ class ImportService:
             # 2. 计算文件哈希
             file_hash = self.calculate_file_hash(file_path)
             
-            # 3. 重复检查
-            if db_session:
-                duplicate_result = self._check_duplicate_file(file_hash, db_session)
-                
-                # 情况1：完全重复 - 统一跳过导入（无论状态如何，用户可在照片列表中手动触发智能处理）
-                if duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'full_duplicate':
-                    return False, duplicate_result['message'], None, duplicate_result
-                
-                # 情况2：物理重复 - 使用现有文件，继续处理
-                elif duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'physical_only':
-                    return self._handle_physical_duplicate(duplicate_result, file_path, file_hash, original_filename=original_filename)
-                
-                # 情况3：全新文件 - 正常处理
-                elif not duplicate_result['is_duplicate'] and duplicate_result.get('duplicate_type') == 'new_file':
-                    pass  # 继续正常处理流程
-            
-            # 4. 正常处理流程（适用于全新文件）
+            # 3. 正常处理流程（重复检查移到 _handle_new_file 中进行，减少窗口期）
             # 如果没有提供original_filename，尝试从file_path推断（用于文件夹路径导入的情况）
             if original_filename is None:
                 # 对于文件夹路径导入，file_path本身就是真实路径，文件名是正确的
