@@ -9,7 +9,7 @@
     "path": "./photo_db/photos.db"
   },
   "dashscope": {
-    "api_key": "sk-9ade5a04da1a46c998a203db3ccd70fe",
+    "api_key": "",
     "base_url": "https://dashscope.aliyuncs.com/api/v1",
     "model": "qwen-vl-plus",
     "available_models": [
@@ -47,8 +47,8 @@
     "quality_threshold": 0,
     "concurrent": 3,
     "timeout": 30,
-    "batch_size": 50,
-    "batch_threshold": 20
+    "batch_size": 200,
+    "batch_threshold": 100
   },
   "logging": {
     "level": "INFO",
@@ -137,8 +137,8 @@
       ".heif"
     ],
     "max_upload_files": 50000,
-    "scan_batch_size": 50,
-    "batch_threshold": 20
+    "scan_batch_size": 200,
+    "batch_threshold": 100
   },
   "quality": {
     "weights": {
@@ -162,7 +162,7 @@
     "rate_limit": 180,
     "cache_enabled": true,
     "cache_ttl": 86400,
-    "batch_size": 500,
+    "batch_size": 200,
     "configured": false
   },
   "face_recognition": {
@@ -173,13 +173,13 @@
     "detection_threshold": 0.6,
     "similarity_threshold": 0.7,
     "max_faces_per_photo": 10,
-    "batch_size": 50,
-    "batch_threshold": 20,
+    "batch_size": 200,
+    "batch_threshold": 100,
     "max_concurrent_batches": 3,
     "max_concurrent_photos": 6,
     "max_progress_checks": 36000,
     "max_clusters": 30,
-    "min_cluster_size": 1,
+    "min_cluster_size": 2,
     "auto_cluster": true,
     "cluster_quality_threshold": 0.8,
     "person_photos_pagination": {

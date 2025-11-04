@@ -87,57 +87,6 @@
     </style>
 </head>
 <body>
-    <!-- 顶部导航栏 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <img src="/static/images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
-                智能照片系统
-                <small class="ms-2 text-light opacity-75">2025-v4.3版</small>
-            </a>
-
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="../static/index.html">
-                            <i class="bi bi-grid-3x3-gap"></i> 照片库
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/settings">
-                            <i class="bi bi-gear"></i> 系统配置
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/help-overview">
-                            <i class="bi bi-info-circle"></i> 功能说明
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#">
-                            <i class="bi bi-key"></i>大模型API Key
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/help-gaode-api-key">
-                            <i class="bi bi-geo-alt"></i>高德API Key
-                        </a>
-                    </li>
-                </ul>
-
-                <div class="d-flex">
-                    <button class="btn btn-outline-light" onclick="window.close()">
-                        <i class="bi bi-x-lg"></i> 关闭
-                    </button>
-                </div>
-            </div>
-        </div>
-    </nav>
-
     <!-- 主内容区域 -->
     <div class="container-fluid mt-4">
         <div class="help-content">
@@ -148,7 +97,7 @@
 
             <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i>
-                本系统使用阿里云百炼的大模型qwen-VL系列对照片进行AI分析，您需要获取阿里云百炼的大模型的API Key并在设置页面中配置。
+                本系统使用阿里云百炼的大模型qwen-VL系列对照片进行AI分析。如果你想用AI分析功能对照片进行更深入分析，那么您需要获取阿里云百炼的大模型的API Key并在设置页面中配置。
             </div>
 
             <!-- 一、开通阿里云百炼的模型服务 -->
