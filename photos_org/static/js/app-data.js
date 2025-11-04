@@ -651,7 +651,7 @@ function populateCameraFilterOptions(stats) {
         if (cameraLabels.includes('未知相机')) {
             const unknownOption = document.createElement('option');
             unknownOption.value = 'unknown';
-            unknownOption.textContent = '未知相机';
+            unknownOption.textContent = '未知';
             elements.cameraFilter.appendChild(unknownOption);
         }
     }
@@ -1255,7 +1255,7 @@ function updateFilterStatus() {
     if (filters.cameraFilter) {
         // 相机筛选处理特殊情况
         if (filters.cameraFilter === 'unknown') {
-            statusParts.push('相机: 未知相机');
+            statusParts.push('相机: 未知');
         } else if (filters.cameraFilter === 'other') {
             statusParts.push('相机: 其他品牌');
         } else {

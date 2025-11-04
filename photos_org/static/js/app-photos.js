@@ -601,40 +601,203 @@ async function deletePhoto(photoId) {
 }
 
 /**
- * 搜索相似照片
+ * 搜索相似照片（带服务选择）
  * @param {number} photoId - 照片ID
  */
 async function searchSimilarPhotos(photoId) {
     console.log('搜索相似照片:', photoId);
     
+    // 检查用户设置，决定是否显示服务选择（默认使用智能分析相似搜索）
+    const defaultService = localStorage.getItem('defaultSimilarPhotoSearch') || 'enhanced';
+    
+    if (defaultService === 'ask') {
+        // 显示服务选择弹窗
+        openSimilarPhotoSearchModal(photoId);
+    } else {
+        // 直接使用默认服务
+        await searchSimilarPhotosByService(photoId, defaultService);
+    }
+}
+
+/**
+ * 打开相似照片搜索服务选择弹窗
+ * @param {number} photoId - 照片ID
+ */
+function openSimilarPhotoSearchModal(photoId) {
+    // 存储当前照片ID
+    window.currentSimilarPhotoSearch = {
+        id: photoId
+    };
+    
+    // 重置选择状态
+    selectedSimilarSearchService = null;
+    const confirmBtn = document.getElementById('confirmSimilarSearch');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+    }
+    document.querySelectorAll('#similarPhotoSearchModal .service-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    
+    // 显示弹窗
+    const modal = new bootstrap.Modal(document.getElementById('similarPhotoSearchModal'));
+    modal.show();
+}
+
+/**
+ * 根据服务类型执行相似照片搜索
+ * @param {number} photoId - 照片ID
+ * @param {string} serviceType - 服务类型 ('hash' | 'enhanced')
+ */
+async function searchSimilarPhotosByService(photoId, serviceType) {
     try {
         // 确保配置已加载
         if (!userConfig) {
             await loadUserConfig();
         }
         
-        // 从配置中获取相似度阈值和限制数量
-        const threshold = userConfig?.search?.similarity_threshold || 0.85;
+        // Hash搜索：使用配置文件中的阈值，如果配置值过高（>0.6）或未设置，则使用0.5
+        // 注意：纯hash搜索有局限性，只考虑图像结构相似性，不考虑颜色、时间、位置等
+        // 对于视觉相似但颜色/亮度不同的照片，hash可能差异较大
+        // 建议使用智能分析搜索，它综合了12个特征（hash、时间、位置、相机、AI分析等）
+        // 智能搜索：使用配置文件中的阈值，默认0.85
+        const configThreshold = userConfig?.search?.similarity_threshold;
+        const hashThreshold = (configThreshold && configThreshold <= 0.6) ? configThreshold : 0.5;  // Hash搜索保持0.5，避免误匹配
+        const enhancedThreshold = configThreshold || 0.85;  // 智能搜索保持原有阈值
         const limit = userConfig?.ui?.similar_photos_limit || 8;
         
         // 显示加载状态
         showSimilarPhotosModal(photoId);
         
-        // 调用第一层API快速筛选相似照片
-        const response = await fetch(`/api/v1/enhanced-search/similar/first-layer/${photoId}?threshold=${threshold}&limit=${limit}`);
-        const data = await response.json();
+        let response;
+        let data;
         
-        if (data.success && data.data) {
-            // 暂时禁用精确匹配按钮
-            data.data.showPreciseMatch = false;
-            data.data.referencePhotoId = photoId;
-            displaySimilarPhotos(data.data);
+        if (serviceType === 'hash') {
+            // Hash相似搜索：使用简单API（注意路径是 /api/v1/search/similar）
+            response = await fetch(`/api/v1/search/similar/${photoId}?threshold=${hashThreshold}&limit=${limit}`);
+            
+            // 检查HTTP响应状态
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: '网络请求失败' }));
+                console.error('Hash相似搜索HTTP错误:', response.status, errorData);
+                
+                // 清理加载状态
+                const resultsContainer = document.getElementById('similarPhotosResults');
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = `
+                        <div class="col-12 text-center">
+                            <p class="text-danger">搜索失败</p>
+                            <p class="text-muted small">${errorData.detail || 'HTTP ' + response.status}</p>
+                        </div>
+                    `;
+                }
+                alert(`搜索相似照片失败: ${errorData.detail || 'HTTP ' + response.status}`);
+                return;
+            }
+            
+            data = await response.json();
+            
+            if (data.success && data.data) {
+                // 检查是否有相似照片
+                if (!data.data.similar_photos || data.data.similar_photos.length === 0) {
+                    // 没有找到相似照片，但搜索成功
+                    const resultsContainer = document.getElementById('similarPhotosResults');
+                    if (resultsContainer) {
+                        resultsContainer.innerHTML = `
+                            <div class="col-12 text-center">
+                                <p class="text-muted">没有找到相似照片</p>
+                                <p class="text-muted small">提示：可以尝试降低相似度阈值或使用智能分析相似搜索</p>
+                            </div>
+                        `;
+                    }
+                    return;
+                }
+                
+                // 转换格式以适配displaySimilarPhotos函数
+                const formattedData = {
+                    reference_photo: data.data.reference_photo,
+                    similar_photos: data.data.similar_photos.map(photo => ({
+                        ...photo,
+                        similarity: photo.similarity || 0
+                    })),
+                    total: data.data.total || data.data.similar_photos.length,
+                    showPreciseMatch: false,
+                    referencePhotoId: photoId
+                };
+                displaySimilarPhotos(formattedData);
+            } else {
+                console.error('Hash相似搜索失败:', data);
+                
+                // 清理加载状态
+                const resultsContainer = document.getElementById('similarPhotosResults');
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = `
+                        <div class="col-12 text-center">
+                            <p class="text-danger">搜索失败</p>
+                            <p class="text-muted small">${data.detail || data.message || '未知错误'}</p>
+                        </div>
+                    `;
+                }
+                alert(`搜索相似照片失败: ${data.detail || data.message || '未知错误'}`);
+            }
         } else {
-            console.error('搜索相似照片失败:', data);
-            alert('搜索相似照片失败');
+            // 智能分析相似搜索：使用增强API（现有逻辑）
+            response = await fetch(`/api/v1/enhanced-search/similar/first-layer/${photoId}?threshold=${enhancedThreshold}&limit=${limit}`);
+            
+            // 检查HTTP响应状态
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: '网络请求失败' }));
+                console.error('智能相似搜索HTTP错误:', response.status, errorData);
+                
+                // 清理加载状态
+                const resultsContainer = document.getElementById('similarPhotosResults');
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = `
+                        <div class="col-12 text-center">
+                            <p class="text-danger">搜索失败</p>
+                            <p class="text-muted small">${errorData.detail || 'HTTP ' + response.status}</p>
+                        </div>
+                    `;
+                }
+                alert(`搜索相似照片失败: ${errorData.detail || 'HTTP ' + response.status}`);
+                return;
+            }
+            
+            data = await response.json();
+            
+            if (data.success && data.data) {
+                data.data.showPreciseMatch = false;
+                data.data.referencePhotoId = photoId;
+                displaySimilarPhotos(data.data);
+            } else {
+                console.error('智能相似搜索失败:', data);
+                
+                // 清理加载状态
+                const resultsContainer = document.getElementById('similarPhotosResults');
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = `
+                        <div class="col-12 text-center">
+                            <p class="text-danger">搜索失败</p>
+                            <p class="text-muted small">${data.detail || data.message || '未知错误'}</p>
+                        </div>
+                    `;
+                }
+                alert(`搜索相似照片失败: ${data.detail || data.message || '未知错误'}`);
+            }
         }
     } catch (error) {
         console.error('搜索相似照片出错:', error);
+        
+        // 清理加载状态
+        const resultsContainer = document.getElementById('similarPhotosResults');
+        if (resultsContainer) {
+            resultsContainer.innerHTML = `
+                <div class="col-12 text-center">
+                    <p class="text-danger">搜索出错</p>
+                    <p class="text-muted small">${error.message}</p>
+                </div>
+            `;
+        }
         alert('搜索相似照片出错: ' + error.message);
     }
 }
@@ -1327,6 +1490,8 @@ window.viewPhotoDetail = viewPhotoDetail;
 window.editPhoto = editPhoto;
 window.deletePhoto = deletePhoto;
 window.searchSimilarPhotos = searchSimilarPhotos;
+window.openSimilarPhotoSearchModal = openSimilarPhotoSearchModal;
+window.searchSimilarPhotosByService = searchSimilarPhotosByService;
 window.displaySimilarPhotos = displaySimilarPhotos;
 window.showPhotoEditModal = showPhotoEditModal;
 window.savePhotoEdit = savePhotoEdit;
@@ -1577,14 +1742,15 @@ async function checkServiceStatus() {
 
 // 全局变量
 let selectedGeocodingService = null;
+let selectedSimilarSearchService = null;
 
 // 服务选择事件处理
 document.addEventListener('DOMContentLoaded', function() {
-    // 服务选择事件
-    document.querySelectorAll('.service-option').forEach(option => {
+    // GPS转地址服务选择事件
+    document.querySelectorAll('#geocodingServiceModal .service-option').forEach(option => {
         option.addEventListener('click', function() {
             // 移除其他选中状态
-            document.querySelectorAll('.service-option').forEach(opt => {
+            document.querySelectorAll('#geocodingServiceModal .service-option').forEach(opt => {
                 opt.classList.remove('selected');
             });
             
@@ -1597,7 +1763,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 确认选择
+    // GPS转地址确认选择
     document.getElementById('confirmGeocoding').addEventListener('click', async function() {
         if (!selectedGeocodingService || !window.currentGeocodingPhoto) return;
         
@@ -1609,10 +1775,45 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.hide();
     });
 
-    // 取消选择
+    // GPS转地址取消选择
     document.getElementById('geocodingServiceModal').addEventListener('hidden.bs.modal', function() {
         window.currentGeocodingPhoto = null;
         selectedGeocodingService = null;
+    });
+
+    // 相似照片搜索服务选择事件
+    document.querySelectorAll('#similarPhotoSearchModal .service-option').forEach(option => {
+        option.addEventListener('click', function() {
+            // 移除其他选中状态
+            document.querySelectorAll('#similarPhotoSearchModal .service-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            
+            // 添加选中状态
+            this.classList.add('selected');
+            selectedSimilarSearchService = this.dataset.service;
+            
+            // 启用确认按钮
+            document.getElementById('confirmSimilarSearch').disabled = false;
+        });
+    });
+
+    // 相似照片搜索确认选择
+    document.getElementById('confirmSimilarSearch').addEventListener('click', async function() {
+        if (!selectedSimilarSearchService || !window.currentSimilarPhotoSearch) return;
+        
+        const { id: photoId } = window.currentSimilarPhotoSearch;
+        await searchSimilarPhotosByService(photoId, selectedSimilarSearchService);
+        
+        // 关闭弹窗
+        const modal = bootstrap.Modal.getInstance(document.getElementById('similarPhotoSearchModal'));
+        modal.hide();
+    });
+
+    // 相似照片搜索取消选择
+    document.getElementById('similarPhotoSearchModal').addEventListener('hidden.bs.modal', function() {
+        window.currentSimilarPhotoSearch = null;
+        selectedSimilarSearchService = null;
     });
 });
 

@@ -358,6 +358,14 @@ class UserConfigManager {
             const savedService = localStorage.getItem('defaultGeocodingService') || 'ask';
             defaultServiceSelect.value = savedService;
         }
+
+        // 相似照片搜索方式配置
+        const defaultSimilarSearchSelect = document.getElementById('defaultSimilarPhotoSearch');
+        if (defaultSimilarSearchSelect) {
+            // 从localStorage加载默认搜索方式设置（默认使用智能分析相似搜索）
+            const savedSearchService = localStorage.getItem('defaultSimilarPhotoSearch') || 'enhanced';
+            defaultSimilarSearchSelect.value = savedSearchService;
+        }
     }
 
     /**
@@ -490,6 +498,9 @@ class UserConfigManager {
             },
             geocoding: {
                 default_service: document.getElementById('defaultGeocodingService').value || 'ask'
+            },
+            similar_search: {
+                default_service: document.getElementById('defaultSimilarPhotoSearch').value || 'enhanced'
             }
         };
     }
@@ -551,6 +562,11 @@ class UserConfigManager {
                 // 保存geocoding配置到localStorage
                 if (geocodingConfig && geocodingConfig.default_service) {
                     localStorage.setItem('defaultGeocodingService', geocodingConfig.default_service);
+                }
+                
+                // 保存相似照片搜索方式配置到localStorage
+                if (configData.similar_search && configData.similar_search.default_service) {
+                    localStorage.setItem('defaultSimilarPhotoSearch', configData.similar_search.default_service);
                 }
                 
                 this.originalConfig = JSON.parse(JSON.stringify(configData));

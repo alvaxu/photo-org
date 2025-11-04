@@ -371,6 +371,19 @@
                             </h6>
                         </div>
                         <div class="card-body py-2">
+                            <!-- 默认相似照片搜索方式 -->
+                            <div class="mb-2">
+                                <label for="defaultSimilarPhotoSearch" class="form-label small">默认相似照片搜索方式</label>
+                                <select class="form-select form-select-sm" id="defaultSimilarPhotoSearch">
+                                    <option value="ask">每次都询问</option>
+                                    <option value="hash">Hash相似搜索</option>
+                                    <option value="enhanced" selected>智能分析相似搜索</option>
+                                </select>
+                                <div class="form-text small">
+                                    <span class="text-muted">选择默认使用的相似照片搜索方式</span>
+                                </div>
+                            </div>
+                            
                             <!-- 搜索设置 - 一行两列 -->
                             <div class="row">
                                 <div class="col-6">

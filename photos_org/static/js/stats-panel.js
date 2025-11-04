@@ -5,10 +5,6 @@ class StatsPanel {
             toggleButton: document.getElementById('toggleStatsPanel'),
             statsPanel: document.getElementById('statsPanel'),
             statsToggleIcon: document.getElementById('statsToggleIcon'),
-            totalPhotosCount: document.getElementById('totalPhotosCount'),
-            totalStorageSize: document.getElementById('totalStorageSize'),
-            timeSpan: document.getElementById('timeSpan'),
-            avgQuality: document.getElementById('avgQuality'),
             qualityChartCanvas: document.getElementById('qualityChart'),
             yearChartCanvas: document.getElementById('yearChart'),
             faceCountChartCanvas: document.getElementById('faceCountChart'),
@@ -98,29 +94,8 @@ class StatsPanel {
 
     renderStats() {
         console.log('StatsPanel: renderStats called with data:', this.data);
-        // 使用overview数据，如果没有则使用根级别数据
-        const overview = this.data.overview || this.data;
-
-        // 更新详细统计面板的概览卡片
-        this.elements.totalPhotosCount.textContent = overview.total_photos !== undefined ? overview.total_photos.toLocaleString() : '-';
-        this.elements.totalStorageSize.textContent = overview.total_storage_gb !== undefined ? overview.total_storage_gb.toFixed(1) : '-';
-        this.elements.timeSpan.textContent = overview.time_span_years !== undefined ? overview.time_span_years.toLocaleString() : '-';
-        this.elements.avgQuality.textContent = overview.avg_quality !== undefined ? overview.avg_quality.toFixed(1) : '-';
-
-        // 更新分析状态卡片
-        const photosUnanalyzed = document.getElementById('photosUnanalyzed');
-        const photosBasicAnalyzed = document.getElementById('photosBasicAnalyzed');
-        const photosAiAnalyzed = document.getElementById('photosAiAnalyzed');
-        const photosFullyAnalyzed = document.getElementById('photosFullyAnalyzed');
-        const photosWithGps = document.getElementById('photosWithGps');
-        const photosGeocoded = document.getElementById('photosGeocoded');
-
-        if (photosUnanalyzed) photosUnanalyzed.textContent = this.data.photos_unanalyzed !== undefined ? this.data.photos_unanalyzed.toLocaleString() : '-';
-        if (photosBasicAnalyzed) photosBasicAnalyzed.textContent = this.data.photos_basic_analyzed !== undefined ? this.data.photos_basic_analyzed.toLocaleString() : '-';
-        if (photosAiAnalyzed) photosAiAnalyzed.textContent = this.data.photos_ai_analyzed !== undefined ? this.data.photos_ai_analyzed.toLocaleString() : '-';
-        if (photosFullyAnalyzed) photosFullyAnalyzed.textContent = this.data.photos_fully_analyzed !== undefined ? this.data.photos_fully_analyzed.toLocaleString() : '-';
-        if (photosWithGps) photosWithGps.textContent = this.data.photos_with_gps !== undefined ? this.data.photos_with_gps.toLocaleString() : '-';
-        if (photosGeocoded) photosGeocoded.textContent = this.data.photos_geocoded !== undefined ? this.data.photos_geocoded.toLocaleString() : '-';
+        // 概览卡片已删除，相关信息显示在标题栏中
+        // 分析状态卡片已删除，相关信息显示在标题栏中
 
         // 更新标题行的统计图标
         this.renderHeaderStats();
@@ -158,14 +133,11 @@ class StatsPanel {
             <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="平均质量分: ${stats.avg_quality || 0}">
                 <i class="bi bi-graph-up text-warning"></i>${stats.avg_quality ? stats.avg_quality.toFixed(1) : 0}
             </span>
-            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="未分析照片: ${stats.photos_unanalyzed || 0}">
-                <i class="bi bi-circle text-secondary"></i>${stats.photos_unanalyzed || 0}
+            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="基础分析未完成: ${(stats.photos_unanalyzed || 0) + (stats.photos_ai_analyzed || 0)}">
+                <i class="bi bi-graph-up-arrow text-secondary"></i>${(stats.photos_unanalyzed || 0) + (stats.photos_ai_analyzed || 0)}
             </span>
-            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="仅基础分析完成: ${stats.photos_basic_analyzed || 0}">
-                <i class="bi bi-check-circle text-info"></i>${stats.photos_basic_analyzed || 0}
-            </span>
-            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="仅AI分析完成: ${stats.photos_ai_analyzed || 0}">
-                <i class="bi bi-robot text-warning"></i>${stats.photos_ai_analyzed || 0}
+            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="AI分析未完成: ${(stats.photos_unanalyzed || 0) + (stats.photos_basic_analyzed || 0)}">
+                <i class="bi bi-robot text-secondary"></i>${(stats.photos_unanalyzed || 0) + (stats.photos_basic_analyzed || 0)}
             </span>
             <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="全部分析完成: ${stats.photos_fully_analyzed || 0}">
                 <i class="bi bi-check-circle-fill text-success"></i>${stats.photos_fully_analyzed || 0}
@@ -400,9 +372,9 @@ class StatsPanel {
             // 相机分布列表 - 两列显示
             if (chartsData.camera && this.elements.cameraList) {
                 try {
-                    // 使用后端返回的排序（前9个品牌 + 其他品牌 + 未知相机）
+                    // 使用后端返回的排序（前9个品牌 + 其他品牌 + 未知）
                     const cameraItems = chartsData.camera.labels.map((label, index) => ({
-                        label: label,
+                        label: label === '未知相机' ? '未知' : label,  // 将"未知相机"改为"未知"
                         count: chartsData.camera.data[index],
                         color: chartsData.camera.colors[index] || '#6f42c1'
                     }));
@@ -411,7 +383,7 @@ class StatsPanel {
                     const getBadgeClass = (color) => {
                         switch (color) {
                             case '#fd7e14': return 'bg-warning';  // 橙色 - 其他品牌
-                            case '#dc3545': return 'bg-danger';   // 红色 - 未知相机
+                            case '#dc3545': return 'bg-danger';   // 红色 - 未知
                             default: return 'bg-primary';         // 紫色 - 主要品牌
                         }
                     };
@@ -539,8 +511,8 @@ class StatsPanel {
     filterByCamera(cameraMake) {
         if (cameraMake === 'all') {
             AppState.searchFilters.cameraFilter = '';
-        } else if (cameraMake === '未知相机') {
-            // 特殊处理：筛选无相机信息的照片
+        } else if (cameraMake === '未知' || cameraMake === '未知相机') {
+            // 特殊处理：筛选无相机信息的照片（支持"未知"和"未知相机"两种标签）
             AppState.searchFilters.cameraFilter = 'unknown';
         } else if (cameraMake === '其他品牌') {
             // 特殊处理：筛选其他品牌的照片（不在前9名中）
