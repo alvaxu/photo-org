@@ -1366,6 +1366,32 @@ document.addEventListener('DOMContentLoaded', function() {
         aiAnalysisBtn.addEventListener('click', startAIAnalysis);
     }
 
+    // 图像特征提取按钮事件
+    const imageFeatureExtractionBtn = document.getElementById('imageFeatureExtractionBtn');
+    if (imageFeatureExtractionBtn) {
+        imageFeatureExtractionBtn.addEventListener('click', () => {
+            if (typeof window.showImageFeatureExtractionModal === 'function') {
+                window.showImageFeatureExtractionModal();
+            } else {
+                console.warn('图像特征提取功能尚未加载');
+                showWarning('图像特征提取功能尚未加载，请刷新页面重试');
+            }
+        });
+    }
+    
+    // 图像特征提取开始按钮事件
+    const startFeatureExtractionBtn = document.getElementById('startFeatureExtractionBtn');
+    if (startFeatureExtractionBtn) {
+        startFeatureExtractionBtn.addEventListener('click', () => {
+            if (typeof window.startImageFeatureExtraction === 'function') {
+                window.startImageFeatureExtraction();
+            } else {
+                console.warn('图像特征提取功能尚未加载');
+                showWarning('图像特征提取功能尚未加载，请刷新页面重试');
+            }
+        });
+    }
+
     // GPS转地址按钮事件监听
     const gpsToAddressBtn = document.getElementById('gpsToAddressBtn');
     if (gpsToAddressBtn) {

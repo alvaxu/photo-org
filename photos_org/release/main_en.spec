@@ -149,6 +149,20 @@ a = Analysis(
         'pydantic.main',
         'pydantic.types',
         
+        # Fast JSON processing
+        'orjson',              # Fast JSON library (C extension)
+        
+        # PyTorch and TorchVision (for image feature extraction)
+        'torch',               # PyTorch core
+        'torch.nn',            # Neural network modules
+        'torch.nn.modules',    # Neural network module base classes
+        'torch.nn.modules.pooling',  # Pooling layers (AdaptiveAvgPool2d)
+        'torch.nn.modules.flatten',  # Flatten layer
+        'torch.serialization', # For torch.load() to load model weights
+        'torchvision',         # TorchVision
+        'torchvision.models',  # TorchVision models (ResNet50)
+        'torchvision.transforms',  # TorchVision transforms (image preprocessing)
+        
         # Web framework components
         'starlette',
         'starlette.responses',
@@ -160,6 +174,14 @@ a = Analysis(
         'jinja2.ext',
         'jinja2.filters',
         'markupsafe',
+        
+        # QR Code generation
+        'qrcode',
+        'qrcode.constants',
+        'qrcode.exceptions',
+        'qrcode.image',
+        'qrcode.image.base',
+        'qrcode.image.pil',
         
         # AI services
         'dashscope',
@@ -330,6 +352,9 @@ a = Analysis(
         'pillow',           # Image processing library
         'pillow-heif',      # HEIC format support library
         'numpy',            # Numerical computing library
+        'orjson',           # Fast JSON processing library (C extension)
+        'torch',            # PyTorch - NEEDED for image feature extraction
+        'torchvision',      # TorchVision - NEEDED for image feature extraction
         # 'insightface',      # Face recognition library - NEEDED for face recognition
         # 'onnx',             # ONNX for InsightFace - NEEDED for face recognition
         # 'onnxruntime',     # ONNX Runtime for InsightFace - NEEDED for face recognition
@@ -385,10 +410,11 @@ a = Analysis(
         # Machine Learning Libraries (major size reducers)
         'tensorflow',      # TensorFlow (920MB+)
         'tensorflow.*',    # All TensorFlow submodules
-        'torch',           # PyTorch (240MB+)
-        'torch.*',         # All PyTorch submodules
-        'torchvision',     # TorchVision
-        'torchaudio',      # TorchAudio
+        # Note: torch and torchvision are NOT excluded - they are needed for image feature extraction
+        # 'torch',           # PyTorch (240MB+) - NEEDED for image feature extraction
+        # 'torch.*',         # All PyTorch submodules - NEEDED for image feature extraction
+        # 'torchvision',     # TorchVision - NEEDED for image feature extraction
+        'torchaudio',      # TorchAudio (not used)
         'transformers',    # Hugging Face Transformers
         'keras',           # Keras
         'keras.*',         # All Keras submodules

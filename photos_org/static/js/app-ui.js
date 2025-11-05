@@ -29,6 +29,9 @@ function initializeUI() {
         importModal
     };
 
+    // 初始化搜索和筛选栏的展开/收起功能
+    initializeSearchFilterCollapse();
+
     // 添加全局关闭函数
     window.closeModal = function(modalId) {
         const modal = document.getElementById(modalId);
@@ -710,6 +713,67 @@ function toggleTags(element, event) {
         toggleText.textContent = `+${hiddenTags.children.length} 更多`;
         toggleText.classList.remove('expanded');
     }
+}
+
+// ============ 搜索和筛选栏展开/收起功能 ============
+
+/**
+ * 初始化搜索和筛选栏的展开/收起功能
+ */
+function initializeSearchFilterCollapse() {
+    const searchFilterContent = document.getElementById('searchFilterContent');
+    const searchFilterToggle = document.getElementById('searchFilterToggle');
+    const searchFilterToggleIcon = document.getElementById('searchFilterToggleIcon');
+    
+    if (!searchFilterContent || !searchFilterToggle) {
+        return;
+    }
+    
+    // 初始化Bootstrap Collapse
+    let searchFilterCollapse = null;
+    if (typeof bootstrap !== 'undefined') {
+        searchFilterCollapse = new bootstrap.Collapse(searchFilterContent, { toggle: false });
+    }
+    
+    // 按钮点击事件
+    searchFilterToggle.addEventListener('click', () => {
+        if (searchFilterCollapse) {
+            searchFilterCollapse.toggle();
+        }
+    });
+    
+    // 监听展开事件
+    searchFilterContent.addEventListener('shown.bs.collapse', () => {
+        if (searchFilterToggleIcon) {
+            searchFilterToggleIcon.classList.replace('bi-chevron-down', 'bi-chevron-up');
+        }
+        // 更新按钮文本
+        const button = searchFilterToggle;
+        Array.from(button.childNodes).forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                node.remove();
+            }
+        });
+        button.appendChild(document.createTextNode('点击收起'));
+    });
+    
+    // 监听收起事件
+    searchFilterContent.addEventListener('hidden.bs.collapse', () => {
+        if (searchFilterToggleIcon) {
+            searchFilterToggleIcon.classList.replace('bi-chevron-up', 'bi-chevron-down');
+        }
+        // 更新按钮文本
+        const button = searchFilterToggle;
+        Array.from(button.childNodes).forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                node.remove();
+            }
+        });
+        button.appendChild(document.createTextNode('点击展开'));
+    });
+    
+    // 存储到全局，方便其他地方使用
+    window.searchFilterCollapse = searchFilterCollapse;
 }
 
 // ============ 全局导出 ============

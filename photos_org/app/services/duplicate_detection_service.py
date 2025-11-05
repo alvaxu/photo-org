@@ -392,8 +392,27 @@ class DuplicateDetectionService:
             if not reference_photo or not reference_photo.perceptual_hash:
                 return []
 
+            reference_hash = reference_photo.perceptual_hash
+            
+            # 根据实际hash长度动态计算max_distance
+            # 16字符 = 64位 (hash_size=8, 8x8=64)
+            # 64字符 = 256位 (hash_size=16, 16x16=256)
+            hash_length = len(reference_hash)
+            if hash_length == 16:
+                # 16字符 = 64位
+                max_distance = 64
+            elif hash_length == 64:
+                # 64字符 = 256位
+                max_distance = 256
+            else:
+                # 其他长度，根据字符数估算（每个字符4位，但实际是hash_size^2）
+                # 尝试反向计算hash_size: hash_size = sqrt(len(hash) * 4)
+                estimated_bits = hash_length * 4
+                estimated_hash_size = int(math.sqrt(estimated_bits))
+                max_distance = estimated_hash_size * estimated_hash_size
+                self.logger.warning(f"未知hash长度 {hash_length}，估算max_distance={max_distance}")
+            
             # 将阈值转换为汉明距离
-            max_distance = self.hash_size * self.hash_size
             hamming_threshold = int(max_distance * (1 - threshold))
 
             # 获取所有有感知哈希的照片（排除参考照片）
@@ -404,10 +423,13 @@ class DuplicateDetectionService:
             ).all()
 
             similar_photos = []
-            reference_hash = reference_photo.perceptual_hash
 
             for photo in photos_with_hash:
                 try:
+                    # 检查hash长度是否一致（不同长度的hash不能比较）
+                    if len(photo.perceptual_hash) != hash_length:
+                        continue
+                    
                     # 计算汉明距离
                     distance = self._calculate_hamming_distance(reference_hash, photo.perceptual_hash)
                     
@@ -443,20 +465,22 @@ class DuplicateDetectionService:
         计算两个感知哈希之间的汉明距离
 
         Args:
-            hash1: 第一个哈希值
-            hash2: 第二个哈希值
+            hash1: 第一个哈希值（16进制字符串）
+            hash2: 第二个哈希值（16进制字符串）
 
         Returns:
             汉明距离
         """
         try:
-            # 将十六进制字符串转换为整数
-            h1 = int(hash1, 16)
-            h2 = int(hash2, 16)
+            # 延迟导入依赖
+            _lazy_import_dependencies()
             
-            # 计算异或并统计1的个数
-            xor_result = h1 ^ h2
-            return bin(xor_result).count('1')
+            # 使用imagehash库正确计算汉明距离（支持不同长度的hash）
+            h1 = imagehash.hex_to_hash(hash1)
+            h2 = imagehash.hex_to_hash(hash2)
+            
+            # 直接相减得到汉明距离
+            return h1 - h2
         except Exception as e:
             self.logger.error(f"计算汉明距离失败: {str(e)}")
             return float('inf')  # 返回无穷大表示无法计算

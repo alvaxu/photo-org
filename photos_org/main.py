@@ -24,12 +24,15 @@
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import sys
 import os
 import socket
 from pathlib import Path
+import io
+import qrcode
 
 from app.api import router as api_router
 from app.core.config import settings
@@ -71,6 +74,26 @@ def get_template_path(filename):
         # 开发环境
         return os.path.join('templates', filename)
 
+# 初始化模板引擎（用于渲染启动信息页面）
+def init_templates():
+    """初始化Jinja2模板引擎"""
+    try:
+        if getattr(sys, 'frozen', False):
+            # PyInstaller环境
+            exe_dir = Path(sys.executable).parent
+            internal_dir = exe_dir / '_internal'
+            templates_dir = str(internal_dir / 'templates')
+        else:
+            # 开发环境
+            templates_dir = 'templates'
+        from fastapi.templating import Jinja2Templates
+        return Jinja2Templates(directory=templates_dir)
+    except Exception as e:
+        print(f"⚠️ 模板引擎初始化失败: {e}")
+        return None
+
+templates = init_templates()
+
 
 # 辅助函数：获取本机IP地址
 def get_local_ip():
@@ -103,6 +126,30 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时
     print("🚀 应用启动事件触发")
+    
+    # 服务器启动后自动打开浏览器
+    try:
+        import webbrowser
+        import threading
+        import time
+        
+        def open_browser():
+            """延迟打开浏览器，确保服务器完全启动"""
+            time.sleep(2)  # 等待2秒确保服务器完全启动
+            url = f"http://127.0.0.1:{settings.server_port}"
+            try:
+                webbrowser.open(url)
+                print(f"✅ 已自动打开浏览器: {url}")
+            except Exception as e:
+                print(f"⚠️ 自动打开浏览器失败: {e}")
+                print(f"   请手动在浏览器中访问: {url}")
+        
+        # 在后台线程中打开浏览器
+        browser_thread = threading.Thread(target=open_browser, daemon=True)
+        browser_thread.start()
+    except Exception as e:
+        print(f"⚠️ 浏览器自动打开功能初始化失败: {e}")
+    
     yield
     # 关闭时
     print("🛑 应用关闭事件触发 - 清理后台任务...")
@@ -248,6 +295,79 @@ async def people_management_page():
     """人物管理页面"""
     return FileResponse(get_template_path("people-management.html"))
 
+@app.get("/startup-info")
+async def startup_info_page(request: Request):
+    """启动信息页面 - 显示二维码和访问信息"""
+    try:
+        local_ip = get_local_ip()
+        server_port = settings.server_port
+        access_url = f"http://{local_ip}:{server_port}"
+        
+        if templates:
+            return templates.TemplateResponse("startup-info.html", {
+                "request": request,
+                "local_ip": local_ip,
+                "server_port": server_port,
+                "access_url": access_url
+            })
+        else:
+            # 如果模板引擎不可用，返回简单文本
+            return Response(
+                content=f"访问地址: {access_url}\n本机IP: {local_ip}\n端口: {server_port}",
+                media_type="text/plain"
+            )
+    except Exception as e:
+        return Response(
+            content=f"错误: {str(e)}",
+            status_code=500,
+            media_type="text/plain"
+        )
+
+@app.get("/api/v1/startup-info/qrcode")
+async def generate_qrcode():
+    """生成访问二维码图片"""
+    try:
+        local_ip = get_local_ip()
+        server_port = settings.server_port
+        access_url = f"http://{local_ip}:{server_port}"
+        
+        # 生成二维码
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(access_url)
+        qr.make(fit=True)
+        
+        # 创建二维码图片
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # 将图片转换为字节流
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format='PNG')
+        img_buffer.seek(0)
+        
+        return Response(
+            content=img_buffer.getvalue(),
+            media_type="image/png"
+        )
+    except Exception as e:
+        # 如果生成失败，返回一个简单的错误图片
+        from PIL import Image, ImageDraw, ImageFont
+        img = Image.new('RGB', (200, 200), color='white')
+        draw = ImageDraw.Draw(img)
+        draw.text((50, 90), "QR Code\nError", fill='black')
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format='PNG')
+        img_buffer.seek(0)
+        return Response(
+            content=img_buffer.getvalue(),
+            media_type="image/png",
+            status_code=500
+        )
+
 # 健康检查接口
 @app.get("/health")
 async def health_check():
@@ -301,6 +421,12 @@ if __name__ == "__main__":
     print("🗄️  正在创建或检查数据库表...")
     base.Base.metadata.create_all(bind=engine)
     print("✅ 数据库表创建或检查完成")
+
+    # 检查并添加缺失的数据库字段
+    print("🔧 正在检查数据库字段...")
+    from app.services.database_migration_service import check_and_add_image_features_fields
+    check_and_add_image_features_fields()
+    print("✅ 数据库字段检查完成")
 
     # 优化人脸识别数据库（添加索引和清理无效数据）
     print("🔧 正在优化人脸识别数据库...")
@@ -442,10 +568,14 @@ if __name__ == "__main__":
     print(f"🌐 本机访问: http://127.0.0.1:{settings.server_port}")
     print(f"📖 本机帮助页面: http://127.0.0.1:{settings.server_port}/help-overview")
     print(f"⚙️ 本机配置页面: http://127.0.0.1:{settings.server_port}/settings")
+    print(f"📱 手机访问二维码页面: http://127.0.0.1:{settings.server_port}/startup-info")
     print("-" * 15+"其他设备访问地址（同一网络）"+"-" * 15)
     print(f"🌐 网络访问: http://{local_ip}:{settings.server_port}")
     print(f"📖 网络帮助页面: http://{local_ip}:{settings.server_port}/help-overview")
     print(f"⚙️ 网络配置页面: http://{local_ip}:{settings.server_port}/settings")
+    print(f"📱 手机访问二维码页面: http://{local_ip}:{settings.server_port}/startup-info")
+    print()
+    print("💡 提示：在手机浏览器中访问二维码页面，扫描二维码即可快速连接！")
     print("=" * 60)
     
     # 启动服务器

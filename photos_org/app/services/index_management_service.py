@@ -98,6 +98,12 @@ class IndexManagementService:
             "idx_photos_location": "CREATE INDEX IF NOT EXISTS idx_photos_location ON photos(location_lat, location_lng) WHERE location_lat IS NOT NULL AND location_lng IS NOT NULL",
             "idx_photos_camera_time": "CREATE INDEX IF NOT EXISTS idx_photos_camera_time ON photos(camera_make, taken_at)",
 
+            # 图像特征提取相关索引（用于优化特征向量相似搜索性能）
+            # 部分索引：只索引已提取特征的照片，减少索引大小
+            "idx_photos_image_features_extracted": "CREATE INDEX IF NOT EXISTS idx_photos_image_features_extracted ON photos(image_features_extracted) WHERE image_features_extracted = 1",
+            # 复合索引：优化特征向量搜索查询（image_features_extracted + id 过滤）
+            "idx_photos_image_features_composite": "CREATE INDEX IF NOT EXISTS idx_photos_image_features_composite ON photos(image_features_extracted, id) WHERE image_features_extracted = 1",
+
             # 复合索引优化 (新增 - 最高优先级)
             "idx_photos_status_created": "CREATE INDEX IF NOT EXISTS idx_photos_status_created ON photos(status, created_at)",
             "idx_photos_status_taken": "CREATE INDEX IF NOT EXISTS idx_photos_status_taken ON photos(status, taken_at)",

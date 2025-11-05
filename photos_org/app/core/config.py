@@ -209,6 +209,26 @@ class FaceRecognitionConfig(BaseSettings):
     person_photos_pagination: PersonPhotosPaginationConfig = Field(default_factory=PersonPhotosPaginationConfig, description="人物照片分页配置")
 
 
+class ImageFeaturesConfig(BaseSettings):
+    """图像特征提取配置"""
+    
+    class Config:
+        protected_namespaces = ('settings_',)  # 解决model_file字段命名冲突警告
+    
+    enabled: bool = Field(default=True, description="是否启用图像特征提取")
+    model: str = Field(default="resnet50", description="使用的模型名称")
+    use_local_model: bool = Field(default=True, description="是否使用本地模型")
+    models_base_path: str = Field(default="./models", description="模型存储基础路径")
+    model_file: str = Field(default="resnet50/resnet50-0676ba61.pth", description="模型文件名（相对于models_base_path）")
+    feature_dim: int = Field(default=2048, description="特征向量维度")
+    batch_size: int = Field(default=50, description="批量处理大小")
+    batch_threshold: int = Field(default=100, description="分批阈值（超过此数量将分批处理）")
+    max_concurrent_batches: int = Field(default=3, description="最大并发批次数")
+    max_concurrent_photos: int = Field(default=6, description="每批最大并发照片数")
+    similarity_threshold: float = Field(default=0.75, description="相似度阈值（用于相似照片搜索）")
+    extraction_timeout: int = Field(default=30, description="特征提取超时时间（秒）")
+
+
 class Settings(BaseSettings):
     """全局配置类"""
 
@@ -227,6 +247,7 @@ class Settings(BaseSettings):
     quality: QualityConfig
     maps: MapConfig
     face_recognition: FaceRecognitionConfig
+    image_features: ImageFeaturesConfig
 
     class Config:
         env_file = ".env"
@@ -383,6 +404,20 @@ class Settings(BaseSettings):
                     "max_pages_shown": self.face_recognition.person_photos_pagination.max_pages_shown,
                     "loading_delay": self.face_recognition.person_photos_pagination.loading_delay
                 }
+            },
+            "image_features": {
+                "enabled": self.image_features.enabled,
+                "model": self.image_features.model,
+                "use_local_model": self.image_features.use_local_model,
+                "models_base_path": self.image_features.models_base_path,
+                "model_file": self.image_features.model_file,
+                "feature_dim": self.image_features.feature_dim,
+                "batch_size": self.image_features.batch_size,
+                "batch_threshold": self.image_features.batch_threshold,
+                "max_concurrent_batches": self.image_features.max_concurrent_batches,
+                "max_concurrent_photos": self.image_features.max_concurrent_photos,
+                "similarity_threshold": self.image_features.similarity_threshold,
+                "extraction_timeout": self.image_features.extraction_timeout
             }
         }
 
@@ -408,7 +443,8 @@ class Settings(BaseSettings):
             "import": self.import_config.dict(),
             "quality": self.quality.dict(),
             "maps": self.maps.dict(),
-            "face_recognition": self.face_recognition.dict()
+            "face_recognition": self.face_recognition.dict(),
+            "image_features": self.image_features.dict()
         }
 
 

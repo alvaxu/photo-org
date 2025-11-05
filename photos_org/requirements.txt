@@ -27,6 +27,9 @@ scikit-learn==1.7.2
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
+# Fast JSON Processing
+orjson>=3.9.0
+
 # File Processing
 python-multipart==0.0.6
 python-dotenv==1.0.0
@@ -36,6 +39,12 @@ httpx==0.25.2
 
 # Calendar
 chinese_calendar==1.10.0
+
+# QR Code Generation
+qrcode[pil]>=7.4.2
+
+# Template Engine
+jinja2>=3.1.2
 
 # Development and Testing
 pytest==7.4.3

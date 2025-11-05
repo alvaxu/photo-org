@@ -651,7 +651,7 @@ function populateCameraFilterOptions(stats) {
         if (cameraLabels.includes('未知相机')) {
             const unknownOption = document.createElement('option');
             unknownOption.value = 'unknown';
-            unknownOption.textContent = '未知相机';
+            unknownOption.textContent = '未知';
             elements.cameraFilter.appendChild(unknownOption);
         }
     }
@@ -1137,7 +1137,7 @@ function clearAllFilters() {
     // 重置所有筛选条件
     elements.searchInput.value = '';
     elements.searchType.value = 'all';
-
+    
     // 重置基础筛选模式
     if (elements.advancedFilterMode) {
         elements.advancedFilterMode.value = 'date';
@@ -1151,13 +1151,13 @@ function clearAllFilters() {
     
     // 重置搜索提示文字
     elements.searchInput.placeholder = searchTypePlaceholders['all'];
-    elements.searchScopeHint.textContent = searchScopeHints['all'];
+        elements.searchScopeHint.textContent = searchScopeHints['all'];
     
     // 隐藏搜索建议
-    elements.searchSuggestions.style.display = 'none';
+        elements.searchSuggestions.style.display = 'none';
     
     // 隐藏自定义日期范围
-    elements.customDateRange.style.display = 'none';
+        elements.customDateRange.style.display = 'none';
     
     // 清空多选组件
     if (tagMultiSelect) {
@@ -1255,7 +1255,7 @@ function updateFilterStatus() {
     if (filters.cameraFilter) {
         // 相机筛选处理特殊情况
         if (filters.cameraFilter === 'unknown') {
-            statusParts.push('相机: 未知相机');
+            statusParts.push('相机: 未知');
         } else if (filters.cameraFilter === 'other') {
             statusParts.push('相机: 其他品牌');
         } else {

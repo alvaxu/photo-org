@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>访问信息 - 家庭版智能照片系统</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="/static/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/lib/bootstrap-icons/css/bootstrap-icons.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons 字体修复 -->
+    <style>
+        @font-face {
+            font-display: block;
+            font-family: "bootstrap-icons";
+            src: url("/static/lib/bootstrap-icons/fonts/bootstrap-icons.woff2?2ab2cbbe07fcebb53bdaa7313bb290f2") format("woff2"),
+                 url("/static/lib/bootstrap-icons/fonts/bootstrap-icons.woff?2ab2cbbe07fcebb53bdaa7313bb290f2") format("woff");
+        }
+    </style>
+
+    <!-- 自定义样式 -->
+    <link href="/static/css/style.css?v=20250120_01" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem 0;
+        }
+        .access-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 2rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .qr-code-container {
+            text-align: center;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+        }
+        .qr-code-container img {
+            max-width: 100%;
+            height: auto;
+            border: 4px solid white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .url-box {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            word-break: break-all;
+        }
+        .url-box code {
+            color: #0d6efd;
+            font-weight: bold;
+        }
+        .info-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+        }
+        .info-item i {
+            font-size: 1.5rem;
+            margin-right: 1rem;
+            color: #0d6efd;
+        }
+        .btn-access {
+            width: 100%;
+            padding: 0.75rem;
+            font-size: 1.1rem;
+            margin: 0.5rem 0;
+        }
+        .title-icon {
+            font-size: 3rem;
+            color: #0d6efd;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="access-card">
+            <div class="text-center mb-4">
+                <i class="bi bi-qr-code-scan title-icon"></i>
+                <h1 class="h3 mb-2">手机访问二维码</h1>
+                <p class="text-muted">使用手机扫描下方二维码即可快速访问照片库</p>
+            </div>
+
+            <div class="qr-code-container">
+                <img id="qrCodeImage" src="/api/v1/startup-info/qrcode" alt="访问二维码" />
+            </div>
+
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>使用说明：</strong>
+                <ul class="mb-0 mt-2 small">
+                    <li>确保手机与服务器在同一WiFi网络</li>
+                    <li>使用手机相机或微信等应用扫描二维码</li>
+                    <li>扫描后会自动打开照片库页面</li>
+                </ul>
+            </div>
+
+            <div class="url-box">
+                <div class="mb-2">
+                    <strong>访问地址：</strong>
+                </div>
+                <code id="accessUrl">{{ access_url }}</code>
+            </div>
+
+            <div class="info-item">
+                <i class="bi bi-router"></i>
+                <div>
+                    <strong>本机IP地址：</strong>
+                    <code id="localIp">{{ local_ip }}</code>
+                </div>
+            </div>
+
+            <div class="info-item">
+                <i class="bi bi-hdd-network"></i>
+                <div>
+                    <strong>端口号：</strong>
+                    <code id="serverPort">{{ server_port }}</code>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a href="/" class="btn btn-primary btn-access">
+                    <i class="bi bi-house-door me-2"></i>
+                    进入照片库
+                </a>
+                <a href="/help-overview" class="btn btn-outline-secondary btn-access">
+                    <i class="bi bi-info-circle me-2"></i>
+                    查看帮助文档
+                </a>
+                <a href="/settings" class="btn btn-outline-info btn-access">
+                    <i class="bi bi-gear me-2"></i>
+                    系统配置
+                </a>
+            </div>
+
+            <div class="alert alert-warning mt-4">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>提示：</strong>如果无法访问，请检查：
+                <ul class="mb-0 mt-2 small">
+                    <li>手机是否与服务器在同一WiFi网络</li>
+                    <li>防火墙是否允许8000端口访问</li>
+                    <li>服务器是否正常启动</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="/static/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
