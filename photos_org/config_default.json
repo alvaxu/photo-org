@@ -187,5 +187,19 @@
       "max_pages_shown": 5,
       "loading_delay": 300
     }
+  },
+  "image_features": {
+    "enabled": true,
+    "model": "resnet50",
+    "use_local_model": true,
+    "models_base_path": "./models",
+    "model_file": "resnet50/resnet50-0676ba61.pth",
+    "feature_dim": 2048,
+    "batch_size": 200,
+    "batch_threshold": 100,
+    "max_concurrent_batches": 3,
+    "max_concurrent_photos": 6,
+    "similarity_threshold": 0.75,
+    "extraction_timeout": 30
   }
 }

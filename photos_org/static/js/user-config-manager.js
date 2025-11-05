@@ -101,7 +101,7 @@ class UserConfigManager {
      */
     bindRangeSliders() {
         const sliders = [
-            'thumbnailQuality', 'thumbnailSize', 'similarityThreshold', 'duplicateThreshold'
+            'thumbnailQuality', 'thumbnailSize', 'featuresSimilarityThreshold', 'similarityThreshold', 'duplicateThreshold'
         ];
 
         sliders.forEach(id => {
@@ -332,10 +332,17 @@ class UserConfigManager {
         // 热门标签和分类配置已移除
 
         // 搜索配置
+        // 特征向量搜索相似度阈值
+        const featuresSimilarityThreshold = this.config.image_features?.similarity_threshold || 0.75;
+        this.setRangeValue('featuresSimilarityThreshold', featuresSimilarityThreshold);
+        this.updateCurrentValue('featuresSimilarityThresholdCurrent', featuresSimilarityThreshold.toString());
+        
+        // 智能分析相似度阈值
         const similarityThreshold = this.config.search?.similarity_threshold || 0.8;
         this.setRangeValue('similarityThreshold', similarityThreshold);
         this.updateCurrentValue('similarityThresholdCurrent', similarityThreshold.toString());
         
+        // 重复检测阈值
         const duplicateThreshold = this.config.analysis?.duplicate_threshold || 5;
         this.setRangeValue('duplicateThreshold', duplicateThreshold);
         this.updateCurrentValue('duplicateThresholdCurrent', duplicateThreshold.toString());
@@ -362,8 +369,13 @@ class UserConfigManager {
         // 相似照片搜索方式配置
         const defaultSimilarSearchSelect = document.getElementById('defaultSimilarPhotoSearch');
         if (defaultSimilarSearchSelect) {
-            // 从localStorage加载默认搜索方式设置（默认使用智能分析相似搜索）
-            const savedSearchService = localStorage.getItem('defaultSimilarPhotoSearch') || 'enhanced';
+            // 从localStorage加载默认搜索方式设置（默认使用特征向量搜索）
+            let savedSearchService = localStorage.getItem('defaultSimilarPhotoSearch') || 'features';
+            // 兼容旧配置：将 'hash' 迁移为 'features'
+            if (savedSearchService === 'hash') {
+                savedSearchService = 'features';
+                localStorage.setItem('defaultSimilarPhotoSearch', 'features');
+            }
             defaultSimilarSearchSelect.value = savedSearchService;
         }
     }
@@ -404,9 +416,15 @@ class UserConfigManager {
         // 热门标签和分类默认值已移除
 
         // 搜索配置
+        // 特征向量搜索相似度阈值默认值
+        const defaultFeaturesSimilarityThreshold = this.defaultConfig.image_features?.similarity_threshold || 0.75;
+        this.updateDefaultValue('featuresSimilarityThresholdDefault', defaultFeaturesSimilarityThreshold.toString());
+        
+        // 智能分析相似度阈值默认值
         const defaultSimilarityThreshold = this.defaultConfig.search?.similarity_threshold || 0.6;
         this.updateDefaultValue('similarityThresholdDefault', defaultSimilarityThreshold.toString());
         
+        // 重复检测阈值默认值
         const defaultDuplicateThreshold = this.defaultConfig.analysis?.duplicate_threshold || 5;
         this.updateDefaultValue('duplicateThresholdDefault', defaultDuplicateThreshold.toString());
     }
@@ -490,6 +508,9 @@ class UserConfigManager {
             search: {
                 similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value)
             },
+            image_features: {
+                similarity_threshold: parseFloat(document.getElementById('featuresSimilarityThreshold').value)
+            },
             analysis: {
                 duplicate_threshold: parseInt(document.getElementById('duplicateThreshold').value)
             },
@@ -500,7 +521,7 @@ class UserConfigManager {
                 default_service: document.getElementById('defaultGeocodingService').value || 'ask'
             },
             similar_search: {
-                default_service: document.getElementById('defaultSimilarPhotoSearch').value || 'enhanced'
+                default_service: document.getElementById('defaultSimilarPhotoSearch').value || 'features'
             }
         };
     }
@@ -618,6 +639,10 @@ class UserConfigManager {
             this.config.ui.photos_per_page = defaults.data.ui.photos_per_page;
             this.config.ui.similar_photos_limit = defaults.data.ui.similar_photos_limit;
             this.config.search.similarity_threshold = defaults.data.search.similarity_threshold;
+            if (!this.config.image_features) {
+                this.config.image_features = {};
+            }
+            this.config.image_features.similarity_threshold = defaults.data.image_features?.similarity_threshold || 0.75;
             this.config.analysis.duplicate_threshold = defaults.data.analysis.duplicate_threshold;
 
             // 更新原始配置副本

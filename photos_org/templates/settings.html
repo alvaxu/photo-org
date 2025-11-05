@@ -54,7 +54,7 @@
             <a class="navbar-brand" href="/">
                 <img src="/static/images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
                 智能照片系统
-                <small class="ms-2 text-light opacity-75">2025-v4.3版</small>
+                <small class="ms-2 text-light opacity-75">2025-V5.1.8版</small>
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -318,6 +318,80 @@
                 
                 <!-- 第二行右边：界面设置和搜索设置 -->
                 <div class="col-lg-6 mb-3">
+                    <!-- 搜索设置 -->
+                    <div class="card">
+                        <div class="card-header bg-info text-white py-2">
+                            <h6 class="mb-0">
+                                <i class="bi bi-search me-2"></i>
+                                搜索设置
+                            </h6>
+                        </div>
+                        <div class="card-body py-2">
+                            <!-- 默认相似照片搜索方式 -->
+                            <div class="mb-2">
+                                <label for="defaultSimilarPhotoSearch" class="form-label small">默认相似照片搜索方式</label>
+                                <select class="form-select form-select-sm" id="defaultSimilarPhotoSearch">
+                                    <option value="ask">每次都询问</option>
+                                    <option value="features" selected>特征向量搜索</option>
+                                    <option value="enhanced">智能分析相似搜索</option>
+                                </select>
+                                <div class="form-text small">
+                                    <span class="text-muted">选择默认使用的相似照片搜索方式</span><br>
+                                    <span class="text-muted">• 特征向量搜索：基于ResNet50深度特征，精度高（需要先运行特征提取）</span><br>
+                                    <span class="text-muted">• 智能分析相似搜索：更适用于AI分析后，综合多种特征，结果更精准</span>
+                                </div>
+                            </div>
+                            
+                            <!-- 搜索设置 - 一行三列 -->
+                            <div class="row">
+                                <div class="col-4">
+                                    <label for="featuresSimilarityThreshold" class="form-label small">特征向量搜索相似度阈值</label>
+                                    <input type="range" class="form-range" id="featuresSimilarityThreshold" 
+                                           min="0" max="1" step="0.05" value="0.75">
+                                    <div class="d-flex justify-content-between">
+                                        <small>0.0 (宽松)</small>
+                                        <small id="featuresSimilarityThresholdValue">0.75</small>
+                                        <small>1.0 (严格)</small>
+                                    </div>
+                                    <div class="form-text small">
+                                        用于特征向量搜索的阈值<br>
+                                        <span class="text-muted">当前值: <span id="featuresSimilarityThresholdCurrent">0.75</span></span><br>
+                                        <span class="text-muted">默认值: <span id="featuresSimilarityThresholdDefault">加载中...</span></span>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <label for="similarityThreshold" class="form-label small">智能分析相似度阈值</label>
+                                    <input type="range" class="form-range" id="similarityThreshold" 
+                                           min="0" max="1" step="0.05" value="0.8">
+                                    <div class="d-flex justify-content-between">
+                                        <small>0.0 (宽松)</small>
+                                        <small id="similarityThresholdValue">0.8</small>
+                                        <small>1.0 (严格)</small>
+                                    </div>
+                                    <div class="form-text small">
+                                        用于智能分析相似搜索的阈值<br>
+                                        <span class="text-muted">当前值: <span id="similarityThresholdCurrent">0.8</span></span><br>
+                                        <span class="text-muted">默认值: <span id="similarityThresholdDefault">加载中...</span></span>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <label for="duplicateThreshold" class="form-label small">重复检测阈值</label>
+                                    <input type="range" class="form-range" id="duplicateThreshold" 
+                                           min="1" max="20" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <small>1 (严格)</small>
+                                        <small id="duplicateThresholdValue">5</small>
+                                        <small>20 (宽松)</small>
+                                    </div>
+                                    <div class="form-text small">
+                                        用于重复照片检测的阈值<br>
+                                        <span class="text-muted">当前值: <span id="duplicateThresholdCurrent">5</span></span><br>
+                                        <span class="text-muted">默认值: <span id="duplicateThresholdDefault">加载中...</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <!-- 界面设置 -->
                     <div class="card mb-3">
                         <div class="card-header bg-warning text-dark py-2">
@@ -360,65 +434,7 @@
                             </div>
                             <!-- 热门标签和分类配置已移除，因为前端没有实际使用这些数据 -->
                         </div>
-                    </div>
-                    
-                    <!-- 搜索设置 -->
-                    <div class="card">
-                        <div class="card-header bg-info text-white py-2">
-                            <h6 class="mb-0">
-                                <i class="bi bi-search me-2"></i>
-                                搜索设置
-                            </h6>
-                        </div>
-                        <div class="card-body py-2">
-                            <!-- 默认相似照片搜索方式 -->
-                            <div class="mb-2">
-                                <label for="defaultSimilarPhotoSearch" class="form-label small">默认相似照片搜索方式</label>
-                                <select class="form-select form-select-sm" id="defaultSimilarPhotoSearch">
-                                    <option value="ask">每次都询问</option>
-                                    <option value="hash">Hash相似搜索</option>
-                                    <option value="enhanced" selected>智能分析相似搜索</option>
-                                </select>
-                                <div class="form-text small">
-                                    <span class="text-muted">选择默认使用的相似照片搜索方式</span>
-                                </div>
-                            </div>
-                            
-                            <!-- 搜索设置 - 一行两列 -->
-                            <div class="row">
-                                <div class="col-6">
-                                    <label for="similarityThreshold" class="form-label small">相似度阈值</label>
-                                    <input type="range" class="form-range" id="similarityThreshold" 
-                                           min="0" max="1" step="0.1" value="0.8">
-                                    <div class="d-flex justify-content-between">
-                                        <small>0.0 (宽松)</small>
-                                        <small id="similarityThresholdValue">0.8</small>
-                                        <small>1.0 (严格)</small>
-                                    </div>
-                                    <div class="form-text small">
-                                        用于相似照片搜索的阈值<br>
-                                        <span class="text-muted">当前值: <span id="similarityThresholdCurrent">0.8</span></span><br>
-                                        <span class="text-muted">默认值: <span id="similarityThresholdDefault">加载中...</span></span>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <label for="duplicateThreshold" class="form-label small">重复检测阈值</label>
-                                    <input type="range" class="form-range" id="duplicateThreshold" 
-                                           min="1" max="20" value="5">
-                                    <div class="d-flex justify-content-between">
-                                        <small>1 (严格)</small>
-                                        <small id="duplicateThresholdValue">5</small>
-                                        <small>20 (宽松)</small>
-                                    </div>
-                                    <div class="form-text small">
-                                        用于重复照片检测的阈值<br>
-                                        <span class="text-muted">当前值: <span id="duplicateThresholdCurrent">5</span></span><br>
-                                        <span class="text-muted">默认值: <span id="duplicateThresholdDefault">加载中...</span></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    </div>                 
                 </div>
                 </div>
             </div>

@@ -1137,7 +1137,7 @@ function clearAllFilters() {
     // 重置所有筛选条件
     elements.searchInput.value = '';
     elements.searchType.value = 'all';
-
+    
     // 重置基础筛选模式
     if (elements.advancedFilterMode) {
         elements.advancedFilterMode.value = 'date';
@@ -1151,13 +1151,13 @@ function clearAllFilters() {
     
     // 重置搜索提示文字
     elements.searchInput.placeholder = searchTypePlaceholders['all'];
-    elements.searchScopeHint.textContent = searchScopeHints['all'];
+        elements.searchScopeHint.textContent = searchScopeHints['all'];
     
     // 隐藏搜索建议
-    elements.searchSuggestions.style.display = 'none';
+        elements.searchSuggestions.style.display = 'none';
     
     // 隐藏自定义日期范围
-    elements.customDateRange.style.display = 'none';
+        elements.customDateRange.style.display = 'none';
     
     // 清空多选组件
     if (tagMultiSelect) {

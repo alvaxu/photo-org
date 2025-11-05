@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>功能说明 - 家庭版智能照片系统 v4.3版 </title>
+    <title>功能说明 - 家庭版智能照片系统 V5.1.8版 </title>
 
     <!-- Bootstrap CSS - 优先使用本地版本 -->
     <link href="/static/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
@@ -115,7 +115,7 @@
             <a class="navbar-brand" href="/">
                 <img src="/static/images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
                 智能照片系统
-                <small class="ms-2 text-light opacity-75">2025-v4.3版</small>
+                <small class="ms-2 text-light opacity-75">2025-V5.1.8版</small>
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -160,7 +160,7 @@
 
             <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i>
-                欢迎使用家庭版智能照片系统 v4.3版 ！本帮助文档将为您详细介绍系统的各项功能和使用方法。
+                欢迎使用家庭版智能照片系统 V5.1.8版 ！本帮助文档将为您详细介绍系统的各项功能和使用方法。
             </div>
 
             <!-- 系统概述 -->
@@ -169,7 +169,7 @@
 
                 <div class="info-box">
                     <h5><i class="bi bi-house-heart me-2"></i>家庭版智能照片系统</h5>
-                    <p>基于AI技术的智能照片管理平台，支持照片自动分析、分类、标签生成和重复检测，<strong>支持人脸识别与人物管理、GPS转地址多服务解析</strong>。您的照片数据始终存储在您控制的本地设备中，从不上传到云端，<strong>真正的数据永不离身，绝对隐私无忧。</strong>便携式设计，解压即用，一次配置处处可用。</p>
+                    <p>基于AI技术的智能照片管理平台，支持照片去重（自动去除重复照片）上传、分析、分类、标签生成、<strong>人脸识别与根据肖像快速查询、GPS转地址多服务解析、图像特征提取与相似照搜索</strong>、支持对照片及其信息的增删改查、播放和下载。您的照片数据始终存储在您控制的本地设备中，从不上传到云端，<strong>真正的数据永不离身，绝对隐私无忧。</strong>便携式设计，解压即用，一次配置处处可用。</p>
                 </div>
 
                 <div class="row g-4">
@@ -281,7 +281,8 @@
                                 <li><strong>双击运行 <code>PhotoSystem.exe</code></strong> 直接启动</li>
                                 <li>或者运行 <code>startup.bat</code> 脚本启动</li>
                                 <li>初次启动，仅需等待1分钟，之后再次启动，秒速完成</li>
-                                <li>启动完成后，请不要关闭启动窗口</li>
+                                <li>系统启动后，会自动打开默认浏览器进入照片系统</li>
+                                <li>注意：启动完成后，请不要关闭启动窗口</li>
                             </ol>
                         </div>
                     </div>
@@ -291,13 +292,13 @@
                     <h4 class="h5"><i class="bi bi-globe me-2"></i>访问系统</h4>
                     <div class="alert alert-success">
                         <i class="bi bi-check-circle me-2"></i>
-                        <strong>启动完成后，在浏览器中访问：<code>http://127.0.0.1:8000</code></strong>
+                        <strong>系统启动完成后，会自动打开默认浏览器进入照片系统页面，或者在浏览器中访问：<code>http://127.0.0.1:8000</code></strong>
                     </div>
-                    <p>也可在家庭的其他设备上，根据启动页的提示，在浏览器中访问：<code>http://主机ip地址:8000</code></p>
+                    <p>同一家庭网络的其他设备，可通过扫描主机页面上的二维码访问系统，既方便又快捷。</p>
                     
                     <div class="alert alert-info mt-3">
                         <i class="bi bi-info-circle me-2"></i>
-                        <strong>导航栏功能：</strong>页面顶部提供快速入口，包括<strong>导入照片</strong>、<strong>基础分析</strong>、<strong>GPS转地址</strong>、<strong>人脸识别</strong>、<strong>AI分析</strong>等核心功能按钮。
+                        <strong>导航栏功能：</strong>页面顶部提供快速入口，包括<strong>导入照片</strong>、<strong>基础分析</strong>、<strong>特征提取</strong>、<strong>人脸识别</strong>、<strong>GPS转地址</strong>、<strong>AI分析（可选）</strong>等核心功能按钮。
                     </div>
                 </div>
 
@@ -306,8 +307,9 @@
                     <ol>
                         <li>导入照片到系统中</li>
                         <li>先进行基础分析（本地快速的基础数据提取、分析和质量评估）</li>
-                        <li>再进行GPS转地址（选择高德、Nominatim或离线三种服务中的一种进行地址解析）</li>
-                        <li>启动人脸识别（本地AI模型，自动聚类人物）</li>                      
+                        <li>运行特征提取（基于ResNet50提取图像特征向量，用于高精度相似照片搜索）</li>
+                        <li>启动人脸识别（本地AI模型，自动聚类人物，用于基于人脸筛选）</li>
+                        <li>进行GPS转地址（选择高德、Nominatim或离线三种服务中的一种进行地址解析）</li>
                         <li>使用智能搜索和筛选功能管理照片</li>
                         <li>享受智能照片管理体验！</li>
                         <li><a href="#api-key-config" class="text-decoration-none">还可申请并配置免费额度大模型API密钥以便对照片进行更深入AI分析；如选用高德API解析照片地址，也需申请并配置免费额度高德API密钥</a></li>
@@ -566,16 +568,106 @@
                     </div>
                 </div>
 
-                <!-- 3.5 智能搜索 -->
+                <!-- 3.5 图像特征提取与相似搜索 -->
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">3.5 智能搜索</h4>
+                    <h4 class="h5">3.5 图像特征提取与相似搜索</h4>
+                    <p>基于ResNet50深度学习的图像特征提取功能，为照片生成2048维特征向量，实现高精度的相似照片搜索。</p>
+
+                    <div class="info-box mb-3">
+                        <h6><i class="bi bi-image me-2"></i>特征提取功能</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-robot me-2 text-info"></i>核心功能</h6>
+                                <ul class="mb-2 small">
+                                    <li><strong>深度特征提取：</strong>使用ResNet50模型提取2048维特征向量</li>
+                                    <li><strong>批量处理：</strong>支持批量提取，高效处理大量照片</li>
+                                    <li><strong>本地处理：</strong>完全本地运行，无需网络连接</li>
+                                    <li><strong>相似度搜索：</strong>基于特征向量的高精度相似照片匹配</li>
+                                    <li><strong>自动优化：</strong>使用向量化计算和快速JSON解析，性能优异</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-key me-2 text-warning"></i>使用要求</h6>
+                                <ul class="mb-2 small">
+                                    <li><strong>预置模型：</strong>ResNet50模型已放置在models目录</li>
+                                    <li><strong>首次提取：</strong>需要先运行特征提取任务</li>
+                                    <li><strong>本地处理：</strong>完全本地运行，保护隐私</li>
+                                    <li><strong>处理速度：</strong>处理速度飞快，支持并发处理</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 特征提取的使用方式 -->
+                    <div class="mb-3">
+                        <h6><i class="bi bi-play-circle me-2"></i>特征提取的使用方式</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-play-fill me-2 text-info"></i>开始特征提取</h6>
+                                <ul class="small">
+                                    <li><strong>入口：</strong>点击导航栏"特征提取"按钮</li>
+                                    <li><strong>批量处理：</strong>系统自动提取所有照片的特征向量</li>
+                                    <li><strong>进度显示：</strong>显示处理进度、成功/失败统计和详细结果</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-search me-2 text-success"></i>相似照片搜索</h6>
+                                <ul class="small">
+                                    <li><strong>搜索方式：</strong>在照片悬停时点击"相似照片"按钮</li>
+                                    <li><strong>服务选择：</strong>可选择"特征向量搜索"或"智能分析相似搜索"</li>
+                                    <li><strong>默认设置：</strong>可在系统设置中配置默认搜索方式</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 注意事项 -->
+                    <div class="warning-box">
+                        <h6><i class="bi bi-exclamation-triangle me-2"></i>特征提取注意事项</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-clock me-2 text-warning"></i>处理时间</h6>
+                                <ul class="mb-0 small">
+                                    <li>特征提取处理速度取决于照片数量和硬件性能</li>
+                                    <li>支持批量处理和并发计算，提升处理效率</li>
+                                    <li>当前浏览器窗口可实时显示进度和最终结果，建议不要关闭，但可以打开新窗口访问照片</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-graph-up-arrow me-2 text-info"></i>性能优化</h6>
+                                <ul class="mb-0 small">
+                                    <li>系统已优化数据库索引，提升搜索性能</li>
+                                    <li>使用快速JSON解析和向量化计算，大幅提升处理速度</li>
+                                    <li>对于40000张照片，搜索时间通常在数秒内完成</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-12 mt-2">
+                                <h6><i class="bi bi-shield-check me-2 text-success"></i>准确性提示</h6>
+                                <ul class="mb-0 small">
+                                    <li>特征向量搜索基于图像内容，能识别相似场景、物体、构图</li>
+                                    <li>适合查找同一场景、相似角度、相似内容的照片</li>
+                                    <li>比传统哈希算法更准确，能识别颜色调整、轻微裁剪等变化</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3.6 智能搜索 -->
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">3.6 智能搜索</h4>
                     <p>强大的搜索功能让您快速找到需要的照片，支持多种搜索方式和条件组合。</p>
                     <ul>
                         <li><strong>全文搜索：</strong>支持多文本的组合全文搜索，支持中文分词和复杂查询</li>
                         <li><strong>关键词搜索：</strong>支持文件名、描述、标签、分类、AI分析结果搜索</li>
                         <li><strong>人脸筛选：</strong>支持单张人脸筛选个人照片，及多张人脸筛选同框照片</li>
                         <li><strong>条件筛选：</strong>按日期、质量、相机、格式、标签、分类等条件精确筛选</li>
-                        <li><strong>相似照片：</strong>通过图片悬停功能快速发现相似照片</li>
+                        <li><strong>相似照片：</strong>通过图片悬停功能快速发现相似照片
+                            <ul>
+                                <li><strong>特征向量搜索：</strong>基于ResNet50深度特征向量，精度高，适合查找内容相似的照片</li>
+                                <li><strong>智能分析搜索：</strong>适用于AI分析后，综合多种特征，结果更精准</li>
+                            </ul>
+                        </li>
                         <li><strong>搜索建议：</strong>基于热门标签和分类的智能建议</li>
                     </ul>
 
@@ -641,9 +733,9 @@
                     </div>
                 </div>
 
-                <!-- 3.6 照片显示 -->
+                <!-- 3.7 照片显示 -->
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">3.6 照片显示</h4>
+                    <h4 class="h5">3.7 照片显示</h4>
                     <p>系统提供多种照片查看和操作方式，让您能够方便地浏览、管理和欣赏您的照片收藏。</p>
 
                     <!-- 照片浏览模式 -->
@@ -884,9 +976,9 @@
                     </div>
                 </div>
 
-                <!-- 3.7 系统配置 -->
+                <!-- 3.8 系统配置 -->
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">3.7 系统配置</h4>
+                    <h4 class="h5">3.8 系统配置</h4>
                     <p>通过系统配置页面，您可以根据个人需求调整系统的各项参数和功能设置。</p>
                     
                     <div class="info-box mb-3">
@@ -902,7 +994,13 @@
                             <div class="col-md-6">
                                 <ul class="mb-2 small">
                                     <li><strong>界面设置：</strong>调整每页显示照片数和相似照片数量</li>
-                                    <li><strong>搜索设置：</strong>配置相似度阈值和重复检测阈值</li>
+                                    <li><strong>搜索设置：</strong>配置相似度阈值和重复检测阈值
+                                        <ul class="small mt-1">
+                                            <li>特征向量搜索相似度阈值：0.0-1.0，默认0.75（值越高越严格）</li>
+                                            <li>智能分析相似度阈值：0.0-1.0，用于智能分析相似搜索</li>
+                                            <li>默认相似照片搜索方式：特征向量搜索/智能分析相似搜索/每次都询问</li>
+                                        </ul>
+                                    </li>
                                     <li><strong>配置导出：</strong>支持导出配置为JSON文件</li>
                                 </ul>
                             </div>
@@ -982,11 +1080,39 @@
 
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5">搜索设置</h4>
-                    <ul>
-                        <li><strong>相似度阈值：</strong>0.0-1.0，推荐0.6</li>
-                        <li><strong>重复检测阈值：</strong>1-20，推荐5</li>
-                        <li><strong>平衡配置：</strong>准确性和召回率的良好平衡</li>
-                    </ul>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-sliders me-2"></i>相似度阈值</h6>
+                            <ul class="small">
+                                <li><strong>特征向量搜索相似度阈值：</strong>0.0-1.0，默认0.75
+                                    <ul class="small mt-1">
+                                        <li>用于特征向量相似搜索的阈值</li>
+                                        <li>值越高越严格，匹配的照片越相似</li>
+                                        <li>建议范围：0.7-0.85</li>
+                                    </ul>
+                                </li>
+                                <li><strong>智能分析相似度阈值：</strong>0.0-1.0
+                                    <ul class="small mt-1">
+                                        <li>用于智能分析相似搜索的阈值</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-search me-2"></i>搜索方式</h6>
+                            <ul class="small">
+                                <li><strong>默认相似照片搜索方式：</strong>
+                                    <ul class="small mt-1">
+                                        <li><strong>特征向量搜索：</strong>基于ResNet50深度特征，精度高（需要先运行特征提取）</li>
+                                        <li><strong>智能分析相似搜索：</strong>更适用于AI分析后，综合多种特征，结果更精准</li>
+                                        <li><strong>每次都询问：</strong>每次搜索时选择搜索方式</li>
+                                    </ul>
+                                </li>
+                                <li><strong>重复检测阈值：</strong>1-20，推荐5</li>
+                                <li><strong>平衡配置：</strong>准确性和召回率的良好平衡</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -1003,8 +1129,7 @@
                     <h4 class="h5">局域网访问设置</h4>
                     <ol>
                         <li><strong>确保设备在同一网络：</strong>电脑、手机、平板连接到同一个WiFi</li>
-                        <li><strong>获取主机IP地址：</strong>查看启动屏幕上的信息即可，也可在主机上运行 <code>ipconfig</code> </li>
-                        <li><strong>其他设备访问：</strong>浏览器输入 <code>http://主机IP地址:8000</code></li>
+                        <li><strong>扫描二维码：</strong>扫描主机页面上的二维码，其他设备即可访问系统。</li>
                         <li><strong>防火墙设置：</strong>确保端口8000未被防火墙阻止</li>
                     </ol>
                 </div>
@@ -1091,7 +1216,7 @@
 
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    <strong>重要：</strong>建议申请并配置免费额度大模型API密钥以便对照片进行更深入分析；如选用高德API解析照片地址，也需申请并配置免费额度高德API密钥。
+                    <strong>重要：</strong>你可以申请并配置免费额度大模型API密钥以便对照片进行更深入分析；如选用高德API解析照片地址，也需申请并配置免费额度高德API密钥。请点击以下两个链接获得更多信息。
                     <a href="/help-api-key" class="alert-link ms-2 me-3" target="_blank">
                         <i class="bi bi-robot me-1"></i>
                         AI密钥配置指南
@@ -1211,7 +1336,12 @@
                             </h2>
                             <div id="search2" class="accordion-collapse collapse" data-bs-parent="#searchAccordion">
                                 <div class="accordion-body">
-                                    A: 将鼠标悬停在照片上，点击相似照片按钮，或使用搜索框下方的"搜索相似照片"功能。
+                                    A: 将鼠标悬停在照片上，点击相似照片按钮，系统会提示选择搜索方式：
+                                    <ul class="mt-2 mb-0">
+                                        <li><strong>特征向量搜索：</strong>基于ResNet50深度特征向量，精度高，适合查找内容相似的照片（需要先运行特征提取）</li>
+                                        <li><strong>智能分析相似搜索：</strong>适用于AI分析后，综合多种特征，结果更精准</li>
+                                    </ul>
+                                    可以在系统设置中配置默认搜索方式，避免每次都询问。
                                 </div>
                             </div>
                         </div>
@@ -1365,6 +1495,81 @@
                             <div id="gps5" class="accordion-collapse collapse" data-bs-parent="#gpsAccordion">
                                 <div class="accordion-body">
                                     A: 高德地图提供一定量的免费API调用额度，日常使用通常在免费额度范围内。如果超出免费额度，可能需要付费使用。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-card p-3 mb-3">
+                    <h4 class="h5">特征提取相关问题</h4>
+                    <div class="accordion" id="featureAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#feature1">
+                                    Q: 特征提取功能如何使用？
+                                </button>
+                            </h2>
+                            <div id="feature1" class="accordion-collapse collapse show" data-bs-parent="#featureAccordion">
+                                <div class="accordion-body">
+                                    A: 点击导航栏的"特征提取"按钮，系统会自动提取所有照片的特征向量。处理完成后，您就可以使用特征向量搜索功能来查找相似照片。特征向量搜索基于ResNet50深度特征，精度高，能识别相似场景、物体、构图。
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#feature2">
+                                    Q: 为什么相似照片搜索提示"照片尚未提取特征向量"？
+                                </button>
+                            </h2>
+                            <div id="feature2" class="accordion-collapse collapse" data-bs-parent="#featureAccordion">
+                                <div class="accordion-body">
+                                    A: 这是因为您还没有运行特征提取任务。请先点击导航栏的"特征提取"按钮，等待所有照片的特征向量提取完成后，就可以使用特征向量搜索功能了。特征提取只需要运行一次，之后新导入的照片会在下次提取时自动处理。
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#feature3">
+                                    Q: 特征向量搜索和智能分析搜索有什么区别？
+                                </button>
+                            </h2>
+                            <div id="feature3" class="accordion-collapse collapse" data-bs-parent="#featureAccordion">
+                                <div class="accordion-body">
+                                    A: 
+                                    <ul class="mb-0">
+                                        <li><strong>特征向量搜索：</strong>基于ResNet50深度特征向量，精度高，适合查找内容相似的照片。需要先运行特征提取任务，完全本地处理，无需网络。</li>
+                                        <li><strong>智能分析相似搜索：</strong>适用于AI分析后，综合多种特征（包括质量、EXIF、标签等），结果更精准。建议在AI分析完成后使用。</li>
+                                    </ul>
+                                    建议优先使用特征向量搜索，因为它基于图像内容，能识别相似场景、物体、构图，且无需AI分析。
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#feature4">
+                                    Q: 特征提取需要多长时间？
+                                </button>
+                            </h2>
+                            <div id="feature4" class="accordion-collapse collapse" data-bs-parent="#featureAccordion">
+                                <div class="accordion-body">
+                                    A: 特征提取的处理速度很快。系统支持批量处理和并发计算，大幅提升处理效率。对于大量照片，系统会自动分批处理，并在浏览器中实时显示进度。处理完成后会显示详细的成功/失败统计信息。
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#feature5">
+                                    Q: 特征向量搜索的性能如何？
+                                </button>
+                            </h2>
+                            <div id="feature5" class="accordion-collapse collapse" data-bs-parent="#featureAccordion">
+                                <div class="accordion-body">
+                                    A: 系统已优化数据库索引、使用快速JSON解析和向量化计算，大幅提升了搜索性能。对于40000张照片，搜索时间通常在数秒内完成。搜索速度与照片数量基本呈线性关系，性能优异。
                                 </div>
                             </div>
                         </div>

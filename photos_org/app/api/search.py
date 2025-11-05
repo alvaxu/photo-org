@@ -420,6 +420,74 @@ async def search_similar_photos(
         raise HTTPException(status_code=500, detail=f"搜索相似照片失败: {str(e)}")
 
 
+@router.get("/similar/by-features/{photo_id}")
+async def search_similar_photos_by_features(
+    photo_id: int,
+    threshold: float = Query(None, ge=0.0, le=1.0, description="相似度阈值"),
+    limit: int = Query(20, ge=1, le=100, description="返回数量"),
+    db: Session = Depends(get_db)
+):
+    """
+    基于特征向量搜索相似照片
+    
+    使用ResNet50提取的图像特征向量进行相似度匹配
+    """
+    try:
+        # 使用配置中的默认相似度阈值
+        from app.core.config import settings
+        if threshold is None:
+            threshold = settings.image_features.similarity_threshold
+        
+        # 获取参考照片
+        photo = db.query(Photo).filter(Photo.id == photo_id).first()
+        if not photo:
+            raise HTTPException(status_code=404, detail="照片不存在")
+        
+        # 检查照片是否已提取特征向量
+        if not photo.image_features_extracted or not photo.image_features:
+            raise HTTPException(
+                status_code=400,
+                detail="照片尚未提取特征向量，请先运行特征提取任务"
+            )
+        
+        # 使用图像特征服务搜索相似照片
+        from app.services.image_feature_service import image_feature_service
+        
+        # 搜索相似照片
+        similar_photos = image_feature_service.find_similar_photos_by_features(
+            db_session=db,
+            reference_photo_id=photo_id,
+            threshold=threshold,
+            limit=limit
+        )
+        
+        # 格式化结果
+        results = []
+        for similar_photo in similar_photos:
+            # 从数据库获取完整的照片对象
+            photo_obj = db.query(Photo).filter(Photo.id == similar_photo['photo_id']).first()
+            if photo_obj:
+                result = search_service._format_photo_result(db=db, photo=photo_obj)
+                if result:
+                    result['similarity'] = similar_photo.get('similarity', 0.0)
+                    results.append(result)
+        
+        return {
+            "success": True,
+            "data": {
+                "reference_photo": search_service._format_photo_result(db=db, photo=photo),
+                "similar_photos": results,
+                "total": len(results),
+                "threshold": threshold
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"搜索相似照片失败: {str(e)}")
+
+
 @router.post("/similar/process")
 async def process_similar_photos(
     photo_ids: List[int],
