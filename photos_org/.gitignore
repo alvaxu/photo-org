@@ -159,6 +159,7 @@ photo_db/
 photos_system.egg-info/
 build/
 dist/
+msix_build/
 release_install_version/
 storage/
 temp/
