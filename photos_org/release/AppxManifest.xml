@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    IgnorableNamespaces="rescap">
+
+  <!-- 包标识信息 -->
+  <Identity
+      Name="com.alphaxu.PhotoSystem"
+      Publisher="CN=Alpha_Xu"
+      Version="5.1.8.0" />
+
+  <!-- 包属性 -->
+  <Properties>
+    <DisplayName>家庭版智能照片系统</DisplayName>
+    <PublisherDisplayName>Alpha_Xu</PublisherDisplayName>
+    <Description>基于AI技术的智能照片管理平台。数据永不离身，绝对隐私无忧。</Description>
+    <Logo>Assets/Logo.png</Logo>
+  </Properties>
+
+  <!-- 资源信息 -->
+  <Resources>
+    <Resource Language="zh-CN" />
+    <Resource Language="en-US" />
+  </Resources>
+
+  <!-- 依赖项 -->
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <!-- 应用定义 -->
+  <Applications>
+    <Application Id="PhotoSystem"
+                 Executable="PhotoSystem.exe"
+                 EntryPoint="Windows.FullTrustApplication">
+      
+      <!-- 可视化元素 -->
+      <uap:VisualElements
+          DisplayName="家庭版智能照片系统"
+          Description="基于AI技术的智能照片管理平台"
+          BackgroundColor="#FFFFFF"
+          Square150x150Logo="Assets/Square150x150Logo.png"
+          Square44x44Logo="Assets/Square44x44Logo.png">
+        
+        <!-- 启动磁贴 -->
+        <uap:DefaultTile Wide310x150Logo="Assets/Wide310x150Logo.png" />
+        
+        <!-- 初始屏幕 -->
+        <uap:SplashScreen Image="Assets/SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <!-- 功能声明 -->
+  <Capabilities>
+    <!-- 完整信任应用（桌面桥接） -->
+    <rescap:Capability Name="runFullTrust" />
+    
+    <!-- 文件系统访问 -->
+    <rescap:Capability Name="broadFileSystemAccess" />
+    
+    <!-- 网络访问 -->
+    <Capability Name="internetClient" />
+    <Capability Name="internetClientServer" />
+    
+    <!-- 私有网络访问（用于家庭网络） -->
+    <Capability Name="privateNetworkClientServer" />
+  </Capabilities>
+
+</Package>
+
