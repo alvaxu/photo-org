@@ -423,6 +423,9 @@ async def get_default_config():
             },
             "analysis": {
                 "duplicate_threshold": default_config.get("analysis", {}).get("duplicate_threshold", 5)
+            },
+            "image_features": {
+                "similarity_threshold": default_config.get("image_features", {}).get("similarity_threshold", 0.5)
             }
         }
         
