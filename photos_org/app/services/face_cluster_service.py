@@ -137,14 +137,35 @@ class FaceClusterService:
     
     def __init__(self):
         """初始化人脸聚类服务"""
-        self.config = settings.face_recognition
-        self.max_clusters = self.config.max_clusters
-        self.min_cluster_size = self.config.min_cluster_size
-        self.similarity_threshold = self.config.similarity_threshold
-        self.cluster_quality_threshold = self.config.cluster_quality_threshold
-        
+        # 注意：不再在 __init__ 中固定配置值，改为动态读取
         # 初始化肖像轮换管理器
         self.rotation_manager = PortraitRotationManager()
+    
+    @property
+    def config(self):
+        """动态获取人脸识别配置（每次使用时读取最新配置）"""
+        from app.core.config import get_settings
+        return get_settings().face_recognition
+    
+    @property
+    def max_clusters(self) -> int:
+        """动态获取最大聚类数（每次使用时读取最新配置）"""
+        return self.config.max_clusters
+    
+    @property
+    def min_cluster_size(self) -> int:
+        """动态获取最小聚类大小（每次使用时读取最新配置）"""
+        return self.config.min_cluster_size
+    
+    @property
+    def similarity_threshold(self) -> float:
+        """动态获取相似度阈值（每次使用时读取最新配置）"""
+        return self.config.similarity_threshold
+    
+    @property
+    def cluster_quality_threshold(self) -> float:
+        """动态获取聚类质量阈值（每次使用时读取最新配置）"""
+        return self.config.cluster_quality_threshold
         
     async def cluster_faces(self, db: Session, task_id: Optional[str] = None) -> bool:
         """

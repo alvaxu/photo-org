@@ -216,30 +216,9 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-copy "README.md" "!DIST_DIR!\" >nul
+copy "使用说明.pdf" "!DIST_DIR!\" >nul
 if errorlevel 1 (
-    echo ERROR: Failed to copy README.md
-    pause
-    exit /b 1
-)
-copy "README.html" "!DIST_DIR!\" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to copy README.html
-    pause
-    exit /b 1
-)
-copy "功能说明正式版.pdf" "!DIST_DIR!\" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to copy 功能说明正式版.pdf
-    pause
-    exit /b 1
-)
-echo DEBUG: All files copied successfully
-
-echo DEBUG: Copying icon files...
-copy "xuwh.ico" "!DIST_DIR!\" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to copy xuwh.ico
+    echo ERROR: Failed to copy 使用说明.pdf
     pause
     exit /b 1
 )
@@ -297,6 +276,8 @@ if exist "..\models" (
     echo WARNING: models directory not found, skipping...
     echo WARNING: Face recognition may not work without local models
 )
+
+echo DEBUG: All files copied successfully
 
 echo DEBUG: Skipping installer scripts - using direct execution mode
 

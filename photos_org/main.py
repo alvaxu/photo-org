@@ -35,9 +35,9 @@ import io
 import qrcode
 
 from app.api import router as api_router
-from app.core.config import settings
-from app.core.logging import setup_logging
-from app.db.session import engine
+# 注意：settings 和 engine 现在使用延迟初始化，不在模块级别导入
+# from app.core.config import settings  # ❌ 删除，改为在函数内导入
+# from app.db.session import engine  # ❌ 删除，改为在函数内导入
 from app.models import base
 # 导入所有模型以确保表被创建
 from app.models import (
@@ -233,40 +233,8 @@ else:
 
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
-# 动态挂载照片存储目录（根据用户配置）
-config_path = Path(settings.storage.base_path)
-
-if getattr(sys, 'frozen', False):
-    # PyInstaller打包环境
-    exe_dir = Path(sys.executable).parent
-
-    if config_path.is_absolute():
-        # 绝对路径：直接使用用户指定的路径
-        photos_storage_dir = config_path
-        print(f"📦 PyInstaller环境：使用绝对路径 {photos_storage_dir}")
-    else:
-        # 相对路径：相对于exe目录解析
-        photos_storage_dir = exe_dir / config_path
-        print(f"📦 PyInstaller环境：相对路径解析为 {photos_storage_dir}")
-
-    # 确保存储目录存在
-    photos_storage_dir.mkdir(parents=True, exist_ok=True)
-else:
-    # 开发环境
-    if config_path.is_absolute():
-        photos_storage_dir = config_path
-        print(f"🔧 开发环境：使用绝对路径 {photos_storage_dir}")
-    else:
-        # 相对路径：相对于项目根目录
-        project_root = Path(__file__).parent
-        photos_storage_dir = project_root / config_path
-        print(f"🔧 开发环境：相对路径解析为 {photos_storage_dir}")
-
-    # 确保存储目录存在
-    photos_storage_dir.mkdir(parents=True, exist_ok=True)
-
-# 挂载存储目录
-app.mount("/photos_storage", StaticFiles(directory=str(photos_storage_dir)), name="photos_storage")
+# 注意：存储目录挂载已移到 initialize_application() 函数中
+# 这样可以确保在配置完成后才挂载存储目录
 
 # 配置页面路由
 
@@ -381,6 +349,242 @@ async def root():
     return RedirectResponse(url="/static/index.html")
 
 
+def setup_msix_first_run():
+    """
+    MSIX 环境首次启动配置
+    
+    如果检测到 MSIX 环境且路径为空，弹出对话框让用户选择基础目录
+    """
+    from app.core.config import is_msix_environment, get_config_paths
+    import shutil
+    import json
+    
+    # 检查是否是 MSIX 环境
+    if not is_msix_environment():
+        return False
+    
+    user_config_path, default_config_path = get_config_paths()
+    
+    # 如果用户配置不存在，拷贝默认配置
+    if not user_config_path.exists() and default_config_path.exists():
+        print("📋 首次启动：正在初始化用户配置...")
+        user_config_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(default_config_path, user_config_path)
+        print(f"✅ 已拷贝默认配置到: {user_config_path}")
+        # 重新加载配置
+        import importlib
+        import app.core.config
+        importlib.reload(app.core.config)
+    
+    # 检查关键路径是否为空（使用最新的 settings）
+    from app.core.config import settings
+    if not settings.database.path or not settings.storage.base_path or not settings.logging.file_path:
+        print("\n" + "="*60)
+        print("🔧 首次启动配置")
+        print("="*60)
+        print("检测到路径未配置，需要选择数据存储目录")
+        print()
+        
+        try:
+            import tkinter as tk
+            from tkinter import filedialog, messagebox
+            
+            # 创建根窗口
+            root = tk.Tk()
+            root.withdraw()  # 隐藏主窗口
+            root.attributes('-topmost', True)  # 置顶显示
+            
+            # 显示提示信息
+            messagebox.showinfo(
+                "首次启动配置",
+                "欢迎使用家庭版智能照片系统！\n\n"
+                "请选择一个目录用于存储您的照片数据。\n"
+                "建议选择一个有足够空间的位置，例如：\n"
+                "- D:\\PhotoSystem\n"
+                "- E:\\MyPhotos\\PhotoSystem\n\n"
+                "系统将在此目录下创建以下子目录：\n"
+                "- photo_db/ (数据库)\n"
+                "- storage/ (照片存储)\n"
+                "- logs/ (日志文件)"
+            )
+            
+            # 选择基础目录
+            base_dir = filedialog.askdirectory(
+                title="选择数据存储目录",
+                initialdir="C:\\"
+            )
+            
+            root.destroy()
+            
+            if not base_dir:
+                print("❌ 用户取消配置，系统无法启动")
+                print("   请重新启动应用并完成配置")
+                sys.exit(1)
+            
+            base_path = Path(base_dir)
+            print(f"✅ 用户选择的基础目录: {base_path}")
+            
+            # 复制"使用说明.pdf"到用户选择的目录
+            try:
+                # 在 MSIX 环境中，查找"使用说明.pdf"的位置
+                if getattr(sys, 'frozen', False):
+                    exe_path = Path(sys.executable)
+                    app_dir = exe_path.parent
+                else:
+                    app_dir = Path(__file__).parent
+                
+                # 尝试在多个可能的位置查找"使用说明.pdf"
+                manual_pdf_source = None
+                possible_locations = [
+                    app_dir / "Assets" / "使用说明.pdf",  # 最常见的位置
+                    app_dir / "使用说明.pdf",  # 应用目录根目录
+                    app_dir.parent / "Assets" / "使用说明.pdf",  # 如果 app_dir 是 PhotoSystem 子目录
+                    app_dir.parent / "使用说明.pdf",  # 父目录
+                ]
+                
+                # 如果 app_dir 是 PhotoSystem 子目录，也检查同级的 Assets
+                if app_dir.name == "PhotoSystem":
+                    possible_locations.extend([
+                        app_dir.parent / "PhotoSystem" / "Assets" / "使用说明.pdf",
+                        app_dir.parent / "PhotoSystem" / "使用说明.pdf",
+                    ])
+                
+                for location in possible_locations:
+                    if location.exists() and location.is_file():
+                        manual_pdf_source = location
+                        print(f"📄 找到使用说明.pdf: {location}")
+                        break
+                
+                if manual_pdf_source:
+                    manual_pdf_dest = base_path / "使用说明.pdf"
+                    try:
+                        # 如果目标文件已存在，询问是否覆盖（这里直接覆盖，因为是首次配置）
+                        if manual_pdf_dest.exists():
+                            print(f"⚠️  目标文件已存在，将覆盖: {manual_pdf_dest}")
+                        shutil.copy2(manual_pdf_source, manual_pdf_dest)
+                        print(f"✅ 已复制使用说明.pdf到: {manual_pdf_dest}")
+                    except Exception as e:
+                        print(f"⚠️  复制使用说明.pdf失败: {e}")
+                else:
+                    # 不显示警告，因为这不是关键功能
+                    pass  # 静默失败，不影响配置流程
+            except Exception as e:
+                # 静默处理错误，不影响配置流程
+                pass  # 不显示错误，因为这不是关键功能
+            
+            # 根据基础目录生成三个路径
+            database_path = base_path / "photo_db" / "photos.db"
+            storage_base_path = base_path / "storage"
+            logging_file_path = base_path / "logs" / "app.log"
+            
+            # 加载当前配置
+            with open(user_config_path, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+            
+            # 更新路径
+            config_data['database']['path'] = str(database_path)
+            config_data['storage']['base_path'] = str(storage_base_path)
+            config_data['logging']['file_path'] = str(logging_file_path)
+            
+            # 保存配置
+            with open(user_config_path, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"✅ 配置已保存:")
+            print(f"   数据库路径: {database_path}")
+            print(f"   存储路径: {storage_base_path}")
+            print(f"   日志路径: {logging_file_path}")
+            
+            # 重新加载配置（使用新的 reload_settings 函数）
+            from app.core.config import reload_settings
+            reload_settings()
+            
+            print("✅ 配置加载完成")
+            print()
+            return True
+            
+        except Exception as e:
+            print(f"❌ 配置过程出错: {e}")
+            print("   请重新启动应用并完成配置")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+    
+    return False
+
+
+def initialize_application():
+    """
+    初始化应用（在配置完成后调用）
+    
+    此函数会：
+    1. 重新加载配置（确保使用最新配置）
+    2. 重新创建数据库引擎（使用最新路径）
+    3. 初始化日志系统（使用最新路径）
+    4. 挂载存储目录（使用最新路径）
+    5. 初始化数据库
+    
+    返回 settings 和 engine 对象
+    """
+    from app.core.config import get_settings, reload_settings
+    from app.db.session import get_engine, reload_engine
+    from app.core.logging import setup_logging
+    
+    # 重新加载配置（确保使用最新配置）
+    print("📋 正在加载配置...")
+    settings = reload_settings()
+    print("✅ 配置加载完成")
+    
+    # 重新创建数据库引擎（使用最新路径）
+    print("🔧 正在初始化数据库引擎...")
+    engine = reload_engine()
+    print("✅ 数据库引擎初始化完成")
+    
+    # 初始化日志系统（使用最新路径）
+    print("📝 正在配置日志系统...")
+    setup_logging()
+    print("✅ 日志系统配置完成")
+    
+    # 挂载存储目录（使用最新路径）
+    print("📁 正在挂载存储目录...")
+    config_path = Path(settings.storage.base_path)
+    
+    if getattr(sys, 'frozen', False):
+        # PyInstaller打包环境
+        exe_dir = Path(sys.executable).parent
+        
+        if config_path.is_absolute():
+            # 绝对路径：直接使用用户指定的路径
+            photos_storage_dir = config_path
+            print(f"📦 PyInstaller环境：使用绝对路径 {photos_storage_dir}")
+        else:
+            # 相对路径：相对于exe目录解析
+            photos_storage_dir = exe_dir / config_path
+            print(f"📦 PyInstaller环境：相对路径解析为 {photos_storage_dir}")
+        
+        # 确保存储目录存在
+        photos_storage_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        # 开发环境
+        if config_path.is_absolute():
+            photos_storage_dir = config_path
+            print(f"🔧 开发环境：使用绝对路径 {photos_storage_dir}")
+        else:
+            # 相对路径：相对于项目根目录
+            project_root = Path(__file__).parent
+            photos_storage_dir = project_root / config_path
+            print(f"🔧 开发环境：相对路径解析为 {photos_storage_dir}")
+        
+        # 确保存储目录存在
+        photos_storage_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 挂载存储目录
+    app.mount("/photos_storage", StaticFiles(directory=str(photos_storage_dir)), name="photos_storage")
+    print(f"✅ 存储目录已挂载: {photos_storage_dir}")
+    
+    return settings, engine, photos_storage_dir
+
+
 if __name__ == "__main__":
 
     # ===== 应用初始化开始 =====
@@ -394,8 +598,14 @@ if __name__ == "__main__":
     else:
         print("🔧 运行模式: 开发环境 (直接Python运行)")
 
+    # ===== MSIX 首次启动配置检查 =====
+    setup_msix_first_run()
+
     print("🚀 正在启动系统，首次启动需要1分钟左右，请稍候...")
     print()
+
+    # ===== 初始化应用（在配置完成后） =====
+    settings, engine, photos_storage_dir = initialize_application()
 
     # ===== 系统初始化 =====
 
@@ -403,19 +613,23 @@ if __name__ == "__main__":
     print("📁 正在检查数据库目录...")
     from pathlib import Path
 
-    # 在PyInstaller环境下，确保数据库路径相对于可执行文件目录
-    if getattr(sys, 'frozen', False):
-        exe_dir = Path(sys.executable).parent
-        db_path = exe_dir / settings.database.path.lstrip('./')
-    else:
-        db_path = Path(settings.database.path)
-
+    # 处理数据库路径：如果是绝对路径直接使用，如果是相对路径则相对于可执行文件目录
+    db_path = Path(settings.database.path)
+    if not db_path.is_absolute():
+        # 相对路径：在PyInstaller环境下，相对于可执行文件目录
+        if getattr(sys, 'frozen', False):
+            exe_dir = Path(sys.executable).parent
+            db_path = exe_dir / db_path
+        else:
+            # 开发环境：相对于项目根目录
+            db_path = Path(settings.database.path)
+    
+    db_path = db_path.resolve()  # 转换为绝对路径
     db_path.parent.mkdir(parents=True, exist_ok=True)
     print(f"✅ 数据库目录: {db_path.parent}")
 
-    # 更新配置中的数据库路径（如果需要）
-    if getattr(sys, 'frozen', False) and not settings.database.path.startswith(str(exe_dir)):
-        settings.database.path = str(db_path)
+    # 更新配置中的数据库路径为绝对路径
+    settings.database.path = str(db_path)
 
     # 创建数据库表
     print("🗄️  正在创建或检查数据库表...")
@@ -496,10 +710,7 @@ if __name__ == "__main__":
     finally:
         db.close()
 
-    # 设置日志系统
-    print("📝 正在配置日志系统...")
-    setup_logging()
-    print("✅ 日志系统配置完成")
+    # 注意：日志系统已在 initialize_application() 中配置
 
     # 初始化存储服务
     print("💾 正在初始化存储服务...")

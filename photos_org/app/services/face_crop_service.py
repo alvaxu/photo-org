@@ -20,8 +20,15 @@ class FaceCropService:
     
     def __init__(self):
         """初始化人脸裁剪服务"""
-        self.cache_dir = Path(settings.storage.base_path) / "face_crops"
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        # 注意：不再在 __init__ 中固定 cache_dir，改为动态读取
+    
+    @property
+    def cache_dir(self) -> Path:
+        """动态获取缓存目录（每次使用时读取最新配置）"""
+        from app.core.config import get_settings
+        cache_dir = Path(get_settings().storage.base_path) / "face_crops"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
         
     def crop_face_from_photo(self, photo_path: str, face_rectangle, 
                            crop_size: int = 150, crop_type: str = "circle", 
@@ -52,8 +59,10 @@ class FaceCropService:
             except ImportError:
                 HEIC_SUPPORT = False
             
-            # 构建完整照片路径
-            storage_base = Path(settings.storage.base_path)
+            # 构建完整照片路径（使用最新配置）
+            from app.core.config import get_settings
+            current_settings = get_settings()
+            storage_base = Path(current_settings.storage.base_path)
             full_photo_path = storage_base / photo_path
             
             if not full_photo_path.exists():

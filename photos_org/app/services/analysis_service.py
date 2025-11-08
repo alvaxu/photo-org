@@ -85,8 +85,10 @@ class AnalysisService:
             if not photo.original_path:
                 raise Exception("照片路径为空")
             
-            # 构建完整的文件路径
-            storage_base = Path(settings.storage.base_path)
+            # 构建完整的文件路径（使用最新配置）
+            from app.core.config import get_settings
+            current_settings = get_settings()
+            storage_base = Path(current_settings.storage.base_path)
             full_path = storage_base / photo.original_path
             
             if not full_path.exists():
@@ -615,8 +617,10 @@ class AnalysisService:
             if not photo or not photo.original_path:
                 raise Exception("照片不存在或文件路径无效")
 
-            # 构建完整的文件路径
-            storage_base = Path(settings.storage.base_path)
+            # 构建完整的文件路径（使用最新配置）
+            from app.core.config import get_settings
+            current_settings = get_settings()
+            storage_base = Path(current_settings.storage.base_path)
             full_path = storage_base / photo.original_path
             
             if not full_path.exists():

@@ -102,9 +102,11 @@ async def process_image_feature_extraction_task(task_id: str, photo_ids: List[in
         if not image_feature_service.is_initialized:
             raise Exception("图像特征提取服务初始化失败")
         
-        # 分批处理
-        batch_size = settings.image_features.batch_size
-        batch_threshold = settings.image_features.batch_threshold
+        # 分批处理（使用最新配置）
+        from app.core.config import get_settings
+        current_settings = get_settings()
+        batch_size = current_settings.image_features.batch_size
+        batch_threshold = current_settings.image_features.batch_threshold
         
         # 判断是否需要分批
         if len(photo_ids) > batch_threshold:
@@ -210,8 +212,10 @@ async def process_image_feature_extraction_batch(task_id: str, photo_ids: List[i
             photo_cache = await asyncio.to_thread(batch_query_photos)
             logger.info(f"成功预查询 {len(photo_cache)} 张照片信息")
             
-            # 使用信号量控制单批次内的并发数
-            max_concurrent_photos = settings.image_features.max_concurrent_photos
+            # 使用信号量控制单批次内的并发数（使用最新配置）
+            from app.core.config import get_settings
+            current_settings = get_settings()
+            max_concurrent_photos = current_settings.image_features.max_concurrent_photos
             semaphore = asyncio.Semaphore(max_concurrent_photos)
             logger.info(f"单批次内最大并发照片数: {max_concurrent_photos}")
             
@@ -224,8 +228,10 @@ async def process_image_feature_extraction_batch(task_id: str, photo_ids: List[i
                     if not photo:
                         return {"photo_id": photo_id, "status": "skipped", "reason": "photo_not_found"}
                     
-                    # 构建完整路径
-                    storage_base = Path(settings.storage.base_path)
+                    # 构建完整路径（使用最新配置）
+                    from app.core.config import get_settings
+                    current_settings = get_settings()
+                    storage_base = Path(current_settings.storage.base_path)
                     if Path(photo.original_path).is_absolute():
                         full_path = Path(photo.original_path)
                     else:

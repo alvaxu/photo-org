@@ -229,6 +229,76 @@ class ImageFeaturesConfig(BaseSettings):
     extraction_timeout: int = Field(default=30, description="特征提取超时时间（秒）")
 
 
+def is_msix_environment() -> bool:
+    """
+    检测是否运行在 MSIX 环境中
+    
+    :return: 如果存在 .msix 标记文件，返回 True；否则返回 False
+    """
+    import sys
+    from pathlib import Path
+    
+    # 获取应用目录
+    if getattr(sys, 'frozen', False):
+        # PyInstaller打包环境：配置文件位于可执行文件所在目录
+        exe_path = Path(sys.executable)
+        app_dir = exe_path.parent
+    else:
+        # 开发环境：从当前文件位置推断
+        current_path = Path(__file__).resolve()
+        app_dir = current_path.parent.parent.parent  # app/core/config.py -> app -> project_root
+    
+    # 检查标记文件是否存在
+    marker_file = app_dir / '.msix'
+    return marker_file.exists()
+
+
+def get_config_paths() -> tuple[Path, Path]:
+    """
+    获取配置文件的路径
+    
+    根据运行环境（MSIX 或 Portable）返回正确的配置路径：
+    - MSIX 环境：用户配置保存在 %LOCALAPPDATA%\\PhotoSystem\\config.json
+    - Portable 环境：用户配置保存在应用目录的 config.json
+    
+    :return: (用户配置路径, 默认配置路径)
+    """
+    import sys
+    from pathlib import Path
+    
+    # 获取应用目录
+    if getattr(sys, 'frozen', False):
+        # PyInstaller打包环境：配置文件位于可执行文件所在目录
+        exe_path = Path(sys.executable)
+        app_dir = exe_path.parent
+    else:
+        # 开发环境：从当前文件位置推断
+        current_path = Path(__file__).resolve()
+        app_dir = current_path.parent.parent.parent  # app/core/config.py -> app -> project_root
+    
+    # 检测环境
+    is_msix = is_msix_environment()
+    
+    if is_msix:
+        # MSIX 环境：用户配置在 AppData
+        local_appdata = Path(os.getenv('LOCALAPPDATA', ''))
+        if not local_appdata:
+            # 如果环境变量不存在，回退到应用目录
+            user_config_path = app_dir / 'config.json'
+        else:
+            user_config_dir = local_appdata / 'PhotoSystem'
+            user_config_dir.mkdir(parents=True, exist_ok=True)
+            user_config_path = user_config_dir / 'config.json'
+    else:
+        # Portable 环境：用户配置在应用目录
+        user_config_path = app_dir / 'config.json'
+    
+    # 默认配置始终在应用目录
+    default_config_path = app_dir / 'config_default.json'
+    
+    return user_config_path, default_config_path
+
+
 class Settings(BaseSettings):
     """全局配置类"""
 
@@ -264,29 +334,27 @@ class Settings(BaseSettings):
         super().__init__(**config_data)
 
     def _load_config_from_json(self) -> Dict[str, Any]:
-        """从JSON配置文件加载配置"""
-        import sys
-
-        # 获取项目根目录路径
-        if getattr(sys, 'frozen', False):
-            # PyInstaller打包环境：配置文件位于可执行文件所在目录
-            exe_path = Path(sys.executable)
-            project_root = exe_path.parent
-        else:
-            # 开发环境：配置文件位于项目根目录
-            current_path = Path(__file__).resolve()
-            project_root = current_path.parent.parent.parent  # app/core/config.py -> app -> project_root
-
-        config_path = project_root / "config.json"
-
-        if config_path.exists():
+        """
+        从JSON配置文件加载配置
+        
+        加载优先级：
+        1. 用户配置（config.json）- 根据环境在应用目录或 AppData
+        2. 默认配置（config_default.json）- 应用目录
+        3. 代码默认值（如果都不存在）
+        """
+        user_config_path, default_config_path = get_config_paths()
+        
+        config_data = {}
+        
+        # 1. 优先加载用户配置
+        if user_config_path.exists():
             try:
-                with open(config_path, 'r', encoding='utf-8') as f:
+                with open(user_config_path, 'r', encoding='utf-8') as f:
                     config_data = json.load(f)
-
+                
                 # 处理环境变量替换
                 self._process_env_vars(config_data)
-
+                
                 # 特殊处理 api_key：优先从环境变量读取
                 if 'dashscope' in config_data and 'api_key' in config_data['dashscope']:
                     env_api_key = os.getenv('DASHSCOPE_API_KEY')
@@ -295,12 +363,37 @@ class Settings(BaseSettings):
                     elif config_data['dashscope']['api_key'] is None:
                         # 如果配置文件中为 null 且环境变量不存在，保持 None
                         pass
-
+                
                 return config_data
             except (json.JSONDecodeError, FileNotFoundError, PermissionError) as e:
-                print(f"警告：无法加载配置文件 config.json: {e}")
-                print("将使用默认配置")
-
+                print(f"警告：无法加载用户配置文件 {user_config_path}: {e}")
+                print("将尝试加载默认配置")
+                config_data = {}
+        
+        # 2. 如果用户配置不存在或加载失败，加载默认配置
+        if not config_data and default_config_path.exists():
+            try:
+                with open(default_config_path, 'r', encoding='utf-8') as f:
+                    config_data = json.load(f)
+                
+                # 处理环境变量替换
+                self._process_env_vars(config_data)
+                
+                # 特殊处理 api_key：优先从环境变量读取
+                if 'dashscope' in config_data and 'api_key' in config_data['dashscope']:
+                    env_api_key = os.getenv('DASHSCOPE_API_KEY')
+                    if env_api_key:
+                        config_data['dashscope']['api_key'] = env_api_key
+                    elif config_data['dashscope']['api_key'] is None:
+                        # 如果配置文件中为 null 且环境变量不存在，保持 None
+                        pass
+                
+                return config_data
+            except (json.JSONDecodeError, FileNotFoundError, PermissionError) as e:
+                print(f"警告：无法加载默认配置文件 {default_config_path}: {e}")
+                print("将使用代码默认值")
+        
+        # 3. 如果都不存在，返回空字典（使用代码默认值）
         return {}
 
     def _process_env_vars(self, config_data: Dict[str, Any]) -> None:
@@ -448,5 +541,47 @@ class Settings(BaseSettings):
         }
 
 
-# 创建全局配置实例
-settings = Settings()
+# 全局配置实例（延迟初始化）
+_settings_instance = None
+
+
+def get_settings() -> Settings:
+    """
+    获取配置实例（延迟初始化）
+    
+    首次调用时创建 Settings 实例，后续调用返回同一个实例。
+    这样可以确保在 setup_msix_first_run() 完成后再初始化配置。
+    """
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = Settings()
+    return _settings_instance
+
+
+def reload_settings() -> Settings:
+    """
+    重新加载配置（用于配置更新后）
+    
+    在配置更新后调用此函数，会重新创建 Settings 实例，使用最新的配置文件。
+    """
+    global _settings_instance
+    _settings_instance = None
+    return get_settings()
+
+
+# 为了向后兼容，提供一个 settings 对象
+# 注意：为了延迟初始化，这里使用一个包装类
+class _SettingsWrapper:
+    """Settings 包装类，用于延迟初始化"""
+    def __getattr__(self, name):
+        return getattr(get_settings(), name)
+    
+    def __setattr__(self, name, value):
+        # 允许设置属性（用于更新配置）
+        if name.startswith('_'):
+            super().__setattr__(name, value)
+        else:
+            setattr(get_settings(), name, value)
+
+# 创建 settings 对象（延迟初始化）
+settings = _SettingsWrapper()

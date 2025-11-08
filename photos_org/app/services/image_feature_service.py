@@ -140,9 +140,13 @@ class ImageFeatureService:
         self.preprocess = None
         self.is_initialized = False
         self.config = settings.image_features
-        
-        # 存储基础路径
-        self.storage_base = Path(settings.storage.base_path).resolve()
+        # 注意：不再在 __init__ 中固定 storage_base，改为动态读取
+    
+    @property
+    def storage_base(self) -> Path:
+        """动态获取存储基础路径（每次使用时读取最新配置）"""
+        from app.core.config import get_settings
+        return Path(get_settings().storage.base_path).resolve()
     
     def _get_full_path(self, image_path: str) -> Path:
         """

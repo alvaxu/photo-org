@@ -216,6 +216,12 @@ a = Analysis(
         'win32process',
         'pywintypes',
         
+        # GUI library (tkinter) - needed for MSIX first-run configuration
+        'tkinter',
+        'tkinter.filedialog',
+        'tkinter.messagebox',
+        '_tkinter',  # tkinter C extension
+        
         'app.api.photos',
         'app.api.analysis',
         'app.api.categories',
@@ -393,7 +399,7 @@ a = Analysis(
         'pip-audit',       # Dependency auditing
         
         # GUI and plotting libraries
-        'tkinter',         # GUI library
+        # 'tkinter',         # GUI library - REMOVED: needed for MSIX first-run configuration
         # 'matplotlib',      # Required by InsightFace (but slow to initialize)
         'IPython',         # Jupyter related
         'jupyter',         # Jupyter related

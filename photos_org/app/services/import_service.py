@@ -71,13 +71,36 @@ class ImportService:
 
     def __init__(self):
         """初始化导入服务"""
-        self.storage_base = Path(settings.storage.base_path)
-        self.originals_path = self.storage_base / settings.storage.originals_path
-        self.thumbnails_path = self.storage_base / settings.storage.thumbnails_path
-        self.temp_path = self.storage_base / settings.storage.temp_path
-
-        # 确保目录存在
+        # 注意：不再在 __init__ 中固定路径，改为动态读取
+        # 确保目录存在（使用动态路径）
         self._ensure_directories()
+    
+    @property
+    def storage_base(self) -> Path:
+        """动态获取存储基础路径（每次使用时读取最新配置）"""
+        from app.core.config import get_settings
+        return Path(get_settings().storage.base_path)
+    
+    @property
+    def originals_path(self) -> Path:
+        """动态获取原图路径"""
+        from app.core.config import get_settings
+        current_settings = get_settings()
+        return self.storage_base / current_settings.storage.originals_path
+    
+    @property
+    def thumbnails_path(self) -> Path:
+        """动态获取缩略图路径"""
+        from app.core.config import get_settings
+        current_settings = get_settings()
+        return self.storage_base / current_settings.storage.thumbnails_path
+    
+    @property
+    def temp_path(self) -> Path:
+        """动态获取临时文件路径"""
+        from app.core.config import get_settings
+        current_settings = get_settings()
+        return self.storage_base / current_settings.storage.temp_path
 
     def _ensure_directories(self):
         """确保必要的目录存在"""
