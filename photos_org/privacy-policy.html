@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>隐私策略 - 家庭版智能照片系统</title>
+
+    <!-- Bootstrap CSS - 使用CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <style>
+        .privacy-content {
+            max-width: 1000px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+        .privacy-section {
+            margin-bottom: 2.5rem;
+        }
+        .privacy-section h2 {
+            color: #0d6efd;
+            border-bottom: 2px solid #0d6efd;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .privacy-section h3 {
+            color: #495057;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .highlight-box {
+            background-color: #e7f3ff;
+            border-left: 4px solid #0d6efd;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0.375rem;
+        }
+        .warning-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0.375rem;
+        }
+        .info-box {
+            background-color: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0.375rem;
+        }
+        .api-service-card {
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            background-color: #f8f9fa;
+        }
+        .api-service-card h4 {
+            color: #0d6efd;
+            margin-bottom: 1rem;
+        }
+        ul li {
+            margin-bottom: 0.5rem;
+        }
+        .last-updated {
+            text-align: right;
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <span class="me-2">🖼️</span>
+                家庭版智能照片系统
+                <small class="ms-2 text-light opacity-75">隐私策略</small>
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/alvaxu/photo-org" target="_blank">
+                            <i class="bi bi-github"></i> GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <div class="container-fluid mt-4 mb-5">
+        <div class="privacy-content">
+            <h1 class="mb-4">
+                <i class="bi bi-shield-check me-2"></i>
+                隐私策略
+            </h1>
+
+            <div class="last-updated">
+                <i class="bi bi-calendar3 me-1"></i>
+                最后更新：2025年11月
+            </div>
+
+            <div class="highlight-box">
+                <h4 class="mb-3">
+                    <i class="bi bi-info-circle me-2"></i>
+                    重要声明
+                </h4>
+                <p class="mb-0">
+                    <strong>家庭版智能照片系统</strong>是一个完全本地化的照片管理系统。我们承诺：
+                    <strong>您的所有照片数据都存储在您控制的本地设备中，系统本身不会收集、存储或传输任何个人信息。</strong>
+                    数据永不离身，绝对隐私无忧。
+                </p>
+            </div>
+
+            <!-- 一、数据收集与存储 -->
+            <section class="privacy-section">
+                <h2>一、数据收集与存储</h2>
+
+                <h3>1.1 系统本身的数据处理</h3>
+                <p>本系统采用完全本地化的架构设计，所有数据处理都在您的设备上完成：</p>
+                <ul>
+                    <li><strong>照片存储：</strong>所有照片文件存储在您指定的本地目录中，系统不会将照片上传到任何服务器</li>
+                    <li><strong>数据库存储：</strong>照片的元数据、分析结果等信息存储在本地SQLite数据库中</li>
+                    <li><strong>缩略图生成：</strong>系统在本地生成照片缩略图，用于快速浏览</li>
+                    <li><strong>人脸识别：</strong>使用本地AI模型进行人脸识别和聚类，所有人脸数据仅存储在本地</li>
+                    <li><strong>特征提取：</strong>图像特征向量在本地提取和存储，用于相似照片搜索</li>
+                </ul>
+
+                <div class="info-box">
+                    <h5><i class="bi bi-shield-check me-2"></i>隐私保护承诺</h5>
+                    <ul class="mb-0">
+                        <li>系统不会收集任何用户个人信息（如姓名、邮箱、电话号码等）</li>
+                        <li>系统不会追踪用户的使用行为或访问习惯</li>
+                        <li>系统不会向任何第三方服务器发送您的照片或个人信息</li>
+                        <li>所有数据完全由您掌控，您可以随时备份、删除或迁移数据</li>
+                    </ul>
+                </div>
+
+                <h3>1.2 家庭网络访问</h3>
+                <p>系统支持在家庭局域网内通过多设备访问：</p>
+                <ul>
+                    <li><strong>本地网络访问：</strong>系统在您的家庭网络内提供服务，仅在同一局域网内的设备可以访问</li>
+                    <li><strong>无外网传输：</strong>所有数据仅在您的家庭网络内传输，不会通过互联网传输</li>
+                    <li><strong>用户责任：</strong>请确保您的家庭网络安全，防止未授权访问</li>
+                </ul>
+            </section>
+
+            <!-- 二、可选API服务 -->
+            <section class="privacy-section">
+                <h2>二、可选API服务</h2>
+
+                <p>系统提供了三个可选的第三方API服务，用于增强功能。这些服务完全由用户选择是否使用，系统不会强制要求配置：</p>
+
+                <div class="api-service-card">
+                    <h4>
+                        <i class="bi bi-robot me-2"></i>
+                        1. 千问大模型API（阿里云DashScope）
+                    </h4>
+                    <p><strong>功能用途：</strong>用于AI照片内容分析，包括场景识别、物体检测、情感分析等</p>
+                    <p><strong>数据传输：</strong>当您使用此功能时，系统会将照片编码为base64格式发送到阿里云DashScope服务进行AI分析</p>
+                    <p><strong>数据内容：</strong>仅发送照片图像数据和AI分析提示词，不包含任何个人信息</p>
+                    <p><strong>使用条件：</strong>需要您主动配置API密钥，未配置时此功能不可用</p>
+                    <p><strong>隐私责任：</strong>照片数据发送给阿里云DashScope服务后，其隐私保护责任由阿里云承担。请参考<a href="https://www.alibabacloud.com/help/en/legal/latest/privacy-policy" target="_blank" rel="noopener noreferrer">阿里云隐私政策</a></p>
+                    <div class="warning-box">
+                        <strong><i class="bi bi-exclamation-triangle me-2"></i>重要提示：</strong>
+                        如果您不希望将照片发送到第三方服务，可以不配置此API密钥，系统仍可正常使用其他所有功能。
+                    </div>
+                </div>
+
+                <div class="api-service-card">
+                    <h4>
+                        <i class="bi bi-geo-alt me-2"></i>
+                        2. 高德地图反向地址解析API
+                    </h4>
+                    <p><strong>功能用途：</strong>将照片中的GPS坐标转换为可读的地理地址</p>
+                    <p><strong>数据传输：</strong>当您使用此功能时，系统会将照片的经纬度坐标发送到高德地图服务</p>
+                    <p><strong>数据内容：</strong>仅发送GPS坐标（经纬度），不包含照片图像或其他个人信息</p>
+                    <p><strong>使用条件：</strong>需要您主动配置API密钥，未配置时此功能不可用</p>
+                    <p><strong>隐私责任：</strong>GPS坐标数据发送给高德地图服务后，其隐私保护责任由高德地图承担。请参考<a href="https://lbs.amap.com/pages/privacy/" target="_blank" rel="noopener noreferrer">高德地图隐私政策</a></p>
+                    <div class="warning-box">
+                        <strong><i class="bi bi-exclamation-triangle me-2"></i>重要提示：</strong>
+                        如果您不希望将GPS坐标发送到第三方服务，可以不配置此API密钥，系统提供离线地址解析服务作为替代方案。
+                    </div>
+                </div>
+
+                <div class="api-service-card">
+                    <h4>
+                        <i class="bi bi-globe me-2"></i>
+                        3. Nominatim反向地址解析API（OpenStreetMap）
+                    </h4>
+                    <p><strong>功能用途：</strong>将照片中的GPS坐标转换为可读的地理地址（全球覆盖）</p>
+                    <p><strong>数据传输：</strong>当您使用此功能时，系统会将照片的经纬度坐标发送到Nominatim服务</p>
+                    <p><strong>数据内容：</strong>仅发送GPS坐标（经纬度），不包含照片图像或其他个人信息</p>
+                    <p><strong>使用条件：</strong>无需API密钥，但需要网络连接（可能需要科学上网）</p>
+                    <p><strong>隐私责任：</strong>GPS坐标数据发送给Nominatim服务后，其隐私保护责任由OpenStreetMap基金会承担。请参考<a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener noreferrer">OpenStreetMap隐私政策</a></p>
+                    <div class="warning-box">
+                        <strong><i class="bi bi-exclamation-triangle me-2"></i>重要提示：</strong>
+                        如果您不希望将GPS坐标发送到第三方服务，可以不使用此功能，系统提供离线地址解析服务作为替代方案。
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <h5><i class="bi bi-lightbulb me-2"></i>API服务使用说明</h5>
+                    <ul class="mb-0">
+                        <li>所有API服务都是<strong>可选的</strong>，系统核心功能不依赖这些服务</li>
+                        <li>您可以在系统配置页面中随时启用或禁用这些API服务</li>
+                        <li>系统提供离线替代方案，即使不使用任何API服务，也能正常使用照片管理功能</li>
+                        <li>使用API服务时，请确保您已阅读并同意相应服务商的隐私政策</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 三、系统权限说明 -->
+            <section class="privacy-section">
+                <h2>三、系统权限说明</h2>
+
+                <p>为了正常运行，系统需要以下系统权限：</p>
+
+                <h3>3.1 文件系统访问权限</h3>
+                <ul>
+                    <li><strong>权限名称：</strong>broadFileSystemAccess（广泛文件系统访问）</li>
+                    <li><strong>用途：</strong>读取和存储照片文件、生成缩略图、访问数据库文件</li>
+                    <li><strong>数据范围：</strong>仅访问您指定的照片存储目录和系统数据目录</li>
+                    <li><strong>隐私影响：</strong>系统可以访问您指定目录中的文件，但不会访问系统其他目录或用户文档</li>
+                </ul>
+
+                <h3>3.2 网络访问权限</h3>
+                <ul>
+                    <li><strong>权限名称：</strong>internetClient、internetClientServer（网络客户端访问）</li>
+                    <li><strong>用途：</strong>仅在您使用可选API服务时，用于连接第三方API服务</li>
+                    <li><strong>数据范围：</strong>仅连接到您配置的API服务（DashScope、高德地图、Nominatim）</li>
+                    <li><strong>隐私影响：</strong>如果不使用API服务，系统不会进行任何网络连接</li>
+                </ul>
+
+                <h3>3.3 本地网络访问权限</h3>
+                <ul>
+                    <li><strong>权限名称：</strong>privateNetworkClientServer（私有网络访问）</li>
+                    <li><strong>用途：</strong>在家庭局域网内提供Web服务，支持多设备访问</li>
+                    <li><strong>数据范围：</strong>仅在您的家庭网络内提供服务，不通过互联网</li>
+                    <li><strong>隐私影响：</strong>仅在同一局域网内的设备可以访问，数据不会离开您的家庭网络</li>
+                </ul>
+
+                <div class="info-box">
+                    <h5><i class="bi bi-shield-check me-2"></i>权限使用原则</h5>
+                    <ul class="mb-0">
+                        <li>系统仅请求必要的权限，用于核心功能运行</li>
+                        <li>所有权限的使用都遵循最小化原则，仅访问必要的数据</li>
+                        <li>网络权限仅在用户主动使用API服务时才会被使用</li>
+                        <li>系统不会滥用权限进行任何未授权的数据访问</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 四、数据安全 -->
+            <section class="privacy-section">
+                <h2>四、数据安全</h2>
+
+                <h3>4.1 本地数据安全</h3>
+                <ul>
+                    <li><strong>数据加密：</strong>系统使用SQLite数据库存储元数据，建议您定期备份数据库文件</li>
+                    <li><strong>文件完整性：</strong>系统通过MD5哈希值验证文件完整性，防止数据损坏</li>
+                    <li><strong>访问控制：</strong>系统仅在您的家庭网络内提供服务，您可以通过防火墙控制访问</li>
+                </ul>
+
+                <h3>4.2 网络安全</h3>
+                <ul>
+                    <li><strong>本地网络：</strong>系统在本地网络内运行，不通过互联网传输数据</li>
+                    <li><strong>API通信：</strong>使用HTTPS协议与第三方API服务通信，确保数据传输安全</li>
+                    <li><strong>API密钥：</strong>建议通过环境变量配置API密钥，避免在配置文件中明文存储</li>
+                </ul>
+
+                <h3>4.3 用户责任</h3>
+                <ul>
+                    <li><strong>家庭网络安全：</strong>请确保您的家庭WiFi网络安全，使用强密码保护</li>
+                    <li><strong>数据备份：</strong>建议定期备份照片和数据库文件，防止数据丢失</li>
+                    <li><strong>设备安全：</strong>请确保运行系统的设备安全，防止未授权访问</li>
+                </ul>
+            </section>
+
+            <!-- 五、数据删除与迁移 -->
+            <section class="privacy-section">
+                <h2>五、数据删除与迁移</h2>
+
+                <h3>5.1 数据删除</h3>
+                <ul>
+                    <li><strong>照片删除：</strong>您可以在系统中删除任何照片，删除操作会同时删除照片文件和数据库记录</li>
+                    <li><strong>数据清理：</strong>删除照片时，系统会自动清理相关的缩略图、分析结果等数据</li>
+                    <li><strong>完全删除：</strong>删除的数据不会发送到任何服务器，完全在本地删除</li>
+                </ul>
+
+                <h3>5.2 数据迁移</h3>
+                <ul>
+                    <li><strong>数据导出：</strong>您可以随时备份照片文件和数据库文件</li>
+                    <li><strong>系统迁移：</strong>将照片目录和数据库文件复制到新设备即可完成迁移</li>
+                    <li><strong>数据所有权：</strong>所有数据完全由您掌控，您可以随时迁移或删除</li>
+                </ul>
+            </section>
+
+            <!-- 六、第三方服务隐私政策 -->
+            <section class="privacy-section">
+                <h2>六、第三方服务隐私政策</h2>
+
+                <p>当您使用可选的第三方API服务时，相关数据的隐私保护责任由相应的服务商承担。我们建议您在使用前仔细阅读以下隐私政策：</p>
+
+                <ul>
+                    <li><strong>阿里云DashScope：</strong><a href="https://www.alibabacloud.com/help/en/legal/latest/privacy-policy" target="_blank" rel="noopener noreferrer">https://www.alibabacloud.com/help/en/legal/latest/privacy-policy</a></li>
+                    <li><strong>高德地图：</strong><a href="https://lbs.amap.com/pages/privacy/" target="_blank" rel="noopener noreferrer">https://lbs.amap.com/pages/privacy/</a></li>
+                    <li><strong>OpenStreetMap/Nominatim：</strong><a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener noreferrer">https://osmfoundation.org/wiki/Privacy_Policy</a></li>
+                </ul>
+
+                <div class="warning-box">
+                    <strong><i class="bi bi-exclamation-triangle me-2"></i>重要提示：</strong>
+                    本系统不对第三方服务的隐私政策负责。如果您对第三方服务的隐私政策有疑虑，建议不使用相应的API服务，系统提供离线替代方案。
+                </div>
+            </section>
+
+            <!-- 七、隐私政策更新 -->
+            <section class="privacy-section">
+                <h2>七、隐私政策更新</h2>
+
+                <p>我们可能会不定期更新本隐私政策。更新后的隐私政策将在本页面发布，并更新"最后更新"日期。我们建议您定期查看本页面以了解最新的隐私政策。</p>
+
+                <p>如果隐私政策有重大变更，我们会在系统启动时或通过其他方式通知您。</p>
+            </section>
+
+            <!-- 八、联系我们 -->
+            <section class="privacy-section">
+                <h2>八、联系我们</h2>
+
+                <p>如果您对本隐私政策有任何疑问或建议，请通过以下方式联系我们：</p>
+
+                <ul>
+                    <li><strong>邮箱：</strong>alva_xu@sina.com</li>
+                    <li><strong>系统问题：</strong>查看日志文件 logs/app.log</li>
+                </ul>
+
+                <div class="highlight-box">
+                    <h5 class="mb-3">
+                        <i class="bi bi-heart me-2"></i>
+                        我们的承诺
+                    </h5>
+                    <p class="mb-0">
+                        我们致力于保护您的隐私和数据安全。本系统采用完全本地化的架构设计，
+                        <strong>您的数据永不离身，绝对隐私无忧。</strong>
+                        我们不会收集、存储或传输您的个人信息，所有数据完全由您掌控。
+                    </p>
+                </div>
+            </section>
+
+            <!-- 页脚 -->
+            <div class="text-center mt-5 pt-4 border-top">
+                <p class="text-muted">
+                    <small>
+                        © 2025 家庭版智能照片系统 | 
+                        <a href="https://github.com/alvaxu/photo-org" class="text-decoration-none" target="_blank">GitHub仓库</a>
+                    </small>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS - 使用CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
