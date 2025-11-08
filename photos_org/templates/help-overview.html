@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>功能说明 - 家庭版智能照片系统 V5.1.8版 </title>
+    <title>功能说明 - 家庭版智能照片系统 V6版 </title>
 
     <!-- Bootstrap CSS - 优先使用本地版本 -->
     <link href="/static/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
@@ -115,7 +115,7 @@
             <a class="navbar-brand" href="/">
                 <img src="/static/images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
                 智能照片系统
-                <small class="ms-2 text-light opacity-75">2025-V5.1.8版</small>
+                <small class="ms-2 text-light opacity-75">2025-V6版</small>
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -160,7 +160,7 @@
 
             <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i>
-                欢迎使用家庭版智能照片系统 V5.1.8版 ！本帮助文档将为您详细介绍系统的各项功能和使用方法。
+                欢迎使用家庭版智能照片系统 V6版 ！本帮助文档将为您详细介绍系统的各项功能和使用方法。
             </div>
 
             <!-- 系统概述 -->
@@ -169,7 +169,7 @@
 
                 <div class="info-box">
                     <h5><i class="bi bi-house-heart me-2"></i>家庭版智能照片系统</h5>
-                    <p>基于AI技术的智能照片管理平台，支持照片去重（自动去除重复照片）上传、分析、分类、标签生成、<strong>人脸识别与根据肖像快速查询、GPS转地址多服务解析、图像特征提取与相似照搜索</strong>、支持对照片及其信息的增删改查、播放和下载。您的照片数据始终存储在您控制的本地设备中，从不上传到云端，<strong>真正的数据永不离身，绝对隐私无忧。</strong>便携式设计，解压即用，一次配置处处可用。</p>
+                    <p>基于AI技术的智能照片管理平台，，支持照片<strong>去重导入</strong>（导入照片时自动去除名字不同的同一张照片）、分析、分类、标签生成、<strong>人脸识别与根据肖像快速查询、GPS转地址多服务解析、图像特征提取与相似照搜索</strong>、支持对照片及其信息的增删改查、播放和下载。您的照片数据始终存储在您控制的本地设备中，从不上传到云端，<strong>真正的数据永不离身，绝对隐私无忧。</strong></p>
                 </div>
 
                 <div class="row g-4">
@@ -271,22 +271,19 @@
             <section class="mb-5">
                 <h2 class="h3 mb-3">二、快速开始</h2>
 
-                <div class="row">
-                    <div class="col-md-6">
+
                         <div class="step-card p-3 mb-3">
                             <h4 class="h5"><i class="bi bi-windows me-2"></i>Windows 用户</h4>
                             <ol>
-                                <li>扫码本文档下方百度云共享链接，下载 <strong>最新版</strong> <code>PhotoSystem-Portable.zip</code></li>
-                                <li>解压到一个<strong>足够存储家庭照片</strong>的目录</li>
-                                <li><strong>双击运行 <code>PhotoSystem.exe</code></strong> 直接启动</li>
-                                <li>或者运行 <code>startup.bat</code> 脚本启动</li>
-                                <li>初次启动，仅需等待1分钟，之后再次启动，秒速完成</li>
+                                <li>下载安装最新版软件</li>
+                                <li><strong>找到并双击新安装的“家庭版智能照片系统”图标，或双击运行 <code>PhotoSystem.exe</code></strong> 启动系统</li>
+                                <li>初次启动，如系统提示创建存放照片和数据库的目录，建议选择空间足够放你所有照片的磁盘</li>
                                 <li>系统启动后，会自动打开默认浏览器进入照片系统</li>
                                 <li>注意：启动完成后，请不要关闭启动窗口</li>
+                                <li>如果你担心磁盘损坏导致照片丢失，建议你经常将photo_db和storage两个目录拷贝到别的地方作为备份</li>
                             </ol>
                         </div>
-                    </div>
-                </div>
+
 
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5"><i class="bi bi-globe me-2"></i>访问系统</h4>
@@ -1146,73 +1143,10 @@
                 </div>
             </section>
 
-            <!-- 数据永不离身，本地存储无忧 -->
-            <section class="mb-5">
-                <h2 class="h3 mb-3">六、数据永不离身，本地存储无忧</h2>
-
-                <div class="info-box">
-                    <h5><i class="bi bi-shield-check me-2"></i>既安全又便携，本地存储的最佳选择</h5>
-                    <p>我们的系统完美实现了安全与便携的统一：数据永不离身，既可以安心放在家里，也可以随身携带。从不上传云端，彻底杜绝泄密风险，让您随时随地安全地管理自己的家庭照片。</p>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5"><i class="bi bi-hdd me-2"></i>家庭硬盘存储</h4>
-                    <p><strong>安心放在家里：</strong>将系统安装在家庭电脑的硬盘上，所有照片、智能分析结果、标签数据完全存储在自家硬盘中，完全由您掌控。适合长期家庭使用，享受稳定的本地存储体验。</p>
-                    <div class="alert alert-success">
-                        <i class="bi bi-house-heart me-2"></i>
-                        <strong>家庭优势：</strong>杜绝任何数据泄密风险，您的家庭照片永远安全在家园守护下。
-                    </div>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5"><i class="bi bi-usb me-2"></i>随身携带便携</h4>
-                    <p><strong>随时带在身上：</strong>将系统安装在U盘或移动硬盘上，随身携带您的完整照片管理系统。即插即用，无论走到哪里，都能立即访问您的家庭照片，享受真正的"数据永不离身"体验。</p>
-                    <div class="alert alert-info">
-                        <i class="bi bi-lightbulb me-2"></i>
-                        <strong>便携优势：</strong>特别适合旅行、办公、出差等场景，您的照片数据时刻跟随在身边。
-                    </div>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5"><i class="bi bi-shield-check me-2"></i>使用无痕，数据永不离身</h4>
-                    <p><strong>即用即走，安全无忧：</strong>仅需注意浏览器及时清理缓存不留痕迹，那么系统不会在使用的电脑上留下任何痕迹。使用完成后直接拔出设备即可，不会占用系统资源，也不会遗留个人数据。您的照片数据始终存储在您的移动设备中，真正实现了"数据永不离身"的安全理念。</p>
-                    <div class="alert alert-success">
-                        <i class="bi bi-check-circle me-2"></i>
-                        <strong>安全优势：</strong> 仅需注意浏览器及时清理缓存不留痕迹，那么在任何设备上使用都绝对安全，您的家庭隐私时刻在您的掌控之中。
-                    </div>
-                </div>
-
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <div class="step-card p-3 mb-3">
-                            <h5><i class="bi bi-briefcase me-2"></i>商务演示</h5>
-                            <p>数据永不离身，U盘随身携带，在客户现场即插即用，展示系统功能时数据时刻在掌控之中。</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="step-card p-3 mb-3">
-                            <h5><i class="bi bi-house-heart me-2"></i>家庭聚会</h5>
-                            <p>移动硬盘随身携带，走到哪里家就在哪里，在任何地方都能安全分享家庭美好时光。</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="step-card p-3 mb-3">
-                            <h5><i class="bi bi-building me-2"></i>办公室使用</h5>
-                            <p>U盘插上就用，用完即拔即走，工作数据永不离身，办公隐私完全自主掌控。</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="step-card p-3 mb-3">
-                            <h5><i class="bi bi-airplane me-2"></i>旅行随行</h5>
-                            <p>移动硬盘装进行李，旅途中随时查看家庭照片，美丽回忆时刻相伴，数据永不离身。</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
             <!-- API密钥配置 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3" id="api-key-config">七、API密钥配置</h2>
+                <h2 class="h3 mb-3" id="api-key-config">六、API密钥配置</h2>
 
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle me-2"></i>
@@ -1225,28 +1159,6 @@
                         <i class="bi bi-geo-alt me-1"></i>
                        高德API Key
                     </a>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5"><i class="bi bi-robot me-2"></i>获取AI分析API密钥（阿里云DashScope）</h4>
-                    <ol>
-                        <li>访问 <a href="https://dashscope.aliyun.com/" target="_blank">阿里云DashScope</a> 官网</li>
-                        <li>注册账号并完成实名认证</li>
-                        <li>进入API-KEY管理页面</li>
-                        <li>创建新的API密钥</li>
-                        <li>复制生成的API密钥</li>
-                    </ol>
-                </div>
-
-                <div class="step-card p-3 mb-3">
-                    <h4 class="h5"><i class="bi bi-geo-alt me-2"></i>获取GPS转地址API密钥（高德地图）</h4>
-                    <ol>
-                        <li>访问 <a href="https://lbs.amap.com/" target="_blank">高德地图开放平台</a></li>
-                        <li>注册账号并完成开发者认证</li>
-                        <li>进入控制台创建新应用</li>
-                        <li>为应用添加地理编码API服务</li>
-                        <li>获取应用的API Key</li>
-                    </ol>
                 </div>
 
                 <div class="step-card p-3 mb-3">
@@ -1266,7 +1178,7 @@
 
             <!-- 常见问题 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">八、常见问题解答</h2>
+                <h2 class="h3 mb-3">七、常见问题解答</h2>
 
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5">配置相关问题</h4>
@@ -1579,7 +1491,7 @@
 
             <!-- 系统要求 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">九、系统要求</h2>
+                <h2 class="h3 mb-3">八、系统要求</h2>
 
                 <div class="row">
                     <div class="col-md-6">
@@ -1598,7 +1510,7 @@
                         <div class="step-card p-3 mb-3">
                             <h4 class="h5">软件要求</h4>
                             <ul>
-                                <li><strong>操作系统：</strong>Windows 10/11、macOS 10.15+、Ubuntu 18.04+</li>
+                                <li><strong>操作系统：</strong>Windows 10/11</li>
                                 <li><strong>浏览器：</strong>Chrome 90+、Firefox 88+、Safari 14+、Edge 90+</li>
                                 <li><strong>依赖服务：</strong>DashScope API、SQLite</li>
                             </ul>
@@ -1609,35 +1521,13 @@
 
             <!-- 技术支持 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">十、技术支持</h2>
-
-                <div class="info-box">
-                    <h5><i class="bi bi-headset me-2"></i>获取帮助</h5>
-                    <ul class="mb-0">
-                        <li>查看系统日志了解详细错误信息：logs/app.log</li>
-                        <li>检查配置文件格式是否正确</li>
-                        <li>确认系统权限设置</li>
-                    </ul>
-                </div>
-
+                <h2 class="h3 mb-3">九、技术支持</h2>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="step-card p-3 mb-3">
-                            <h4 class="h5">问题诊断</h4>
                             <ul>
-                                <li><strong>日志查看：</strong>检查logs/app.log文件</li>
-                                <li><strong>配置检查：</strong>验证config.json文件格式</li>
-                                <li><strong>权限检查：</strong>确认文件和目录权限</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <div class="step-card p-3 mb-3">
-                            <h4 class="h5">联系支持</h4>
-                            <ul>
-                                <li><strong>系统问题：</strong>查看日志文件</li>
-                                <li><strong>配置问题：</strong>参考本帮助文档</li>
+                                <li><strong>系统问题：</strong>查看日志文件logs/app.log</li>
+                                <li><strong>配置和使用问题：</strong>参考系统帮助页面</li>
                                 <li><strong>技术问题：</strong>联系开发人员alva_xu@sina.com</li>
                             </ul>
                         </div>
@@ -1647,7 +1537,7 @@
 
             <!-- 推广与支持 -->
             <section class="mb-5">
-                <h2 class="h3 mb-3">十一、推广与支持</h2>
+                <h2 class="h3 mb-3">十、推广与支持</h2>
 
                 <div class="row g-4">
                     <div class="col-md-6">
@@ -1656,19 +1546,7 @@
                                 <i class="bi bi-share text-primary" style="font-size: 2rem;"></i>
                             </div>
                             <h5 class="card-title text-center mb-3">自由推广</h5>
-                            <p class="text-muted">如果您觉得这个照片管理系统好用，不妨分享给您的家人和朋友。您的推荐是我们最大的动力！请扫码获取软件包。</p>
-
-                            <!-- 百度分享图片 -->
-                            <div class="text-center my-3">
-                                <img src="/static/images/baidushare.png"
-                                     alt="百度分享"
-                                     class="img-fluid"
-                                     style="max-width: 200px; max-height: 200px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                            </div>
-
-                            <div class="text-center">
-                                <small class="text-muted">让更多人享受到智能照片管理带来的便利</small>
-                            </div>
+                            <p class="text-muted">如果您觉得这个照片管理系统好用，不妨分享给您的家人和朋友,让更多人享受到智能照片管理带来的便利。您的推荐是我们最大的动力！</p>
                         </div>
                     </div>
 
@@ -1709,26 +1587,6 @@
                     <strong>感谢您的使用！</strong> 您的反馈和支持是我们前进的动力。
                 </div>
             </section>
-
-            <!-- 底部操作按钮 -->
-            <div class="text-center mt-5">
-                <a href="../static/index.html" class="btn btn-primary me-2">
-                    <i class="bi bi-images me-1"></i>
-                    开始使用
-                </a>
-                <a href="/settings" class="btn btn-outline-secondary me-2">
-                    <i class="bi bi-gear me-1"></i>
-                    系统设置
-                </a>
-                <a href="/help-api-key" class="btn btn-outline-info me-2">
-                    <i class="bi bi-key me-1"></i>
-                   大模型API Key
-                </a>
-                <button class="btn btn-outline-success" onclick="window.close()">
-                    <i class="bi bi-x-lg me-1"></i>
-                    关闭
-                </button>
-            </div>
         </div>
     </div>
 

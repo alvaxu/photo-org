@@ -95,7 +95,13 @@ class SearchService:
 
             # 格式筛选
             if format_filter:
-                query = query.filter(Photo.format == format_filter)
+                # 处理合并格式：TIFF/TIF 和 HEIC/HEIF
+                if format_filter == 'TIFF/TIF':
+                    query = query.filter(Photo.format.in_(['TIFF', 'TIF']))
+                elif format_filter == 'HEIC/HEIF':
+                    query = query.filter(Photo.format.in_(['HEIC', 'HEIF']))
+                else:
+                    query = query.filter(Photo.format == format_filter)
 
             # 相机品牌筛选（用于图表点击筛选）
             if camera_filter:
@@ -612,7 +618,13 @@ class SearchService:
 
             # 格式筛选（在search_photos中排在前面）
             if format_filter:
-                base_query = base_query.filter(Photo.format == format_filter)
+                # 处理合并格式：TIFF/TIF 和 HEIC/HEIF
+                if format_filter == 'TIFF/TIF':
+                    base_query = base_query.filter(Photo.format.in_(['TIFF', 'TIF']))
+                elif format_filter == 'HEIC/HEIF':
+                    base_query = base_query.filter(Photo.format.in_(['HEIC', 'HEIF']))
+                else:
+                    base_query = base_query.filter(Photo.format == format_filter)
 
             # 相机品牌筛选（用于图表点击筛选）
             if camera_filter:
@@ -935,6 +947,7 @@ class SearchService:
 
             format_colors = {
                 'JPG': '#28a745', 'JPEG': '#28a745',
+                'MPO': '#28a745',  # MPO 是 JPEG 的变体，使用相同颜色
                 'PNG': '#007bff',
                 'HEIC': '#6f42c1', 'HEIF': '#6f42c1',
                 'TIFF': '#fd7e14', 'TIF': '#fd7e14',

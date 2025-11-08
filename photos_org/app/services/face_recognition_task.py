@@ -219,8 +219,10 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
                     if not photo:
                         return {"photo_id": photo_id, "status": "skipped", "reason": "photo_not_found"}
                     
-                    # 构建完整路径
-                    storage_base = Path(settings.storage.base_path)
+                    # 构建完整路径（使用最新配置）
+                    from app.core.config import get_settings
+                    current_settings = get_settings()
+                    storage_base = Path(current_settings.storage.base_path)
                     full_path = storage_base / photo.original_path
                     
                     # 🔥 异步执行：文件检查（避免阻塞事件循环）

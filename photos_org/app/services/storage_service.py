@@ -25,14 +25,43 @@ class StorageService:
     def __init__(self):
         """初始化存储服务"""
         self.logger = get_logger(__name__)
-        self.base_path = Path(settings.storage.base_path)
-        self.originals_path = self.base_path / settings.storage.originals_path
-        self.thumbnails_path = self.base_path / settings.storage.thumbnails_path
-        self.temp_path = self.base_path / settings.storage.temp_path
-        self.backups_path = self.base_path / settings.storage.backups_path
-
-        # 确保目录存在
+        # 注意：不再在 __init__ 中固定路径，改为动态读取
+        # 确保目录存在（使用动态路径）
         self._ensure_directories()
+    
+    @property
+    def base_path(self) -> Path:
+        """动态获取存储基础路径（每次使用时读取最新配置）"""
+        from app.core.config import get_settings
+        return Path(get_settings().storage.base_path)
+    
+    @property
+    def originals_path(self) -> Path:
+        """动态获取原图路径"""
+        from app.core.config import get_settings
+        current_settings = get_settings()
+        return self.base_path / current_settings.storage.originals_path
+    
+    @property
+    def thumbnails_path(self) -> Path:
+        """动态获取缩略图路径"""
+        from app.core.config import get_settings
+        current_settings = get_settings()
+        return self.base_path / current_settings.storage.thumbnails_path
+    
+    @property
+    def temp_path(self) -> Path:
+        """动态获取临时文件路径"""
+        from app.core.config import get_settings
+        current_settings = get_settings()
+        return self.base_path / current_settings.storage.temp_path
+    
+    @property
+    def backups_path(self) -> Path:
+        """动态获取备份路径"""
+        from app.core.config import get_settings
+        current_settings = get_settings()
+        return self.base_path / current_settings.storage.backups_path
 
     def _ensure_directories(self):
         """确保所有必要的目录都存在"""
