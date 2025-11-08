@@ -6,10 +6,12 @@
     IgnorableNamespaces="rescap">
 
   <!-- 包标识信息 -->
+  <!-- 注意：提交到 Microsoft Store 时，必须使用 Store 分配的包标识 -->
+  <!-- 在 Partner Center 的"应用标识"页面可以找到这些信息 -->
   <Identity
-      Name="com.alphaxu.PhotoSystem"
-      Publisher="CN=Alpha_Xu"
-      Version="5.1.8.0" />
+      Name="alphaxu.14339494D4036"
+      Publisher="CN=21A79992-B752-4EC6-BD5E-FE513BCC9933"
+      Version="6.0.0.0" />
 
   <!-- 包属性 -->
   <Properties>
@@ -27,7 +29,7 @@
 
   <!-- 依赖项 -->
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.22621.0" />
   </Dependencies>
 
   <!-- 应用定义 -->

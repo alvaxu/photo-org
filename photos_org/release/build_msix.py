@@ -22,6 +22,7 @@ import zipfile
 import subprocess
 import xml.etree.ElementTree as ET
 import time
+import re
 from pathlib import Path
 from typing import Optional, Tuple
 import argparse
@@ -30,16 +31,18 @@ import argparse
 class MSIXBuilder:
     """MSIX 打包构建器"""
     
-    def __init__(self, zip_path: str, output_dir: str = None, version: str = "5.1.8.0"):
+    def __init__(self, zip_path: str, output_dir: str = None, version: str = "6.0.0.0", publisher: str = None):
         """
         初始化 MSIX 构建器
         
         :param zip_path: PyInstaller 生成的 ZIP 文件路径
         :param output_dir: 输出目录（默认为 release 目录）
         :param version: 应用版本号（格式：主版本.次版本.构建号.修订号）
+        :param publisher: Publisher 名称（可选，用于覆盖 AppxManifest.xml 中的 Publisher）
         """
         self.zip_path = Path(zip_path)
         self.version = version
+        self.publisher = publisher
         self.output_dir = Path(output_dir) if output_dir else Path(__file__).parent
         self.work_dir = self.output_dir / "msix_build"
         self.app_dir = self.work_dir / "PhotoSystem"
@@ -187,35 +190,36 @@ class MSIXBuilder:
         return main_exe
         
     def prepare_manifest(self, executable_name: str = "PhotoSystem.exe"):
-        """准备 AppxManifest.xml"""
+        """
+        准备 AppxManifest.xml
+        
+        使用字符串替换方式更新版本号和可执行文件名，避免破坏 XML 格式和命名空间声明
+        """
         print("📄 准备 AppxManifest.xml...")
         
         manifest_source = Path(__file__).parent / "AppxManifest.xml"
         if not manifest_source.exists():
             raise FileNotFoundError(f"AppxManifest.xml 模板不存在: {manifest_source}")
         
-        # 读取并更新版本号和可执行文件路径
-        tree = ET.parse(manifest_source)
-        root = tree.getroot()
+        # 读取原始 XML 内容
+        with open(manifest_source, 'r', encoding='utf-8') as f:
+            manifest_content = f.read()
         
-        # 定义命名空间
-        ns = {'default': 'http://schemas.microsoft.com/appx/manifest/foundation/windows10',
-              'uap': 'http://schemas.microsoft.com/appx/manifest/uap/windows10'}
+        # 使用正则表达式更新版本号（只匹配 Identity 标签中的 Version 属性，避免误修改 MinVersion/MaxVersionTested）
+        # 匹配 <Identity ... Version="x.x.x.x" ... /> 格式，确保只匹配 Identity 标签内的 Version
+        identity_version_pattern = r'(<Identity[^>]*Version=")[^"]*(")'
+        manifest_content = re.sub(identity_version_pattern, rf'\g<1>{self.version}\g<2>', manifest_content)
+        print(f"   ✅ 更新 Identity 版本号为: {self.version}")
         
-        # 更新版本号
-        identity = root.find('default:Identity', ns)
-        if identity is not None:
-            identity.set('Version', self.version)
-        
-        # 更新可执行文件路径
-        application = root.find('default:Applications/default:Application', ns)
-        if application is not None:
-            application.set('Executable', executable_name)
-            print(f"   ✅ 更新可执行文件路径为: {executable_name}")
+        # 使用正则表达式更新可执行文件名（匹配 Executable="xxx.exe" 格式）
+        executable_pattern = r'Executable="[^"]*"'
+        manifest_content = re.sub(executable_pattern, f'Executable="{executable_name}"', manifest_content)
+        print(f"   ✅ 更新可执行文件路径为: {executable_name}")
         
         # 保存到工作目录
         manifest_dest = self.app_dir / "AppxManifest.xml"
-        tree.write(manifest_dest, encoding='utf-8', xml_declaration=True)
+        with open(manifest_dest, 'w', encoding='utf-8') as f:
+            f.write(manifest_content)
         
         print(f"✅ AppxManifest.xml 已准备: {manifest_dest}")
         
@@ -269,6 +273,53 @@ class MSIXBuilder:
             print(f"✅ 所有 {assets_copied} 个资源文件已成功复制到 Assets 目录")
         
         print(f"📁 Assets 目录: {self.assets_dir}")
+        
+        # 处理使用说明.pdf（覆盖解压包中的同名文件）
+        pdf_source = assets_source_dir / "使用说明.pdf"
+        if pdf_source.exists():
+            print("\n📄 处理使用说明.pdf...")
+            # 在解压包中查找已存在的使用说明.pdf
+            existing_pdf = None
+            for pdf_path in self.app_dir.rglob("使用说明.pdf"):
+                existing_pdf = pdf_path
+                break
+            
+            if existing_pdf:
+                # 覆盖已存在的文件
+                try:
+                    shutil.copy2(pdf_source, existing_pdf)
+                    print(f"   ✅ 已覆盖: {existing_pdf.relative_to(self.app_dir)}")
+                except Exception as e:
+                    print(f"   ❌ 覆盖失败: {e}")
+            else:
+                # 如果不存在，复制到 Assets 目录
+                pdf_dest = self.assets_dir / "使用说明.pdf"
+                try:
+                    shutil.copy2(pdf_source, pdf_dest)
+                    print(f"   ✅ 已复制到 Assets 目录: {pdf_dest.relative_to(self.app_dir)}")
+                except Exception as e:
+                    print(f"   ❌ 复制失败: {e}")
+        else:
+            print(f"\n⚠️  使用说明.pdf 源文件不存在: {pdf_source}")
+        
+        # 创建 MSIX 标记文件（用于运行时环境检测）
+        # 注意：标记文件应该与 PhotoSystem.exe 在同一目录
+        # 检查是否存在 PhotoSystem 子目录（从 ZIP 解压出来的应用目录）
+        photo_system_subdir = self.app_dir / "PhotoSystem"
+        if photo_system_subdir.exists() and photo_system_subdir.is_dir():
+            # 如果存在 PhotoSystem 子目录，将标记文件放在那里（与 PhotoSystem.exe 同目录）
+            marker_file = photo_system_subdir / '.msix'
+            print(f"📁 检测到 PhotoSystem 子目录，标记文件将放在: {marker_file.relative_to(self.app_dir)}")
+        else:
+            # 否则放在 app_dir 根目录
+            marker_file = self.app_dir / '.msix'
+            print(f"📁 未检测到 PhotoSystem 子目录，标记文件将放在: {marker_file.relative_to(self.app_dir)}")
+        
+        try:
+            marker_file.touch()
+            print(f"✅ 已创建 MSIX 标记文件: {marker_file.relative_to(self.app_dir)}")
+        except Exception as e:
+            print(f"⚠️  创建 MSIX 标记文件失败: {e}")
     
     def verify_package_contents(self):
         """验证打包内容，统计文件数量和大小"""
@@ -561,7 +612,7 @@ class MSIXBuilder:
                 "   - 使用 --packaging-tool 参数运行脚本",
                 "",
                 "使用 MSIX Packaging Tool 的步骤：",
-                f"   python build_msix.py --zip PhotoSystem-Portable.zip --version 5.1.8.0 --packaging-tool"
+                f"   python build_msix.py --zip PhotoSystem-Portable.zip --version 6.0.0.0 --packaging-tool"
             ]
             raise FileNotFoundError("\n".join(error_msg))
         else:
@@ -596,18 +647,23 @@ class MSIXBuilder:
             print(f"✅ MSIX 包已创建: {msix_path}")
             return msix_path
             
-    def sign_msix(self, msix_path: Path, cert_path: str = None, cert_password: str = None):
+    def sign_msix(self, msix_path: Path, cert_path: str = None, cert_password: str = None, cert_thumbprint: str = None):
         """
         签名 MSIX 包
         
+        注意：为了保留未签名的包用于 Store 提交，签名时会创建副本并重命名。
+        原文件保持不变，签名后的文件会添加 _Signed 后缀。
+        
         :param msix_path: MSIX 文件路径
-        :param cert_path: 证书文件路径（.pfx）
-        :param cert_password: 证书密码
+        :param cert_path: 证书文件路径（.pfx），如果提供则从文件签名
+        :param cert_password: 证书密码（仅当使用 cert_path 时）
+        :param cert_thumbprint: 证书指纹，如果提供则从证书存储签名（优先于 cert_path）
+        :return: 签名后的文件路径
         """
-        if cert_path is None:
+        if cert_thumbprint is None and cert_path is None:
             print("⚠️  跳过代码签名（未提供证书）")
             print("   注意: Microsoft Store 发布需要代码签名证书")
-            return
+            return None
         
         print("🔐 签名 MSIX 包...")
         
@@ -619,33 +675,128 @@ class MSIXBuilder:
                 "未找到 signtool.exe。请安装 Windows SDK 或确保已安装 Windows SDK Signing Tools 组件。"
             )
         
-        # 签名命令
+        print(f"   使用签名工具: {signtool_path}")
+        
+        # 检查 MSIX 文件是否被锁定
+        msix_path_abs = msix_path.resolve()
+        try:
+            # 尝试以写入模式打开文件，检查是否被锁定
+            with open(msix_path_abs, 'r+b') as f:
+                pass
+        except PermissionError:
+            raise RuntimeError(
+                f"MSIX 文件被锁定或无法访问: {msix_path_abs}\n"
+                f"请确保：\n"
+                f"1. 文件没有被其他程序打开\n"
+                f"2. 文件没有被安装或正在使用\n"
+                f"3. 您有足够的权限访问该文件"
+            )
+        
+        # 创建签名后的文件路径（添加 _Signed 后缀，保留原文件用于 Store 提交）
+        msix_signed_path = msix_path_abs.parent / f"{msix_path_abs.stem}_Signed{msix_path_abs.suffix}"
+        
+        # 复制原文件到新路径
+        print(f"   复制文件到: {msix_signed_path.name}（保留原文件用于 Store 提交）")
+        shutil.copy2(msix_path_abs, msix_signed_path)
+        
+        # 对副本进行签名
+        print(f"   对副本进行签名...")
+        
+        # 构建签名命令
         cmd = [
             str(signtool_path),
             "sign",
-            "/f", cert_path,
-            "/fd", "SHA256",
-            "/p", cert_password or "",
-            str(msix_path)
+            "/v",  # 详细输出
+            "/fd", "SHA256",  # 文件摘要算法
+            "/ph",  # 页面哈希（适用于 MSIX）
         ]
         
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # 优先使用证书存储中的证书（通过指纹）
+        if cert_thumbprint:
+            print(f"   使用证书存储中的证书（指纹: {cert_thumbprint}）")
+            cmd.extend([
+                "/sha1", cert_thumbprint,  # 使用证书指纹从证书存储签名
+            ])
+        elif cert_path:
+            # 从 PFX 文件签名
+            cert_path_abs = Path(cert_path).resolve()
+            if not cert_path_abs.exists():
+                raise FileNotFoundError(f"证书文件不存在: {cert_path_abs}")
+            
+            print(f"   使用证书文件: {cert_path_abs}")
+            cmd.extend([
+                "/f", str(cert_path_abs),  # 证书文件路径（使用绝对路径）
+                "/p", cert_password or "",  # 证书密码
+            ])
+        
+        # 添加 MSIX 文件路径（对副本进行签名）
+        cmd.append(str(msix_signed_path))
+        
+        print(f"   执行命令: {' '.join(cmd[:4])} ... <MSIX文件>")
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore')
+        
+        # 输出详细日志
+        if result.stdout:
+            print("   签名工具输出:")
+            for line in result.stdout.splitlines():
+                print(f"     {line}")
         
         if result.returncode != 0:
-            print(f"❌ 签名失败:")
-            print(result.stderr)
-            raise RuntimeError(f"MSIX 签名失败: {result.stderr}")
+            # 签名失败，删除副本
+            if msix_signed_path.exists():
+                msix_signed_path.unlink()
+                print(f"   已删除失败的签名副本")
+            
+            print(f"❌ 签名失败 (返回码: {result.returncode}):")
+            if result.stderr:
+                print("   错误信息:")
+                for line in result.stderr.splitlines():
+                    print(f"     {line}")
+            if result.stdout:
+                print("   详细输出:")
+                for line in result.stdout.splitlines():
+                    print(f"     {line}")
+            
+            # 提供常见问题的解决建议
+            error_msg = result.stderr or result.stdout or "未知错误"
+            if "password" in error_msg.lower() or "密码" in error_msg:
+                raise RuntimeError(
+                    f"MSIX 签名失败: 证书密码错误或证书文件格式不正确。\n"
+                    f"请检查：\n"
+                    f"1. 证书密码是否正确\n"
+                    f"2. 证书文件是否为有效的 PFX 格式\n"
+                    f"3. 证书是否包含私钥\n"
+                    f"4. 建议：使用证书指纹从证书存储签名，避免密码问题"
+                )
+            elif "certificate" in error_msg.lower() or "证书" in error_msg or "thumbprint" in error_msg.lower():
+                raise RuntimeError(
+                    f"MSIX 签名失败: 证书无效或未找到。\n"
+                    f"请检查：\n"
+                    f"1. 证书指纹是否正确（如果使用指纹签名）\n"
+                    f"2. 证书是否在证书存储中（如果使用指纹签名）\n"
+                    f"3. 证书文件是否为有效的 PFX 格式（如果使用文件签名）\n"
+                    f"4. 证书是否包含代码签名扩展\n"
+                    f"5. 证书是否已过期"
+                )
+            else:
+                raise RuntimeError(f"MSIX 签名失败: {error_msg}")
         
-        print(f"✅ MSIX 包已签名")
+        print(f"✅ MSIX 包已签名: {msix_signed_path.name}")
+        print(f"   📦 未签名包（用于 Store 提交）: {msix_path_abs.name}")
+        print(f"   🔐 已签名包（用于本地测试）: {msix_signed_path.name}")
+        
+        return msix_signed_path
         
     def build(self, use_packaging_tool: bool = False, 
-              cert_path: str = None, cert_password: str = None) -> Path:
+              cert_path: str = None, cert_password: str = None, cert_thumbprint: str = None) -> Path:
         """
         执行完整的构建流程
         
         :param use_packaging_tool: 是否使用 MSIX Packaging Tool
-        :param cert_path: 证书路径（可选）
-        :param cert_password: 证书密码（可选）
+        :param cert_path: 证书路径（可选，.pfx 文件）
+        :param cert_password: 证书密码（可选，仅当使用 cert_path 时）
+        :param cert_thumbprint: 证书指纹（可选，优先于 cert_path，从证书存储签名）
         :return: MSIX 文件路径
         """
         print("=" * 60)
@@ -686,15 +837,24 @@ class MSIXBuilder:
             msix_path = self.build_msix(use_packaging_tool)
             
             # 6. 签名（如果提供了证书且成功创建了 MSIX 文件）
-            if msix_path and cert_path:
-                self.sign_msix(msix_path, cert_path, cert_password)
+            signed_msix_path = None
+            if msix_path and (cert_thumbprint or cert_path):
+                signed_msix_path = self.sign_msix(msix_path, cert_path, cert_password, cert_thumbprint)
             
             print("=" * 60)
             if msix_path:
                 print("✅ MSIX 打包完成！")
                 print("=" * 60)
-                print(f"📦 MSIX 文件: {msix_path}")
-                print(f"📊 文件大小: {msix_path.stat().st_size / 1024 / 1024:.2f} MB")
+                if signed_msix_path:
+                    # 如果已签名，显示两个文件
+                    print(f"📦 未签名包（用于 Store 提交）: {msix_path.name}")
+                    print(f"   📊 文件大小: {msix_path.stat().st_size / 1024 / 1024:.2f} MB")
+                    print(f"🔐 已签名包（用于本地测试）: {signed_msix_path.name}")
+                    print(f"   📊 文件大小: {signed_msix_path.stat().st_size / 1024 / 1024:.2f} MB")
+                else:
+                    # 未签名，只显示一个文件
+                    print(f"📦 MSIX 文件: {msix_path.name}")
+                    print(f"📊 文件大小: {msix_path.stat().st_size / 1024 / 1024:.2f} MB")
             else:
                 print("✅ 打包准备完成！")
                 print("=" * 60)
@@ -716,18 +876,52 @@ def main():
                        default="PhotoSystem-Portable.zip",
                        help="PyInstaller 生成的 ZIP 文件路径")
     parser.add_argument("--version", type=str,
-                       default="5.1.8.0",
+                       default="6.0.0.0",
                        help="应用版本号（格式: 主.次.构建.修订）")
     parser.add_argument("--output", type=str,
                        help="输出目录（默认: release 目录）")
     parser.add_argument("--packaging-tool", action="store_true",
                        help="使用 MSIX Packaging Tool（GUI）而不是命令行")
     parser.add_argument("--cert", type=str,
-                       help="代码签名证书路径（.pfx）")
+                       help="代码签名证书路径（.pfx 文件）")
     parser.add_argument("--cert-password", type=str,
-                       help="证书密码")
+                       help="证书密码（仅当使用 --cert 时）")
+    parser.add_argument("--cert-thumbprint", type=str,
+                       help="证书指纹（从证书存储签名，优先于 --cert）")
+    parser.add_argument("--sign-only", type=str,
+                       help="仅对已存在的 MSIX 文件进行签名（指定 MSIX 文件路径）")
     
     args = parser.parse_args()
+    
+    # 如果只是签名已存在的 MSIX 文件
+    if args.sign_only:
+        msix_path = Path(args.sign_only).resolve()
+        if not msix_path.exists():
+            print(f"❌ MSIX 文件不存在: {msix_path}")
+            return
+        
+        if not (args.cert_thumbprint or args.cert):
+            print("❌ 签名需要提供证书（--cert-thumbprint 或 --cert）")
+            return
+        
+        # 创建构建器（仅用于签名功能）
+        builder = MSIXBuilder(
+            zip_path="",  # 不需要 ZIP
+            output_dir=args.output,
+            version=args.version
+        )
+        
+        # 直接签名
+        builder.sign_msix(
+            msix_path=msix_path,
+            cert_path=args.cert,
+            cert_password=args.cert_password,
+            cert_thumbprint=args.cert_thumbprint
+        )
+        print("=" * 60)
+        print("✅ MSIX 签名完成！")
+        print("=" * 60)
+        return
     
     # 创建构建器
     builder = MSIXBuilder(
@@ -740,7 +934,8 @@ def main():
     builder.build(
         use_packaging_tool=args.packaging_tool,
         cert_path=args.cert,
-        cert_password=args.cert_password
+        cert_password=args.cert_password,
+        cert_thumbprint=args.cert_thumbprint
     )
 
 

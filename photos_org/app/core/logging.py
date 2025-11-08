@@ -15,21 +15,27 @@ import logging
 import logging.handlers
 from pathlib import Path
 
-from app.core.config import settings
-
 
 def setup_logging():
     """设置应用日志配置"""
+    from app.core.config import get_settings
 
-    # 在PyInstaller环境下，确保日志路径相对于可执行文件目录
+    settings = get_settings()
+
+    # 处理日志路径：如果是绝对路径直接使用，如果是相对路径则相对于可执行文件目录
     import sys
-    if getattr(sys, 'frozen', False):
-        exe_dir = Path(sys.executable).parent
-        log_file_path = exe_dir / settings.logging.file_path.lstrip('./')
-        # 更新配置中的日志路径
-        settings.logging.file_path = str(log_file_path)
-    else:
-        log_file_path = Path(settings.logging.file_path)
+    log_file_path = Path(settings.logging.file_path)
+    
+    if not log_file_path.is_absolute():
+        # 相对路径：在PyInstaller环境下，相对于可执行文件目录
+        if getattr(sys, 'frozen', False):
+            exe_dir = Path(sys.executable).parent
+            log_file_path = exe_dir / log_file_path
+        # 开发环境：保持相对路径（相对于项目根目录）
+    
+    log_file_path = log_file_path.resolve()  # 转换为绝对路径
+    # 更新配置中的日志路径为绝对路径
+    settings.logging.file_path = str(log_file_path)
 
     # 创建logs目录
     log_dir = log_file_path.parent

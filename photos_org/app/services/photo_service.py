@@ -206,9 +206,10 @@ class PhotoService:
             # 删除物理文件
             if delete_file:
                 try:
-                    # 构建完整的文件路径
-                    from app.core.config import settings
-                    storage_base = Path(settings.storage.base_path)
+                    # 构建完整的文件路径（使用最新配置）
+                    from app.core.config import get_settings
+                    current_settings = get_settings()
+                    storage_base = Path(current_settings.storage.base_path)
                     full_original_path = storage_base / photo.original_path
                     
                     # 删除原图（JPEG或其他格式）
@@ -907,7 +908,14 @@ class PhotoService:
 
             # 格式筛选
             if "format" in filters:
-                query = query.filter(Photo.format == filters["format"])
+                format_filter = filters["format"]
+                # 处理合并格式：TIFF/TIF 和 HEIC/HEIF
+                if format_filter == 'TIFF/TIF':
+                    query = query.filter(Photo.format.in_(['TIFF', 'TIF']))
+                elif format_filter == 'HEIC/HEIF':
+                    query = query.filter(Photo.format.in_(['HEIC', 'HEIF']))
+                else:
+                    query = query.filter(Photo.format == format_filter)
 
             # 大小范围筛选
             if "min_size" in filters:

@@ -1417,13 +1417,13 @@ window.switchAdvancedFilterMode = function(mode) {
                 <select class="form-select" id="formatFilter">
                     <option value="" selected>全部格式</option>
                     <option value="JPEG">JPEG</option>
+                    <option value="MPO">MPO</option>
                     <option value="PNG">PNG</option>
-                    <option value="HEIF">HEIF</option>
-                    <option value="HEIC">HEIC</option>
-                    <option value="TIFF">TIFF</option>
+                    <option value="HEIC/HEIF">HEIC/HEIF</option>
+                    <option value="TIFF/TIF">TIFF/TIF</option>
+                    <option value="WEBP">WEBP</option>
                     <option value="BMP">BMP</option>
                     <option value="GIF">GIF</option>
-                    <option value="WEBP">WEBP</option>
                 </select>
             `;
             window.elements.formatFilter = document.getElementById('formatFilter');
