@@ -258,6 +258,11 @@ async def help_gaode_api_key_page():
     """高德地图API配置帮助页面"""
     return FileResponse(get_template_path("help_gaode_api_key.html"))
 
+@app.get("/privacy-policy")
+async def privacy_policy_page():
+    """隐私策略页面"""
+    return FileResponse(get_template_path("privacy-policy.html"))
+
 @app.get("/people")
 async def people_management_page():
     """人物管理页面"""
