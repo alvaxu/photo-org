@@ -369,8 +369,8 @@ class UserConfigManager {
         // 相似照片搜索方式配置
         const defaultSimilarSearchSelect = document.getElementById('defaultSimilarPhotoSearch');
         if (defaultSimilarSearchSelect) {
-            // 从localStorage加载默认搜索方式设置（默认使用特征向量搜索）
-            let savedSearchService = localStorage.getItem('defaultSimilarPhotoSearch') || 'features';
+            // 从localStorage加载默认搜索方式设置（默认每次都询问）
+            let savedSearchService = localStorage.getItem('defaultSimilarPhotoSearch') || 'ask';
             // 兼容旧配置：将 'hash' 迁移为 'features'
             if (savedSearchService === 'hash') {
                 savedSearchService = 'features';

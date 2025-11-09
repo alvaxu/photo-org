@@ -152,6 +152,11 @@ async def get_photos(
         else:
             photos, total = photo_service.get_photos(db, skip, limit, filter_dict, sort_by, sort_order, person_filter)
 
+        # 性能优化：批量查询所有analysis，避免N+1查询
+        photo_ids = [photo.id for photo in photos]
+        analyses = db.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id.in_(photo_ids)).all()
+        analysis_dict = {a.photo_id: a for a in analyses}
+
         # 转换为响应格式
         photo_list = []
         for photo in photos:
@@ -176,8 +181,8 @@ async def get_photos(
                 "location_alt": photo.location_alt
             }
 
-            # 添加分析信息（通过查询获取）
-            analysis = db.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == photo.id).first()
+            # 从批量查询的字典中获取analysis
+            analysis = analysis_dict.get(photo.id)
             if analysis:
                 # 解析analysis_result JSON数据
                 try:
@@ -274,8 +279,15 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
                 "location_lng": photo.location_lng
             }
 
-        # 添加分析信息（通过查询获取）
-        analysis = db.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == photo.id).first()
+        # 性能优化：使用预加载的analysis，避免重复查询
+        # get_photo_by_id已经预加载了analysis_results，直接使用
+        analysis = None
+        if photo.analysis_results:
+            # 查找content类型的分析结果
+            for a in photo.analysis_results:
+                if a.analysis_type == 'content':
+                    analysis = a
+                    break
         if analysis:
             # 解析analysis_result JSON数据
             try:

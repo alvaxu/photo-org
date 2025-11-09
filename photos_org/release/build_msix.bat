@@ -44,7 +44,7 @@ echo [INFO] 开始 MSIX 打包流程...
 echo.
 
 REM 运行 Python 脚本
-python build_msix.py --zip "%ZIP_FILE%" --version 5.1.8.0
+python build_msix.py --zip "%ZIP_FILE%" --version 6.0.0.0
 
 if errorlevel 1 (
     echo.
@@ -64,7 +64,7 @@ echo    2. 如需代码签名，请使用 --cert 参数
 echo    3. 提交到 Microsoft Store Partner Center
 echo.
 echo 示例签名命令：
-echo    python build_msix.py --zip "%ZIP_FILE%" --version 5.1.8.0 --cert certificate.pfx --cert-password "your_password"
+echo    python build_msix.py --zip "%ZIP_FILE%" --version 6.0.0.0 --cert certificate.pfx --cert-password "your_password"
 echo.
 
 pause

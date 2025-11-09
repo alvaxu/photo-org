@@ -69,6 +69,13 @@ class PhotoService:
                 else:
                     query = query.order_by(asc(sort_column))
 
+            # 性能优化：使用joinedload预加载关联数据，避免N+1查询
+            from sqlalchemy.orm import joinedload
+            query = query.options(
+                joinedload(Photo.tags).joinedload(PhotoTag.tag),
+                joinedload(Photo.categories).joinedload(PhotoCategory.category)
+            )
+
             # 应用分页
             photos = query.offset(skip).limit(limit).all()
 
@@ -90,11 +97,13 @@ class PhotoService:
             照片对象或None
         """
         try:
-            # 加载关联关系，确保quality_assessments和analysis_results被加载
+            # 性能优化：使用joinedload预加载关联数据，避免N+1查询
             from sqlalchemy.orm import joinedload
             photo = db.query(Photo).options(
                 joinedload(Photo.quality_assessments),
-                joinedload(Photo.analysis_results)
+                joinedload(Photo.analysis_results),
+                joinedload(Photo.tags).joinedload(PhotoTag.tag),
+                joinedload(Photo.categories).joinedload(PhotoCategory.category)
             ).filter(Photo.id == photo_id).first()
             return photo
         except Exception as e:
@@ -676,7 +685,13 @@ class PhotoService:
             )
 
             total = db.query(func.count(Photo.id)).filter(search_filter).scalar() or 0
-            photos = db.query(Photo).filter(search_filter).offset(skip).limit(limit).all()
+            
+            # 性能优化：使用joinedload预加载关联数据，避免N+1查询
+            from sqlalchemy.orm import joinedload
+            photos = db.query(Photo).options(
+                joinedload(Photo.tags).joinedload(PhotoTag.tag),
+                joinedload(Photo.categories).joinedload(PhotoCategory.category)
+            ).filter(search_filter).offset(skip).limit(limit).all()
 
             return photos, total
 
@@ -701,7 +716,13 @@ class PhotoService:
         try:
             query = db.query(Photo).join(PhotoCategory).filter(PhotoCategory.category_id == category_id)
             total = query.count()
-            photos = query.offset(skip).limit(limit).all()
+            
+            # 性能优化：使用joinedload预加载关联数据，避免N+1查询
+            from sqlalchemy.orm import joinedload
+            photos = query.options(
+                joinedload(Photo.tags).joinedload(PhotoTag.tag),
+                joinedload(Photo.categories).joinedload(PhotoCategory.category)
+            ).offset(skip).limit(limit).all()
 
             return photos, total
 
@@ -726,7 +747,13 @@ class PhotoService:
         try:
             query = db.query(Photo).join(PhotoTag).filter(PhotoTag.tag_id == tag_id)
             total = query.count()
-            photos = query.offset(skip).limit(limit).all()
+            
+            # 性能优化：使用joinedload预加载关联数据，避免N+1查询
+            from sqlalchemy.orm import joinedload
+            photos = query.options(
+                joinedload(Photo.tags).joinedload(PhotoTag.tag),
+                joinedload(Photo.categories).joinedload(PhotoCategory.category)
+            ).offset(skip).limit(limit).all()
 
             return photos, total
 

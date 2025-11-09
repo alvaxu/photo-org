@@ -23,21 +23,15 @@ import uuid
 # 延迟导入重型库
 np = None
 DBSCAN = None
-cosine_distances = None
-plt = None
-tqdm = None
 
 def _lazy_import_dependencies():
     """延迟导入重型库"""
-    global np, DBSCAN, cosine_distances, plt, tqdm
+    global np, DBSCAN
     
     if np is None:
         try:
             import numpy as np
             from sklearn.cluster import DBSCAN
-            from sklearn.metrics.pairwise import cosine_distances
-            import matplotlib.pyplot as plt
-            from tqdm import tqdm
             logging.info("成功加载人脸聚类依赖库")
         except ImportError as e:
             logging.error(f"聚类依赖导入失败: {e}")

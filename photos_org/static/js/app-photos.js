@@ -607,8 +607,8 @@ async function deletePhoto(photoId) {
 async function searchSimilarPhotos(photoId) {
     console.log('搜索相似照片:', photoId);
     
-    // 检查用户设置，决定是否显示服务选择（默认使用特征向量搜索）
-    let defaultService = localStorage.getItem('defaultSimilarPhotoSearch') || 'features';
+    // 检查用户设置，决定是否显示服务选择（默认每次都询问）
+    let defaultService = localStorage.getItem('defaultSimilarPhotoSearch') || 'ask';
     // 兼容旧配置：将 'hash' 迁移为 'features'
     if (defaultService === 'hash') {
         defaultService = 'features';
