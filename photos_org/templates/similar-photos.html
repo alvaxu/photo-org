@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <!-- Edge浏览器兼容性修复 -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="msapplication-TileColor" content="#0d6efd">
+    <meta name="theme-color" content="#0d6efd">
+    <title>相似照识别 - 家庭版智能照片系统</title>
+
+    <!-- Bootstrap CSS - 优先使用本地版本 -->
+    <link href="/static/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/lib/bootstrap-icons/css/bootstrap-icons.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons 字体修复 -->
+    <style>
+        @font-face {
+            font-display: block;
+            font-family: "bootstrap-icons";
+            src: url("/static/lib/bootstrap-icons/fonts/bootstrap-icons.woff2?2ab2cbbe07fcebb53bdaa7313bb290f2") format("woff2"),
+                 url("/static/lib/bootstrap-icons/fonts/bootstrap-icons.woff?2ab2cbbe07fcebb53bdaa7313bb290f2") format("woff");
+        }
+    </style>
+    
+    <!-- CDN备用加载 -->
+    <script>
+        // 如果本地资源加载失败，尝试CDN
+        setTimeout(function() {
+            const links = document.querySelectorAll('link[href*="/static/lib/"]');
+            links.forEach(link => {
+                if (!link.sheet) {
+                    console.warn('本地资源加载失败，尝试CDN:', link.href);
+                    if (link.href.includes('bootstrap.min.css')) {
+                        link.href = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css';
+                    } else if (link.href.includes('bootstrap-icons.min.css')) {
+                        link.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css';
+                    }
+                }
+            });
+        }, 2000);
+    </script>
+    
+    <!-- 自定义样式 -->
+    <link href="/static/css/style.css?v=20250120_01" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/images/xuwh.ico">
+</head>
+<body>
+    <!-- 主内容区域 -->
+    <div class="container-fluid mt-4">
+        <!-- 相似照识别页面 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-images me-2"></i>相似照识别
+                            <small class="text-muted ms-2">
+                                <span id="clustersCount">0</span> 个聚类
+                            </small>
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" id="refreshClustersBtn">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                            <button class="btn btn-sm btn-outline-info" id="imageFeatureExtractionBtn" title="提取照片的深度特征向量，用于精确的相似照片搜索，基于ResNet50模型">
+                                <i class="bi bi-image"></i> 特征提取
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" id="startClusterBtn" title="基于已提取的特征向量，使用DBSCAN算法对相似照片进行自动聚类分组，需要先完成特征提取">
+                                <i class="bi bi-diagram-3"></i> 开始聚类
+                            </button>
+                            <a class="btn btn-sm btn-outline-secondary" href="/">
+                                <i class="bi bi-grid-3x3-gap"></i> 返回照片库首页
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- 聚类进度显示 -->
+                        <div id="clusterProgress" class="d-none mb-4">
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                                        <span class="visually-hidden">处理中...</span>
+                                    </div>
+                                    <strong>聚类分析进行中...</strong>
+                                </div>
+                                <div class="progress mb-2" style="height: 25px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                         id="clusterProgressBar"
+                                         role="progressbar"
+                                         style="width: 0%; min-width: 2%; transition: width 0.3s ease;"
+                                         aria-valuenow="0"
+                                         aria-valuemin="0"
+                                         aria-valuemax="100"></div>
+                                </div>
+                                <div class="text-center">
+                                    <p class="mb-1" id="clusterStatus">正在准备聚类分析...</p>
+                                    <small class="text-muted" id="clusterDetails">请稍候...</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 统计信息 -->
+                        <div class="row mb-4">
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title text-primary">📦 总聚类</h5>
+                                        <h3 class="text-primary" id="totalClustersCount">-</h3>
+                                        <small class="text-muted">个聚类</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title text-success">📸 聚类照片</h5>
+                                        <h3 class="text-success" id="totalPhotosInClusters">-</h3>
+                                        <small class="text-muted">张照片</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title text-warning">⭐ 高质量</h5>
+                                        <h3 class="text-warning" id="highQualityClustersCount">-</h3>
+                                        <small class="text-muted">个聚类</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card bg-light h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title text-info">📊 平均相似度</h5>
+                                        <h3 class="text-info" id="avgSimilarity">-</h3>
+                                        <small class="text-muted">%</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 聚类列表 -->
+                        <div id="clustersList" class="row g-3">
+                            <!-- 聚类卡片将通过JavaScript动态生成 -->
+                        </div>
+
+                        <!-- 分页信息 -->
+                        <div id="clustersPaginationInfo" class="mt-4 d-none">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <small class="text-muted" id="clustersPaginationText">
+                                        <!-- 分页信息将通过JavaScript动态生成 -->
+                                    </small>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <small class="text-muted">
+                                        每页显示 <span id="clustersPageSize">30</span> 个聚类
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 分页 -->
+                        <div id="clustersPaginationContainer" class="mt-2 d-none">
+                            <nav aria-label="聚类分页">
+                                <ul class="pagination justify-content-center" id="clustersPagination">
+                                    <!-- 分页按钮将通过JavaScript动态生成 -->
+                                </ul>
+                            </nav>
+                        </div>
+
+                        <!-- 空状态 -->
+                        <div id="clustersEmptyState" class="text-center py-5 d-none">
+                            <i class="bi bi-images display-1 text-muted"></i>
+                            <h4 class="mt-3 text-muted">暂无相似照聚类</h4>
+                            <p class="text-muted">请先进行特征提取，然后开始聚类分析</p>
+                            <button class="btn btn-primary" id="startClusterFirstBtn" title="基于已提取的特征向量，使用DBSCAN算法对相似照片进行自动聚类分组，需要先完成特征提取">
+                                <i class="bi bi-diagram-3 me-2"></i>开始聚类
+                            </button>
+                        </div>
+
+                        <!-- 加载状态 -->
+                        <div id="clustersLoadingState" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-3 text-muted">正在加载聚类数据...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 聚类照片模态框 -->
+    <div class="modal fade" id="clusterPhotosModal" tabindex="-1" aria-labelledby="clusterPhotosModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="clusterPhotosModalLabel">
+                        <i class="bi bi-images me-2"></i>聚类照片
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="clusterPhotosContainer" class="row g-3">
+                        <!-- 照片将通过JavaScript动态生成 -->
+                    </div>
+                    <div id="clusterPhotosLoading" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS - 优先使用本地版本 -->
+    <script src="/static/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- CDN备用加载 -->
+    <script>
+        // 如果本地Bootstrap JS加载失败，尝试CDN
+        setTimeout(function() {
+            if (typeof bootstrap === 'undefined') {
+                console.warn('本地Bootstrap JS加载失败，尝试CDN');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js';
+                script.onload = function() {
+                    console.log('CDN Bootstrap JS加载成功');
+                };
+                document.head.appendChild(script);
+            }
+        }, 2000);
+    </script>
+    
+    <!-- 照片详情模态框 -->
+    <div class="modal fade" id="photoModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="photoModalTitle">照片详情</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="downloadPhotoBtn">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="editPhotoBtn">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="addToFavoritesBtn">
+                            <i class="bi bi-heart"></i>
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <!-- 照片详情内容将通过JavaScript动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图像特征提取模态框 -->
+    <div class="modal fade" id="imageFeatureExtractionModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-image me-2"></i>图像特征提取
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        图像特征提取将为照片生成深度特征向量，用于精确的相似照片搜索<br>
+                        基于ResNet50深度学习模型，提取2048维特征向量<br>
+                        此功能调用本地模型，处理快速高效
+                    </div>
+
+                    <!-- 照片数量统计 -->
+                    <div class="alert alert-warning" id="featurePhotoCountInfo" style="display: none;">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <span id="featurePhotoCountText">正在获取照片数量...</span>
+                    </div>
+
+                    <!-- 批次信息显示 -->
+                    <div id="featureBatchInfo" class="mb-3" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="bi bi-collection me-2"></i>批次处理信息</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">总照片数：</label>
+                                        <div class="fw-bold" id="featureTotalPhotos">-</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">预计批次数：</label>
+                                        <div class="fw-bold" id="featureBatchCount">-</div>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label">每批照片数：</label>
+                                        <div class="text-muted" id="featureBatchSize">-</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">分批阈值：</label>
+                                        <div class="text-muted" id="featureBatchThreshold">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="featureProgress" class="d-none mt-3">
+                        <div class="progress mb-2" style="height: 25px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                 id="featureProgressBar" 
+                                 style="width: 0%; min-width: 2%; transition: width 0.3s ease;"></div>
+                        </div>
+                        <div class="text-center mb-2">
+                            <p class="mb-1" id="featureStatus">正在准备特征提取...</p>
+                            <small class="text-muted" id="featureDetails">请稍候...</small>
+                        </div>
+                        <div class="row text-center" id="featureStats" style="display: none;">
+                            <div class="col-3">
+                                <div class="border rounded p-2">
+                                    <div class="h5 mb-0 text-primary" id="featureProcessedCount">0</div>
+                                    <small class="text-muted">已处理</small>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="border rounded p-2">
+                                    <div class="h5 mb-0 text-success" id="featureExtractedCount">0</div>
+                                    <small class="text-muted">成功提取</small>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="border rounded p-2">
+                                    <div class="h5 mb-0 text-warning" id="featureSkippedCount">0</div>
+                                    <small class="text-muted">跳过</small>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="border rounded p-2">
+                                    <div class="h5 mb-0 text-danger" id="featureFailedCount">0</div>
+                                    <small class="text-muted">失败</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="startFeatureExtractionBtn">开始特征提取</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 必要的JavaScript文件（用于照片详情功能） -->
+    <script src="/static/js/app-utils.js"></script>
+    <script src="/static/js/app-data.js"></script>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/app-photos.js"></script>
+    
+    <!-- 图像特征提取脚本 -->
+    <script src="/static/js/image-feature-extraction.js?v=20250120_01"></script>
+    
+    <!-- 相似照识别管理脚本 -->
+    <script src="/static/js/similar-photos-management.js"></script>
+</body>
+</html>
+
