@@ -61,6 +61,11 @@ class FaceRecognitionService:
                 import numpy as np
                 logger.info("✓ 已加载 numpy")
                 
+                # 在导入 insightface 之前，过滤 numpy.lstsq 的 FutureWarning
+                # 这是 insightface 内部使用 numpy.lstsq 时产生的警告，无法通过修改调用方式消除
+                import warnings
+                warnings.filterwarnings('ignore', category=FutureWarning, module='insightface')
+                
                 # 设置 matplotlib 使用非交互式后端，避免触发 font_manager 初始化
                 import os
                 os.environ['MPLBACKEND'] = 'Agg'  # 使用非交互式后端
@@ -101,6 +106,27 @@ class FaceRecognitionService:
                 logger.info("✅ 人脸识别依赖库加载完成")
             except ImportError as e:
                 logger.error(f"人脸识别依赖导入失败: {e}")
+    
+    def _detect_gpu_available(self) -> bool:
+        """
+        检测GPU是否可用
+        :return: GPU是否可用
+        """
+        try:
+            # 检查onnxruntime的可用提供者
+            import onnxruntime as ort
+            available_providers = ort.get_available_providers()
+            has_cuda = 'CUDAExecutionProvider' in available_providers
+            
+            if has_cuda:
+                logger.info("✓ 检测到CUDA支持，可以使用GPU加速")
+            else:
+                logger.info("ℹ 未检测到CUDA支持，将使用CPU模式")
+            
+            return has_cuda
+        except Exception as e:
+            logger.warning(f"GPU检测失败: {e}，将使用CPU模式")
+            return False
     
     async def initialize(self) -> bool:
         """
@@ -144,9 +170,18 @@ class FaceRecognitionService:
             det_size = (640, 640)  # 恢复到640x640以提高检测精度
             logger.info(f"设置检测尺寸: {det_size}")
             
-            # 准备模型，使用CPU上下文
-            logger.info("⏳ 准备人脸识别模型（CPU模式）...")
-            self.app.prepare(ctx_id=0, det_size=det_size)
+            # 检测GPU是否可用，自动选择最佳执行方式
+            use_gpu = self._detect_gpu_available()
+            if use_gpu:
+                # 使用GPU（ctx_id=-1表示自动选择GPU，如果有多个GPU则使用第一个）
+                logger.info("⏳ 准备人脸识别模型（GPU模式）...")
+                self.app.prepare(ctx_id=-1, det_size=det_size)
+                logger.info("✅ 已启用GPU加速")
+            else:
+                # 使用CPU
+                logger.info("⏳ 准备人脸识别模型（CPU模式）...")
+                self.app.prepare(ctx_id=0, det_size=det_size)
+                logger.info("✅ 使用CPU模式")
             
             logger.info("✅ 人脸识别模型初始化成功，已就绪")
             self.is_initialized = True

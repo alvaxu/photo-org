@@ -315,12 +315,14 @@ class AnalysisService:
                     # 清理现有的基础标签（避免标签累积）- 使用子查询避免join+delete问题
                     # 注意：不再清理'device'标签，因为相机品牌和型号已存储在photo表中
                     from app.models.photo import PhotoTag, Tag
+                    from sqlalchemy import select
                     tag_ids_to_delete = db.query(PhotoTag.id).join(Tag).filter(
                         PhotoTag.photo_id == photo_id,
                         PhotoTag.source == 'auto',
                         Tag.category.in_(['time', 'lens', 'aperture', 'focal_length'])
                     ).subquery()
-                    db.query(PhotoTag).filter(PhotoTag.id.in_(tag_ids_to_delete)).delete(synchronize_session=False)
+                    # 使用 select() 显式包装子查询，避免 SQLAlchemy 警告
+                    db.query(PhotoTag).filter(PhotoTag.id.in_(select(tag_ids_to_delete.c.id))).delete(synchronize_session=False)
 
                     basic_tags = classification_service.generate_basic_tags(photo, quality_result, db)
                     basic_classifications = classification_service.generate_basic_classifications(photo)

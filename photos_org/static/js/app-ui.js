@@ -246,6 +246,17 @@ function switchView(viewType) {
 function showPhotoDetail(photo) {
     console.log('显示照片详情:', photo);
     
+    // 获取photoModal元素（支持elements对象或直接查找）
+    const photoModal = (typeof elements !== 'undefined' && elements.photoModal) 
+        ? elements.photoModal 
+        : document.getElementById('photoModal');
+    
+    if (!photoModal) {
+        console.error('照片详情模态框未找到');
+        alert('照片详情模态框未找到，请刷新页面重试');
+        return;
+    }
+    
     // 检查是否有相似照片模态框显示，如果有则先隐藏并标记
     const similarModal = document.getElementById('similarPhotosModal');
     let wasSimilarModalVisible = false;
@@ -257,15 +268,37 @@ function showPhotoDetail(photo) {
         }
     }
     
+    // 检查是否有人物照片模态框显示，如果有则先隐藏并标记
+    const personPhotosModal = document.getElementById('personPhotosModal');
+    let wasPersonPhotosModalVisible = false;
+    if (personPhotosModal && personPhotosModal.classList.contains('show')) {
+        const personPhotosModalInstance = bootstrap.Modal.getInstance(personPhotosModal);
+        if (personPhotosModalInstance) {
+            personPhotosModalInstance.hide();
+            wasPersonPhotosModalVisible = true;
+        }
+    }
+    
+    // 检查是否有聚类照片模态框显示，如果有则先隐藏并标记
+    const clusterPhotosModal = document.getElementById('clusterPhotosModal');
+    let wasClusterPhotosModalVisible = false;
+    if (clusterPhotosModal && clusterPhotosModal.classList.contains('show')) {
+        const clusterPhotosModalInstance = bootstrap.Modal.getInstance(clusterPhotosModal);
+        if (clusterPhotosModalInstance) {
+            clusterPhotosModalInstance.hide();
+            wasClusterPhotosModalVisible = true;
+        }
+    }
+    
     // 创建详情模态框内容
     const modalContent = createPhotoDetailModal(photo);
     
     // 更新模态框内容
-    const modalBody = elements.photoModal.querySelector('.modal-body');
+    const modalBody = photoModal.querySelector('.modal-body');
     modalBody.innerHTML = modalContent;
     
     // 更新模态框标题
-    const modalTitle = elements.photoModal.querySelector('#photoModalTitle');
+    const modalTitle = photoModal.querySelector('#photoModalTitle');
     if (modalTitle) {
         modalTitle.textContent = `照片详情 - ${photo.filename}`;
     }
@@ -274,28 +307,55 @@ function showPhotoDetail(photo) {
     bindPhotoDetailEvents(photo);
     
     // 显示模态框
-    const modal = new bootstrap.Modal(elements.photoModal);
+    const modal = new bootstrap.Modal(photoModal);
     modal.show();
     
     // 初始化照片缩放功能（在模态框显示后）
-    elements.photoModal.addEventListener('shown.bs.modal', function onModalShown() {
+    photoModal.addEventListener('shown.bs.modal', function onModalShown() {
         if (typeof initPhotoZoom === 'function') {
             initPhotoZoom();
         }
         // 只执行一次
-        elements.photoModal.removeEventListener('shown.bs.modal', onModalShown);
+        photoModal.removeEventListener('shown.bs.modal', onModalShown);
     }, { once: true });
     
-    // 监听详情模态框关闭事件，如果之前有相似搜索页显示，则重新显示
-    if (wasSimilarModalVisible) {
-        elements.photoModal.addEventListener('hidden.bs.modal', function onDetailModalHidden() {
-            // 重新显示相似搜索页
-            if (similarModal) {
-                const similarModalInstance = new bootstrap.Modal(similarModal);
+    // 监听详情模态框关闭事件，如果之前有其他模态框显示，则重新显示
+    if (wasSimilarModalVisible || wasPersonPhotosModalVisible || wasClusterPhotosModalVisible) {
+        photoModal.addEventListener('hidden.bs.modal', function onDetailModalHidden() {
+            // 🔥 先清理可能残留的遮罩层
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // 重新显示之前的模态框
+            if (wasSimilarModalVisible && similarModal) {
+                const similarModalInstance = bootstrap.Modal.getInstance(similarModal) || new bootstrap.Modal(similarModal);
                 similarModalInstance.show();
+            } else if (wasPersonPhotosModalVisible && personPhotosModal) {
+                // 🔥 尝试使用现有的实例（如果存在）
+                let personModalInstance = bootstrap.Modal.getInstance(personPhotosModal);
+                if (!personModalInstance && window.peopleManagementStandalone && window.peopleManagementStandalone.personPhotosModal) {
+                    personModalInstance = window.peopleManagementStandalone.personPhotosModal;
+                }
+                if (!personModalInstance) {
+                    personModalInstance = new bootstrap.Modal(personPhotosModal);
+                }
+                personModalInstance.show();
+            } else if (wasClusterPhotosModalVisible && clusterPhotosModal) {
+                // 🔥 尝试使用现有的实例（如果存在）
+                let clusterModalInstance = bootstrap.Modal.getInstance(clusterPhotosModal);
+                if (!clusterModalInstance && window.similarPhotosManagement && window.similarPhotosManagement.clusterPhotosModal) {
+                    clusterModalInstance = window.similarPhotosManagement.clusterPhotosModal;
+                }
+                if (!clusterModalInstance) {
+                    clusterModalInstance = new bootstrap.Modal(clusterPhotosModal);
+                }
+                clusterModalInstance.show();
             }
             // 移除事件监听器，避免重复绑定
-            elements.photoModal.removeEventListener('hidden.bs.modal', onDetailModalHidden);
+            photoModal.removeEventListener('hidden.bs.modal', onDetailModalHidden);
         }, { once: true });
     }
 }

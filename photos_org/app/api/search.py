@@ -5,7 +5,7 @@
 from typing import List, Optional
 from datetime import date
 from urllib.parse import unquote
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -675,3 +675,73 @@ async def advanced_search_help():
         "success": True,
         "data": help_info
     }
+
+
+@router.post("/similar-photos/cluster")
+async def cluster_similar_photos(
+    db: Session = Depends(get_db)
+):
+    """
+    执行相似照片聚类分析
+    
+    :param db: 数据库会话（仅用于验证，不在后台任务中使用）
+    :return: 聚类任务启动结果
+    """
+    try:
+        import asyncio
+        from app.services.similar_photo_cluster_service import SimilarPhotoClusterService
+        import uuid
+        from datetime import datetime
+        
+        cluster_service = SimilarPhotoClusterService()
+        
+        # 生成任务ID
+        task_id = f"cluster_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}"
+        
+        # 🔥 使用 asyncio.create_task() 启动真正的异步任务（参考人脸识别任务）
+        asyncio.create_task(cluster_service.process_cluster_task(task_id))
+        
+        return {
+            "success": True,
+            "message": "已开始相似照片聚类分析",
+            "task_id": task_id
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"相似照片聚类API失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/similar-photos/cluster/status/{task_id}")
+async def get_cluster_task_status(task_id: str):
+    """
+    获取聚类任务状态
+    
+    :param task_id: 任务ID
+    :return: 任务状态
+    """
+    try:
+        from app.services.similar_photo_cluster_service import cluster_task_status
+        
+        task_status = cluster_task_status.get(task_id)
+        
+        if not task_status:
+            return {
+                "success": False,
+                "status": "not_found",
+                "message": "任务不存在或已过期"
+            }
+        
+        return {
+            "success": True,
+            "task_id": task_id,
+            **task_status
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"获取聚类任务状态失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

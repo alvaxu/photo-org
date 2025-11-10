@@ -108,3 +108,141 @@ def check_and_add_image_features_fields():
     finally:
         db.close()
 
+
+def check_and_add_similar_photo_cluster_fields():
+    """
+    检查并添加相似照片聚类相关字段
+    
+    功能：
+    - duplicate_groups表：添加id, cluster_id, avg_similarity, confidence_score, cluster_quality, created_at, updated_at
+    - duplicate_group_photos表：添加id, cluster_id, created_at
+    
+    Returns:
+        bool: 是否成功
+    """
+    db = next(get_db())
+    try:
+        logger.info("开始检查相似照片聚类相关字段...")
+        
+        # duplicate_groups表的字段
+        duplicate_groups_fields = [
+            {
+                'name': 'id',
+                'sql': 'ALTER TABLE duplicate_groups ADD COLUMN id INTEGER',
+                'description': '主键ID（注意：SQLite不支持ALTER TABLE添加PRIMARY KEY，需要手动处理）',
+                'table': 'duplicate_groups'
+            },
+            {
+                'name': 'cluster_id',
+                'sql': 'ALTER TABLE duplicate_groups ADD COLUMN cluster_id VARCHAR(50)',
+                'description': '聚类业务标识',
+                'table': 'duplicate_groups'
+            },
+            {
+                'name': 'avg_similarity',
+                'sql': 'ALTER TABLE duplicate_groups ADD COLUMN avg_similarity REAL',
+                'description': '聚类内平均相似度',
+                'table': 'duplicate_groups'
+            },
+            {
+                'name': 'confidence_score',
+                'sql': 'ALTER TABLE duplicate_groups ADD COLUMN confidence_score REAL',
+                'description': '聚类置信度',
+                'table': 'duplicate_groups'
+            },
+            {
+                'name': 'cluster_quality',
+                'sql': 'ALTER TABLE duplicate_groups ADD COLUMN cluster_quality VARCHAR(20)',
+                'description': '聚类质量',
+                'table': 'duplicate_groups'
+            },
+            {
+                'name': 'created_at',
+                'sql': 'ALTER TABLE duplicate_groups ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP',
+                'description': '创建时间',
+                'table': 'duplicate_groups'
+            },
+            {
+                'name': 'updated_at',
+                'sql': 'ALTER TABLE duplicate_groups ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP',
+                'description': '更新时间',
+                'table': 'duplicate_groups'
+            }
+        ]
+        
+        # duplicate_group_photos表的字段
+        duplicate_group_photos_fields = [
+            {
+                'name': 'id',
+                'sql': 'ALTER TABLE duplicate_group_photos ADD COLUMN id INTEGER',
+                'description': '主键ID（注意：SQLite不支持ALTER TABLE添加PRIMARY KEY，需要手动处理）',
+                'table': 'duplicate_group_photos'
+            },
+            {
+                'name': 'cluster_id',
+                'sql': 'ALTER TABLE duplicate_group_photos ADD COLUMN cluster_id VARCHAR(50)',
+                'description': '聚类业务标识',
+                'table': 'duplicate_group_photos'
+            },
+            {
+                'name': 'created_at',
+                'sql': 'ALTER TABLE duplicate_group_photos ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP',
+                'description': '创建时间',
+                'table': 'duplicate_group_photos'
+            }
+        ]
+        
+        added_count = 0
+        skipped_count = 0
+        
+        # 处理duplicate_groups表
+        for field in duplicate_groups_fields:
+            check_result = db.execute(text(f"""
+                SELECT COUNT(*) as count 
+                FROM pragma_table_info('duplicate_groups') 
+                WHERE name = '{field['name']}'
+            """)).fetchone()
+            
+            if check_result[0] == 0:
+                logger.info(f"添加 duplicate_groups.{field['name']} 字段 ({field['description']})...")
+                try:
+                    db.execute(text(field['sql']))
+                    logger.info(f"✅ duplicate_groups.{field['name']} 字段添加成功")
+                    added_count += 1
+                except Exception as e:
+                    logger.warning(f"⚠️ duplicate_groups.{field['name']} 字段添加失败: {str(e)}")
+            else:
+                logger.debug(f"duplicate_groups.{field['name']} 字段已存在，跳过")
+                skipped_count += 1
+        
+        # 处理duplicate_group_photos表
+        for field in duplicate_group_photos_fields:
+            check_result = db.execute(text(f"""
+                SELECT COUNT(*) as count 
+                FROM pragma_table_info('duplicate_group_photos') 
+                WHERE name = '{field['name']}'
+            """)).fetchone()
+            
+            if check_result[0] == 0:
+                logger.info(f"添加 duplicate_group_photos.{field['name']} 字段 ({field['description']})...")
+                try:
+                    db.execute(text(field['sql']))
+                    logger.info(f"✅ duplicate_group_photos.{field['name']} 字段添加成功")
+                    added_count += 1
+                except Exception as e:
+                    logger.warning(f"⚠️ duplicate_group_photos.{field['name']} 字段添加失败: {str(e)}")
+            else:
+                logger.debug(f"duplicate_group_photos.{field['name']} 字段已存在，跳过")
+                skipped_count += 1
+        
+        # 提交更改
+        db.commit()
+        
+        logger.info(f"✅ 相似照片聚类字段检查完成（新增: {added_count}, 已存在: {skipped_count}）")
+        return True
+    except Exception as e:
+        logger.error(f"检查相似照片聚类字段失败: {str(e)}")
+        db.rollback()
+        return False
+    finally:
+        db.close()

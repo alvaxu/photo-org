@@ -14,11 +14,33 @@ const PEOPLE_CONFIG = {
     IMAGE_PLACEHOLDER: '/static/images/placeholder.jpg'
 };
 
+// 初始化elements对象（用于照片详情功能）
+function initializeElements() {
+    if (typeof window.elements === 'undefined') {
+        window.elements = {
+            photoModal: document.getElementById('photoModal')
+        };
+    }
+}
+
+// 在DOM加载完成后初始化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeElements);
+} else {
+    initializeElements();
+}
+
 class PeopleManagementStandalone {
     constructor() {
         this.peopleData = [];
         this.clustersData = [];
         this.statistics = {};
+        
+        // 人物列表分页状态
+        this.currentPage = 1;
+        this.totalPages = 1;
+        this.totalClusters = 0;
+        this.pageSize = 30; // 默认值，将从配置中加载
         
         // 人物照片分页状态
         this.personPhotosState = {
@@ -29,15 +51,40 @@ class PeopleManagementStandalone {
             totalPages: 0
         };
         
-        this.init();
+        // 保存人物照片模态框实例引用
+        this.personPhotosModal = null;
+        
+        // 不在这里调用init，改为在DOMContentLoaded中调用
     }
 
-    init() {
+    async init() {
         // 🔥 修复：从配置更新分页大小
         this.personPhotosState.pageSize = this.getPersonPhotosPageSize();
         
+        // 加载人物列表分页配置
+        await this.loadPageSize();
+        
         this.bindEvents();
         this.loadPeopleData();
+    }
+
+    async loadPageSize() {
+        /**
+         * 从用户配置加载每页显示数量
+         */
+        try {
+            const response = await fetch('/api/v1/config/user');
+            const data = await response.json();
+            if (data.success && data.data && data.data.ui && data.data.ui.photos_per_page) {
+                this.pageSize = data.data.ui.photos_per_page;
+                console.log('加载分页配置成功:', this.pageSize);
+            } else {
+                console.warn('配置中未找到photos_per_page，使用默认值:', this.pageSize);
+            }
+        } catch (error) {
+            console.warn('加载分页配置失败，使用默认值:', error);
+            // 使用默认值
+        }
     }
     
     // 从配置中读取人物照片分页参数
@@ -76,7 +123,7 @@ class PeopleManagementStandalone {
     bindEvents() {
         // 人物管理按钮
         document.getElementById('refreshPeopleBtn')?.addEventListener('click', () => {
-            this.loadPeopleData();
+            this.loadPeopleData(this.currentPage);
         });
 
         document.getElementById('startFaceRecognitionBtn')?.addEventListener('click', () => {
@@ -92,18 +139,9 @@ class PeopleManagementStandalone {
             this.startFaceRecognitionProcess();
         });
 
-        // 🔥 新增：配置按钮事件
-        document.getElementById('faceRecognitionConfigBtn')?.addEventListener('click', () => {
-            this.openFaceRecognitionConfig();
-        });
-
-        // 🔥 新增：保存配置按钮事件
-        document.getElementById('saveFaceRecognitionConfigBtn')?.addEventListener('click', () => {
-            this.saveFaceRecognitionConfig();
-        });
     }
 
-    async loadPeopleData() {
+    async loadPeopleData(page = 1) {
         try {
             this.showLoadingState();
             
@@ -112,10 +150,21 @@ class PeopleManagementStandalone {
                 await this.loadUserConfig();
             }
 
+            // 确保配置已加载
+            if (this.pageSize === 30) {
+                // 如果还是默认值，尝试重新加载配置
+                await this.loadPageSize();
+            }
+
+            // 计算offset
+            const offset = (page - 1) * this.pageSize;
+            
+            console.log('加载人物数据:', { page, pageSize: this.pageSize, offset });
+
             // 并行加载统计信息和聚类数据
             const [statisticsResponse, clustersResponse] = await Promise.all([
                 fetch('/api/v1/face-clusters/statistics'),
-                fetch('/api/v1/face-clusters/clusters')
+                fetch(`/api/v1/face-clusters/clusters?limit=${this.pageSize}&offset=${offset}`)
             ]);
 
             if (!statisticsResponse.ok || !clustersResponse.ok) {
@@ -126,11 +175,21 @@ class PeopleManagementStandalone {
             const clustersData = await clustersResponse.json();
 
             this.statistics = statisticsData.statistics;
-            this.clustersData = clustersData.clusters;
+            this.clustersData = clustersData.clusters || [];
+            this.totalClusters = clustersData.total || 0;
+            this.currentPage = page;
+            this.totalPages = Math.ceil(this.totalClusters / this.pageSize);
 
             this.updateStatistics();
             this.renderPeopleCards();
-            this.hideLoadingState();
+            this.renderPagination();
+            this.renderPaginationInfo();
+            
+            // 只有在有数据时才调用hideLoadingState（空状态时renderPeopleCards已经调用了showEmptyState）
+            if (this.clustersData.length > 0) {
+                this.hideLoadingState();
+            }
+            // 如果数据为空，renderPeopleCards已经调用了showEmptyState，不需要再调用hideLoadingState
 
         } catch (error) {
             console.error('加载人物数据失败:', error);
@@ -145,36 +204,6 @@ class PeopleManagementStandalone {
         document.getElementById('unlabeledPeopleCount').textContent = this.statistics.unlabeled_clusters || 0;
         document.getElementById('totalFacesCount').textContent = this.statistics.total_faces || 0;
         document.getElementById('peopleCount').textContent = this.statistics.total_clusters || 0;
-        
-        // 更新聚类显示提示
-        this.updateClusterDisplayNotice();
-    }
-    
-    updateClusterDisplayNotice() {
-        const totalClusters = this.statistics.total_clusters || 0;
-        const displayedClusters = this.clustersData.length || 0;
-        
-        // 从配置获取参数
-        const maxClusters = window.userConfig?.face_recognition?.max_clusters || 40;
-        const minClusterSize = window.userConfig?.face_recognition?.min_cluster_size || 1;
-        
-        // 只有当显示的聚类数小于总聚类数时才显示提示
-        const noticeElement = document.getElementById('clusterDisplayNotice');
-        const maxClustersNotice = document.getElementById('maxClustersNotice');
-        const minClusterSizeNotice = document.getElementById('minClusterSizeNotice');
-        
-        if (noticeElement && maxClustersNotice && minClusterSizeNotice) {
-            // 更新配置值
-            maxClustersNotice.textContent = maxClusters;
-            minClusterSizeNotice.textContent = minClusterSize;
-            
-            // 显示/隐藏提示
-            if (displayedClusters < totalClusters && displayedClusters > 0) {
-                noticeElement.style.display = 'flex';
-            } else {
-                noticeElement.style.display = 'none';
-            }
-        }
     }
 
     renderPeopleCards() {
@@ -236,31 +265,22 @@ class PeopleManagementStandalone {
                         </div>
                         
                         <div class="d-flex flex-column gap-1">
-                            ${isLabeled ? 
-                                `<button class="btn btn-sm btn-outline-primary" onclick="peopleManagement.viewPersonPhotos('${cluster.cluster_id}')">
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary flex-fill" onclick="peopleManagement.viewPersonPhotos('${cluster.cluster_id}')">
                                     <i class="bi bi-images me-1"></i>查看照片
                                 </button>
-                                <div class="d-flex gap-1">
-                                    <button class="btn btn-sm btn-outline-secondary flex-fill" onclick="peopleManagement.editPersonName('${cluster.cluster_id}', '${personName}')">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger flex-fill" onclick="peopleManagement.deletePerson('${cluster.cluster_id}')">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                                <button class="btn btn-sm btn-outline-warning" onclick="peopleManagement.reselectRepresentativeFace('${cluster.cluster_id}')" title="重新选择最佳代表人脸">
+                                <button class="btn btn-sm btn-outline-warning flex-fill" onclick="peopleManagement.reselectRepresentativeFace('${cluster.cluster_id}')" title="重新选择最佳代表人脸">
                                     <i class="bi bi-arrow-clockwise me-1"></i>优化肖像
-                                </button>` :
-                                `<button class="btn btn-sm btn-primary" onclick="peopleManagement.namePerson('${cluster.cluster_id}')">
-                                    <i class="bi bi-tag me-1"></i>添加姓名
                                 </button>
-                                <button class="btn btn-sm btn-outline-primary" onclick="peopleManagement.viewPersonPhotos('${cluster.cluster_id}')">
-                                    <i class="bi bi-images"></i> 查看照片
+                            </div>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-secondary flex-fill" onclick="peopleManagement.editPersonName('${cluster.cluster_id}', '${isLabeled ? personName : ''}')">
+                                    <i class="bi bi-pencil me-1"></i>编辑姓名
                                 </button>
-                                <button class="btn btn-sm btn-outline-warning" onclick="peopleManagement.reselectRepresentativeFace('${cluster.cluster_id}')" title="重新选择最佳代表人脸">
-                                    <i class="bi bi-arrow-clockwise me-1"></i>优化肖像
-                                </button>`
-                            }
+                                <button class="btn btn-sm btn-outline-danger flex-fill" onclick="peopleManagement.deleteCluster('${cluster.cluster_id}')">
+                                    <i class="bi bi-trash me-1"></i>删除聚类
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -423,7 +443,7 @@ class PeopleManagementStandalone {
                     try {
                         await this.showFaceRecognitionBatchResults(allBatchTasks, totalPhotos);
                         // 刷新人物数据
-                        this.loadPeopleData();
+                        this.loadPeopleData(1); // 人脸识别完成后回到第一页
                     } catch (error) {
                         console.error('显示人脸识别结果失败:', error);
                     }
@@ -945,7 +965,7 @@ class PeopleManagementStandalone {
                                     };
                                     peopleManagement.showFaceRecognitionResultsModal(results);
                                     // 刷新人物数据
-                                    peopleManagement.loadPeopleData();
+                                    peopleManagement.loadPeopleData(1); // 人脸识别完成后回到第一页
                                 } catch (error) {
                                     console.error('显示人脸识别结果失败:', error);
                                 }
@@ -1003,15 +1023,14 @@ class PeopleManagementStandalone {
         }, 1000); // 每1秒检查一次
     }
 
-    namePerson(clusterId) {
-        const personName = prompt('请输入人物姓名:');
-        if (!personName || personName.trim() === '') return;
-
-        this.updatePersonName(clusterId, personName.trim());
-    }
-
-    editPersonName(clusterId, currentName) {
-        const personName = prompt('请输入新的人物姓名:', currentName);
+    editPersonName(clusterId, currentName = '') {
+        /**
+         * 编辑人物姓名（统一处理添加和修改）
+         * :param clusterId: 聚类ID
+         * :param currentName: 当前姓名（如果为空则是添加，否则是修改）
+         */
+        const promptText = currentName ? `请输入新的人物姓名:` : `请输入人物姓名:`;
+        const personName = prompt(promptText, currentName);
         if (!personName || personName.trim() === '') return;
 
         this.updatePersonName(clusterId, personName.trim());
@@ -1033,7 +1052,7 @@ class PeopleManagementStandalone {
 
             const result = await response.json();
             if (result.success) {
-                this.loadPeopleData(); // 刷新数据
+                this.loadPeopleData(this.currentPage); // 刷新数据，保持当前页
             } else {
                 throw new Error(result.message || '更新人物姓名失败');
             }
@@ -1041,6 +1060,34 @@ class PeopleManagementStandalone {
         } catch (error) {
             console.error('更新人物姓名失败:', error);
             alert('更新人物姓名失败: ' + error.message);
+        }
+    }
+
+    async deleteCluster(clusterId) {
+        /**
+         * 删除人脸聚类
+         * :param clusterId: 聚类ID
+         */
+        if (!confirm('确定要删除这个聚类吗？此操作不可恢复，将删除该聚类中的所有人脸数据。')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/v1/face-clusters/clusters/${clusterId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                alert('聚类已删除');
+                this.loadPeopleData(this.currentPage); // 刷新数据，保持当前页
+            } else {
+                alert('删除聚类失败: ' + (data.message || data.detail || '未知错误'));
+            }
+        } catch (error) {
+            console.error('删除聚类失败:', error);
+            alert('删除聚类失败: ' + error.message);
         }
     }
 
@@ -1063,7 +1110,7 @@ class PeopleManagementStandalone {
 
             const result = await response.json();
             if (result.success) {
-                this.loadPeopleData(); // 刷新数据
+                this.loadPeopleData(this.currentPage); // 刷新数据，保持当前页
             } else {
                 throw new Error(result.message || '删除人物失败');
             }
@@ -1129,21 +1176,40 @@ class PeopleManagementStandalone {
                         </div>
                         <div class="modal-body">
                             <div class="row g-2" id="personPhotosGrid">
-                                ${photos.map(photo => `
-                                    <div class="col-lg-2 col-md-3 col-sm-4 col-6">
-                                        <div class="card">
-                                             <img src="/photos_storage/${(photo.display_path || photo.thumbnail_path || photo.original_path || PEOPLE_CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
-                                                  class="card-img-top" 
-                                                  style="height: 150px; object-fit: contain; object-position: center;"
-                                                  alt="照片">
-                                            <div class="card-body p-2">
-                                                <small class="text-muted">
-                                                    置信度: ${(photo.confidence * 100).toFixed(1)}%
-                                                </small>
+                                ${photos.map(photo => {
+                                    // 安全地处理路径，避免转义序列问题
+                                    let thumbnailUrl = PEOPLE_CONFIG.IMAGE_PLACEHOLDER;
+                                    if (photo.thumbnail_path) {
+                                        thumbnailUrl = `/photos_storage/${String(photo.thumbnail_path).replace(/\\/g, '/')}`;
+                                    } else if (photo.original_path) {
+                                        thumbnailUrl = `/photos_storage/${String(photo.original_path).replace(/\\/g, '/')}`;
+                                    } else if (photo.display_path) {
+                                        thumbnailUrl = `/photos_storage/${String(photo.display_path).replace(/\\/g, '/')}`;
+                                    }
+                                    
+                                    const photoId = photo.photo_id || photo.id;
+                                    const confidence = photo.confidence ? (photo.confidence * 100).toFixed(1) : '-';
+                                    
+                                    return `
+                                        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                                            <div class="card">
+                                                <div class="photo-image-container" style="position: relative;">
+                                                    <img src="${thumbnailUrl}" 
+                                                         class="photo-image" 
+                                                         style="width: 100%; height: 150px; object-fit: contain; object-position: center; cursor: pointer;"
+                                                         alt="照片"
+                                                         ${photoId ? `onclick="if(typeof viewPhotoDetail === 'function') { viewPhotoDetail(${photoId}); }"` : ''}
+                                                         onerror="this.src='${PEOPLE_CONFIG.IMAGE_PLACEHOLDER}'">
+                                                </div>
+                                                <div class="card-body p-2">
+                                                    <small class="text-muted d-block">
+                                                        置信度: ${confidence}%
+                                                    </small>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </div>
                             
                             <!-- 分页控件 -->
@@ -1160,6 +1226,7 @@ class PeopleManagementStandalone {
         const existingModal = document.getElementById('personPhotosModal');
         if (existingModal) {
             existingModal.remove();
+            this.personPhotosModal = null;
         }
 
         // 添加新模态框
@@ -1169,11 +1236,12 @@ class PeopleManagementStandalone {
         this.bindPersonPhotosPaginationEvents();
 
         // 显示模态框
-        const modal = new bootstrap.Modal(document.getElementById('personPhotosModal'));
-        modal.show();
+        const modalElement = document.getElementById('personPhotosModal');
+        this.personPhotosModal = new bootstrap.Modal(modalElement);
+        this.personPhotosModal.show();
 
         // 模态框关闭时移除
-        document.getElementById('personPhotosModal').addEventListener('hidden.bs.modal', function() {
+        modalElement.addEventListener('hidden.bs.modal', function() {
             this.remove();
         });
     }
@@ -1299,21 +1367,40 @@ class PeopleManagementStandalone {
         const grid = document.getElementById('personPhotosGrid');
         if (!grid) return;
         
-        grid.innerHTML = photos.map(photo => `
-            <div class="col-lg-2 col-md-3 col-sm-4 col-6">
-                <div class="card">
-                     <img src="/photos_storage/${(photo.display_path || photo.thumbnail_path || photo.original_path || PEOPLE_CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}" 
-                          class="card-img-top" 
-                          style="height: 150px; object-fit: contain; object-position: center;"
-                          alt="照片">
-                    <div class="card-body p-2">
-                        <small class="text-muted">
-                            置信度: ${(photo.confidence * 100).toFixed(1)}%
-                        </small>
+        grid.innerHTML = photos.map(photo => {
+            // 安全地处理路径，避免转义序列问题
+            let thumbnailUrl = PEOPLE_CONFIG.IMAGE_PLACEHOLDER;
+            if (photo.thumbnail_path) {
+                thumbnailUrl = `/photos_storage/${String(photo.thumbnail_path).replace(/\\/g, '/')}`;
+            } else if (photo.original_path) {
+                thumbnailUrl = `/photos_storage/${String(photo.original_path).replace(/\\/g, '/')}`;
+            } else if (photo.display_path) {
+                thumbnailUrl = `/photos_storage/${String(photo.display_path).replace(/\\/g, '/')}`;
+            }
+            
+            const photoId = photo.photo_id || photo.id;
+            const confidence = photo.confidence ? (photo.confidence * 100).toFixed(1) : '-';
+            
+            return `
+                <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                    <div class="card">
+                        <div class="photo-image-container" style="position: relative;">
+                            <img src="${thumbnailUrl}" 
+                                 class="photo-image" 
+                                 style="width: 100%; height: 150px; object-fit: contain; object-position: center; cursor: pointer;"
+                                 alt="照片"
+                                 ${photoId ? `onclick="if(typeof viewPhotoDetail === 'function') { viewPhotoDetail(${photoId}); }"` : ''}
+                                 onerror="this.src='${PEOPLE_CONFIG.IMAGE_PLACEHOLDER}'">
+                        </div>
+                        <div class="card-body p-2">
+                            <small class="text-muted d-block">
+                                置信度: ${confidence}%
+                            </small>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
     
     // 更新分页控件
@@ -1353,7 +1440,7 @@ class PeopleManagementStandalone {
                 <i class="bi bi-exclamation-triangle display-1 text-danger"></i>
                 <h4 class="mt-3 text-danger">加载失败</h4>
                 <p class="text-muted">${message}</p>
-                <button class="btn btn-primary" onclick="peopleManagement.loadPeopleData()">
+                <button class="btn btn-primary" onclick="peopleManagement.loadPeopleData(${this.currentPage})">
                     <i class="bi bi-arrow-clockwise me-2"></i>重试
                 </button>
             </div>
@@ -1361,6 +1448,125 @@ class PeopleManagementStandalone {
         
         document.getElementById('peopleList').innerHTML = errorHtml;
         document.getElementById('peopleList')?.classList.remove('d-none');
+    }
+
+    renderPagination() {
+        /**
+         * 渲染分页控件
+         */
+        const paginationContainer = document.getElementById('peoplePaginationContainer');
+        const pagination = document.getElementById('peoplePagination');
+        
+        if (!paginationContainer || !pagination) {
+            return;
+        }
+        
+        // 如果没有数据或只有一页，隐藏分页控件
+        if (this.totalPages <= 1) {
+            paginationContainer.classList.add('d-none');
+            return;
+        }
+        
+        paginationContainer.classList.remove('d-none');
+        
+        let paginationHTML = '';
+        
+        // 上一页按钮
+        const prevDisabled = this.currentPage === 1 ? 'disabled' : '';
+        paginationHTML += `
+            <li class="page-item ${prevDisabled}">
+                <a class="page-link" href="#" onclick="event.preventDefault(); peopleManagement.loadPeopleData(${this.currentPage - 1}); return false;" ${prevDisabled ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+        `;
+        
+        // 页码按钮
+        const maxPagesToShow = 5; // 最多显示5个页码
+        let startPage = Math.max(1, this.currentPage - Math.floor(maxPagesToShow / 2));
+        let endPage = Math.min(this.totalPages, startPage + maxPagesToShow - 1);
+        
+        // 调整起始页码
+        if (endPage - startPage < maxPagesToShow - 1) {
+            startPage = Math.max(1, endPage - maxPagesToShow + 1);
+        }
+        
+        // 第一页
+        if (startPage > 1) {
+            paginationHTML += `
+                <li class="page-item">
+                    <a class="page-link" href="#" onclick="event.preventDefault(); peopleManagement.loadPeopleData(1); return false;">1</a>
+                </li>
+            `;
+            if (startPage > 2) {
+                paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+        
+        // 页码
+        for (let i = startPage; i <= endPage; i++) {
+            const active = i === this.currentPage ? 'active' : '';
+            paginationHTML += `
+                <li class="page-item ${active}">
+                    <a class="page-link" href="#" onclick="event.preventDefault(); peopleManagement.loadPeopleData(${i}); return false;">${i}</a>
+                </li>
+            `;
+        }
+        
+        // 最后一页
+        if (endPage < this.totalPages) {
+            if (endPage < this.totalPages - 1) {
+                paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+            paginationHTML += `
+                <li class="page-item">
+                    <a class="page-link" href="#" onclick="event.preventDefault(); peopleManagement.loadPeopleData(${this.totalPages}); return false;">${this.totalPages}</a>
+                </li>
+            `;
+        }
+        
+        // 下一页按钮
+        const nextDisabled = this.currentPage === this.totalPages ? 'disabled' : '';
+        paginationHTML += `
+            <li class="page-item ${nextDisabled}">
+                <a class="page-link" href="#" onclick="event.preventDefault(); peopleManagement.loadPeopleData(${this.currentPage + 1}); return false;" ${nextDisabled ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+        `;
+        
+        pagination.innerHTML = paginationHTML;
+    }
+
+    renderPaginationInfo() {
+        /**
+         * 渲染分页信息
+         */
+        const paginationInfo = document.getElementById('peoplePaginationInfo');
+        const paginationText = document.getElementById('peoplePaginationText');
+        const pageSizeText = document.getElementById('peoplePageSize');
+        
+        if (!paginationInfo) {
+            return;
+        }
+        
+        // 如果没有数据，隐藏分页信息
+        if (this.totalClusters === 0) {
+            paginationInfo.classList.add('d-none');
+            return;
+        }
+        
+        paginationInfo.classList.remove('d-none');
+        
+        if (paginationText) {
+            const startCluster = (this.currentPage - 1) * this.pageSize + 1;
+            const endCluster = Math.min(this.currentPage * this.pageSize, this.totalClusters);
+            paginationText.textContent = `第 ${this.currentPage} 页，共 ${this.totalPages} 页 (显示 ${startCluster}-${endCluster} 个，共 ${this.totalClusters} 个人物)`;
+        }
+        
+        if (pageSizeText) {
+            pageSizeText.textContent = this.pageSize;
+        }
     }
 
     /**
@@ -1387,7 +1593,7 @@ class PeopleManagementStandalone {
                 this.showMessage('代表人脸重新选择成功！', 'success');
                 
                 // 重新加载数据
-                await this.loadPeopleData();
+                await this.loadPeopleData(this.currentPage); // 保持当前页
                 
                 console.log(`代表人脸重新选择成功: ${clusterId} -> ${result.new_representative_face_id}`);
             } else {
@@ -1429,109 +1635,12 @@ class PeopleManagementStandalone {
             }
         }, 5000);
     }
-
-    /**
-     * 打开人脸识别配置模态框
-     */
-    openFaceRecognitionConfig() {
-        try {
-            // 从当前配置读取值
-            const minClusterSize = window.userConfig?.face_recognition?.min_cluster_size || 2;
-            const maxClusters = window.userConfig?.face_recognition?.max_clusters || 40;
-            
-            // 填充输入框
-            document.getElementById('configMinClusterSize').value = minClusterSize;
-            document.getElementById('configMaxClusters').value = maxClusters;
-            
-            // 显示模态框
-            const modal = new bootstrap.Modal(document.getElementById('faceRecognitionConfigModal'));
-            modal.show();
-        } catch (error) {
-            console.error('打开配置模态框失败:', error);
-            this.showMessage('打开配置失败: ' + error.message, 'error');
-        }
-    }
-
-    /**
-     * 保存人脸识别配置
-     */
-    async saveFaceRecognitionConfig() {
-        try {
-            const minClusterSize = parseInt(document.getElementById('configMinClusterSize').value);
-            const maxClusters = parseInt(document.getElementById('configMaxClusters').value);
-            
-            // 验证输入
-            if (!minClusterSize || minClusterSize < 1 || minClusterSize > 10) {
-                this.showMessage('最小聚类照片数必须在1-10之间', 'error');
-                return;
-            }
-            
-            if (!maxClusters || maxClusters < 10 || maxClusters > 200) {
-                this.showMessage('最大显示聚类数必须在10-200之间', 'error');
-                return;
-            }
-
-            // 显示保存中状态
-            const saveBtn = document.getElementById('saveFaceRecognitionConfigBtn');
-            const originalText = saveBtn.innerHTML;
-            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
-            saveBtn.disabled = true;
-
-            try {
-                // 调用保存配置API
-                const response = await fetch('/api/v1/config/user', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        face_recognition: {
-                            min_cluster_size: minClusterSize,
-                            max_clusters: maxClusters
-                        }
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // 更新本地配置
-                    if (!window.userConfig) {
-                        window.userConfig = {};
-                    }
-                    if (!window.userConfig.face_recognition) {
-                        window.userConfig.face_recognition = {};
-                    }
-                    window.userConfig.face_recognition.min_cluster_size = minClusterSize;
-                    window.userConfig.face_recognition.max_clusters = maxClusters;
-
-                    // 显示成功消息
-                    this.showMessage('配置保存成功！页面将刷新以应用新配置。', 'success');
-
-                    // 关闭模态框
-                    const modalInstance = bootstrap.Modal.getInstance(document.getElementById('faceRecognitionConfigModal'));
-                    modalInstance.hide();
-
-                    // 延迟刷新页面
-                    setTimeout(() => {
-                        this.loadPeopleData();
-                    }, 500);
-                } else {
-                    throw new Error(result.message || '保存失败');
-                }
-            } catch (error) {
-                console.error('保存配置失败:', error);
-                this.showMessage('保存配置失败: ' + error.message, 'error');
-            } finally {
-                saveBtn.innerHTML = originalText;
-                saveBtn.disabled = false;
-            }
-        } catch (error) {
-            console.error('保存配置异常:', error);
-            this.showMessage('保存配置异常: ' + error.message, 'error');
-        }
-    }
 }
 
 // 创建全局实例
-const peopleManagement = new PeopleManagementStandalone();
+// 初始化
+let peopleManagement;
+document.addEventListener('DOMContentLoaded', async () => {
+    peopleManagement = new PeopleManagementStandalone();
+    await peopleManagement.init();
+});

@@ -243,6 +243,16 @@ async def settings_page():
     """配置页面"""
     return FileResponse(get_template_path("settings.html"))
 
+@app.get("/people")
+async def people_page():
+    """人物管理页面"""
+    return FileResponse(get_template_path("people-management.html"))
+
+@app.get("/similar-photos")
+async def similar_photos_page():
+    """相似照识别页面"""
+    return FileResponse(get_template_path("similar-photos.html"))
+
 @app.get("/help-api-key")
 async def help_api_key_page():
     """API密钥帮助页面"""
@@ -264,7 +274,7 @@ async def privacy_policy_page():
     return FileResponse(get_template_path("privacy-policy.html"))
 
 @app.get("/people")
-async def people_management_page():
+async def people_page():
     """人物管理页面"""
     return FileResponse(get_template_path("people-management.html"))
 
@@ -643,8 +653,9 @@ if __name__ == "__main__":
 
     # 检查并添加缺失的数据库字段
     print("🔧 正在检查数据库字段...")
-    from app.services.database_migration_service import check_and_add_image_features_fields
+    from app.services.database_migration_service import check_and_add_image_features_fields, check_and_add_similar_photo_cluster_fields
     check_and_add_image_features_fields()
+    check_and_add_similar_photo_cluster_fields()
     print("✅ 数据库字段检查完成")
 
     # 优化人脸识别数据库（添加索引和清理无效数据）

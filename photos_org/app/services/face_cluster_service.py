@@ -198,12 +198,12 @@ class FaceClusterService:
             db.query(FaceCluster).delete()
             db.commit()
             
-            # 3. 全量重新聚类所有面容（排除 processed_ 标记记录）
+            # 3. 全量重新聚类所有面容（排除 processed_ 标记记录，按ID排序确保顺序固定）
             logger.info("开始全量聚类...")
             all_faces = db.query(FaceDetection).filter(
                 FaceDetection.face_features.isnot(None),
                 ~FaceDetection.face_id.like('processed_%')
-            ).all()
+            ).order_by(FaceDetection.id).all()
             
             logger.info(f"待聚类人脸数量: {len(all_faces)}")
             

@@ -211,6 +211,9 @@ class PhotoService:
 
             # 🔥 新增：清理人脸识别相关数据
             self._cleanup_face_recognition_data(db, photo_id)
+            
+            # 🔥 新增：清理相似照片聚类相关数据
+            self._cleanup_similar_photo_cluster_data(db, photo_id)
 
             # 删除物理文件
             if delete_file:
@@ -258,6 +261,74 @@ class PhotoService:
             db.rollback()
             self.logger.error(f"删除照片失败 photo_id={photo_id}: {str(e)}")
             return False
+
+    def _cleanup_similar_photo_cluster_data(self, db: Session, photo_id: int):
+        """
+        清理照片相关的相似照片聚类数据
+        
+        Args:
+            db: 数据库会话
+            photo_id: 照片ID
+        """
+        try:
+            # 1. 获取该照片所属的所有聚类
+            cluster_members = db.query(DuplicateGroupPhoto).filter(
+                DuplicateGroupPhoto.photo_id == photo_id
+            ).all()
+            
+            if not cluster_members:
+                return  # 没有聚类数据，直接返回
+            
+            affected_cluster_ids = set()
+            for member in cluster_members:
+                affected_cluster_ids.add(member.cluster_id)
+            
+            self.logger.info(f"清理照片 {photo_id} 的相似照片聚类数据，涉及 {len(affected_cluster_ids)} 个聚类")
+            
+            # 2. 删除聚类成员记录
+            deleted_members = db.query(DuplicateGroupPhoto).filter(
+                DuplicateGroupPhoto.photo_id == photo_id
+            ).delete(synchronize_session=False)
+            
+            if deleted_members > 0:
+                self.logger.info(f"删除了 {deleted_members} 个聚类成员记录")
+            
+            # 3. 更新受影响的聚类的photo_count，如果只剩1张或0张则删除聚类
+            deleted_cluster_ids = []
+            for cluster_id in affected_cluster_ids:
+                cluster = db.query(DuplicateGroup).filter(
+                    DuplicateGroup.cluster_id == cluster_id
+                ).first()
+                
+                if cluster:
+                    # 重新计算聚类中的照片数量
+                    remaining_count = db.query(DuplicateGroupPhoto).filter(
+                        DuplicateGroupPhoto.cluster_id == cluster_id
+                    ).count()
+                    
+                    # 如果只剩1张或0张照片，删除聚类
+                    if remaining_count <= 1:
+                        # 删除剩余的聚类成员记录（如果有）
+                        db.query(DuplicateGroupPhoto).filter(
+                            DuplicateGroupPhoto.cluster_id == cluster_id
+                        ).delete()
+                        # 删除聚类
+                        db.delete(cluster)
+                        deleted_cluster_ids.append(cluster_id)
+                        self.logger.info(f"聚类 {cluster_id} 只剩 {remaining_count} 张照片，已自动删除")
+                    else:
+                        cluster.photo_count = remaining_count
+                        self.logger.info(f"更新聚类 {cluster_id} 的照片数量为: {remaining_count}")
+            
+            # 如果有被删除的聚类，记录日志
+            if deleted_cluster_ids:
+                self.logger.info(f"因照片数量不足，已删除 {len(deleted_cluster_ids)} 个聚类: {deleted_cluster_ids}")
+            
+            self.logger.info(f"照片 {photo_id} 的相似照片聚类数据清理完成")
+            
+        except Exception as e:
+            self.logger.error(f"清理相似照片聚类数据失败 photo_id={photo_id}: {str(e)}")
+            raise  # 重新抛出异常，让上层处理
 
     def _cleanup_face_recognition_data(self, db: Session, photo_id: int):
         """
