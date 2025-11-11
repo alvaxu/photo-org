@@ -203,7 +203,7 @@ async function startImageFeatureExtraction() {
  */
 async function pollFeatureExtractionStatus(taskId) {
     const pollInterval = 2000; // 每2秒轮询一次
-    const maxPollTime = 3600000; // 最多轮询1小时
+    const maxPollTime = 3 * 60 * 60 * 1000; // 最多轮询3小时
     const startTime = Date.now();
     
     let lastProgress = 0;
@@ -266,13 +266,40 @@ async function pollFeatureExtractionStatus(taskId) {
                 }
                 
                 // 等待模态框关闭后显示结果页面
-                setTimeout(() => {
+                setTimeout(async () => {
                     // 显示结果页面
                     showImageFeatureExtractionResults(status);
                     
-                    // 刷新照片列表（如果有）
+                    // 刷新照片列表（只有在首页才刷新，相似照识别页面不需要）
+                    // 检查是否在首页：通过检查是否存在 photosGrid 元素来判断
                     if (typeof loadPhotos === 'function') {
-                        loadPhotos();
+                        // 检查是否在首页（相似照识别页面没有 photosGrid 元素）
+                        const isHomePage = document.getElementById('photosGrid') !== null;
+                        
+                        if (isHomePage) {
+                            // 延迟1秒，给服务器时间完成数据库操作
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            try {
+                                await loadPhotos();
+                            } catch (error) {
+                                console.warn('刷新照片列表失败（可忽略）:', error);
+                                // 不显示错误，因为特征提取已完成，用户可以手动刷新
+                            }
+                        } else {
+                            // 相似照识别页面，刷新聚类数据以更新空状态显示
+                            console.log('相似照识别页面，刷新聚类数据...');
+                            if (typeof window.similarPhotosManagement !== 'undefined' && 
+                                window.similarPhotosManagement && 
+                                typeof window.similarPhotosManagement.loadClustersData === 'function') {
+                                // 延迟1秒，给服务器时间完成数据库操作
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                try {
+                                    await window.similarPhotosManagement.loadClustersData(1);
+                                } catch (error) {
+                                    console.warn('刷新聚类数据失败（可忽略）:', error);
+                                }
+                            }
+                        }
                     }
                 }, 300);
                 

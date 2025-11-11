@@ -68,8 +68,11 @@
                             <button class="btn btn-sm btn-outline-primary" id="refreshPeopleBtn">
                                 <i class="bi bi-arrow-clockwise"></i> 刷新
                             </button>
-                            <button class="btn btn-sm btn-outline-success" id="startFaceRecognitionBtn">
-                                <i class="bi bi-camera"></i> 开始人脸识别
+                            <button class="btn btn-sm btn-outline-info" id="faceRecognitionBtn" title="检测照片中的人脸并提取特征向量，用于后续的聚类分析">
+                                <i class="bi bi-camera"></i> 人脸识别
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" id="startFaceClusterBtn" title="基于已提取的人脸特征向量，使用DBSCAN算法对相似人脸进行自动聚类分组，需要先完成人脸识别">
+                                <i class="bi bi-diagram-3"></i> 开始聚类
                             </button>
                             <a class="btn btn-sm btn-outline-secondary" href="/">
                                 <i class="bi bi-grid-3x3-gap"></i> 返回照片库首页
@@ -112,27 +115,67 @@
                                         <h5 class="card-title text-info">📸 总人脸</h5>
                                         <h3 class="text-info" id="totalFacesCount">-</h3>
                                         <small class="text-muted">个人脸</small>
+                                        <div class="mt-2">
+                                            <small class="text-muted">已聚类：<span id="clusteredFacesCount" class="text-info">-</span></small>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 聚类显示提示 -->
-                        <div class="alert alert-info d-flex align-items-center justify-content-between" id="clusterDisplayNotice" style="display: none;">
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-info-circle me-2 fs-5"></i>
-                                <small id="clusterDisplayNoticeText">
-                                    当前显示配置：仅显示至少 <strong id="minClusterSizeNotice">2</strong> 张照片的聚类，最多显示前 <strong id="maxClustersNotice">40</strong> 个最大的聚类
-                                </small>
+                        <!-- 聚类进度显示 -->
+                        <div id="faceClusterProgress" class="d-none mb-4">
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                                        <span class="visually-hidden">处理中...</span>
+                                    </div>
+                                    <strong>人脸聚类分析进行中...</strong>
+                                </div>
+                                <div class="progress mb-2" style="height: 25px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                         id="faceClusterProgressBar"
+                                         role="progressbar"
+                                         style="width: 0%; min-width: 2%; transition: width 0.3s ease;"
+                                         aria-valuenow="0"
+                                         aria-valuemin="0"
+                                         aria-valuemax="100"></div>
+                                </div>
+                                <div class="text-center">
+                                    <p class="mb-1" id="faceClusterStatus">正在准备聚类分析...</p>
+                                    <small class="text-muted" id="faceClusterDetails">请稍候...</small>
+                                </div>
                             </div>
-                            <button class="btn btn-sm btn-outline-primary" id="faceRecognitionConfigBtn" title="配置显示参数">
-                                <i class="bi bi-gear"></i> 配置
-                            </button>
                         </div>
 
                         <!-- 人物列表 -->
                         <div id="peopleList" class="row g-3">
                             <!-- 人物卡片将通过JavaScript动态生成 -->
+                        </div>
+
+                        <!-- 分页信息 -->
+                        <div id="peoplePaginationInfo" class="mt-4 d-none">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <small class="text-muted" id="peoplePaginationText">
+                                        <!-- 分页信息将通过JavaScript动态生成 -->
+                                    </small>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <small class="text-muted">
+                                        每页显示 <span id="peoplePageSize">30</span> 个人物
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 分页 -->
+                        <div id="peoplePaginationContainer" class="mt-2 d-none">
+                            <nav aria-label="人物分页">
+                                <ul class="pagination justify-content-center" id="peoplePagination">
+                                    <!-- 分页按钮将通过JavaScript动态生成 -->
+                                </ul>
+                            </nav>
                         </div>
 
                         <!-- 空状态 -->
@@ -302,54 +345,37 @@
         </div>
     </div>
 
-    <!-- 人脸识别配置模态框 -->
-    <div class="modal fade" id="faceRecognitionConfigModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog">
+    <!-- 照片详情模态框 -->
+    <div class="modal fade" id="photoModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-gear me-2"></i>人脸识别显示配置
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="photoModalTitle">照片详情</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="downloadPhotoBtn">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="editPhotoBtn">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="addToFavoritesBtn">
+                            <i class="bi bi-heart"></i>
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i>
-                        配置人脸识别显示的聚类参数
-                    </div>
-
-                    <!-- 最小聚类照片数 -->
-                    <div class="mb-3">
-                        <label for="configMinClusterSize" class="form-label">
-                            <i class="bi bi-people me-1"></i>最小聚类照片数
-                            <i class="bi bi-question-circle text-muted ms-1" data-bs-toggle="tooltip" title="同一个人至少需要在多少张照片中出现才能形成一个聚类"></i>
-                        </label>
-                        <input type="number" class="form-control" id="configMinClusterSize" min="1" max="10" value="2">
-                        <div class="form-text">建议值：2-3张。值越小，越容易形成聚类（包括仅出现1次的人物）；值越大，要求同一个人在更多张照片中出现才能形成聚类。</div>
-                    </div>
-
-                    <!-- 最大显示聚类数 -->
-                    <div class="mb-3">
-                        <label for="configMaxClusters" class="form-label">
-                            <i class="bi bi-list-ol me-1"></i>最大显示聚类数
-                            <i class="bi bi-question-circle text-muted ms-1" data-bs-toggle="tooltip" title="最多显示多少个最大的聚类"></i>
-                        </label>
-                        <input type="number" class="form-control" id="configMaxClusters" min="10" max="200" value="40">
-                        <div class="form-text">建议值：30-50。如果照片中人物较多，可以适当增加此值。</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" id="saveFaceRecognitionConfigBtn">
-                        <i class="bi bi-check-lg me-1"></i>保存配置
-                    </button>
+                    <!-- 照片详情内容将通过JavaScript动态生成 -->
                 </div>
             </div>
         </div>
     </div>
 
     <!-- 应用脚本 -->
+    <script src="/static/js/app-utils.js"></script>
     <script src="/static/js/app-data.js?v=20250120_01"></script>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/app-photos.js"></script>
     <script src="/static/js/people-management-standalone.js?v=20250120_01"></script>
 </body>
 </html>

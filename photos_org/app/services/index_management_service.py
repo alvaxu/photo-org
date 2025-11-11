@@ -240,8 +240,10 @@ class IndexManagementService:
 
         indexes = {
             "idx_duplicate_groups_representative": "CREATE INDEX IF NOT EXISTS idx_duplicate_groups_representative ON duplicate_groups(representative_photo_id)",
-            # similarity_score在duplicate_group_photos表中，不是在duplicate_groups表中
+            "idx_duplicate_groups_cluster_id": "CREATE UNIQUE INDEX IF NOT EXISTS idx_duplicate_groups_cluster_id ON duplicate_groups(cluster_id)",
             "idx_duplicate_group_photos_similarity": "CREATE INDEX IF NOT EXISTS idx_duplicate_group_photos_similarity ON duplicate_group_photos(similarity_score)",
+            "idx_duplicate_group_photos_cluster_id": "CREATE INDEX IF NOT EXISTS idx_duplicate_group_photos_cluster_id ON duplicate_group_photos(cluster_id)",
+            "idx_duplicate_group_photos_photo_id": "CREATE INDEX IF NOT EXISTS idx_duplicate_group_photos_photo_id ON duplicate_group_photos(photo_id)",
         }
 
         for index_name, create_sql in indexes.items():

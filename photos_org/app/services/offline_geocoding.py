@@ -16,15 +16,25 @@
 import sqlite3
 import math
 import os
+import sys
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 class OfflineGeocodingService:
-    def __init__(self, db_path: str = "offline_geocoding.db"):
+    def __init__(self, db_path: Optional[str] = None):
         """
         初始化离线地理编码服务
-        :param db_path: 数据库文件路径
+        :param db_path: 数据库文件路径（可选，如果为None则从配置读取）
         """
-        self.db_path = db_path
+        if db_path is None:
+            # 从配置读取路径
+            from app.core.config import settings
+            db_path = settings.maps.offline_geocoding_db_path
+        
+        # 解析路径（使用统一的路径解析函数）
+        from app.core.path_utils import resolve_resource_path
+        db_path_obj = resolve_resource_path(db_path)
+        self.db_path = str(db_path_obj)
         self.init_database()
     
     def init_database(self):

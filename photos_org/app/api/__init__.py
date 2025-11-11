@@ -22,6 +22,7 @@ from .config import router as config_router
 from .face import router as face_router
 from .person_management import router as person_management_router
 from .image_features import router as image_features_router
+from .similar_photo_cluster_management import router as similar_photo_cluster_management_router
 
 # 创建主API路由
 router = APIRouter()
@@ -40,5 +41,6 @@ router.include_router(config_router, prefix="/config", tags=["config"])
 router.include_router(face_router, tags=["face_recognition"])
 router.include_router(person_management_router, tags=["person_management"])
 router.include_router(image_features_router, tags=["image_features"])
+router.include_router(similar_photo_cluster_management_router, tags=["similar_photo_clusters"])
 
 __all__ = ["router"]

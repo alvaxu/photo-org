@@ -152,6 +152,11 @@ async def get_photos(
         else:
             photos, total = photo_service.get_photos(db, skip, limit, filter_dict, sort_by, sort_order, person_filter)
 
+        # 性能优化：批量查询所有analysis，避免N+1查询
+        photo_ids = [photo.id for photo in photos]
+        analyses = db.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id.in_(photo_ids)).all()
+        analysis_dict = {a.photo_id: a for a in analyses}
+
         # 转换为响应格式
         photo_list = []
         for photo in photos:
@@ -176,8 +181,8 @@ async def get_photos(
                 "location_alt": photo.location_alt
             }
 
-            # 添加分析信息（通过查询获取）
-            analysis = db.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == photo.id).first()
+            # 从批量查询的字典中获取analysis
+            analysis = analysis_dict.get(photo.id)
             if analysis:
                 # 解析analysis_result JSON数据
                 try:
@@ -274,8 +279,15 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
                 "location_lng": photo.location_lng
             }
 
-        # 添加分析信息（通过查询获取）
-        analysis = db.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == photo.id).first()
+        # 性能优化：使用预加载的analysis，避免重复查询
+        # get_photo_by_id已经预加载了analysis_results，直接使用
+        analysis = None
+        if photo.analysis_results:
+            # 查找content类型的分析结果
+            for a in photo.analysis_results:
+                if a.analysis_type == 'content':
+                    analysis = a
+                    break
         if analysis:
             # 解析analysis_result JSON数据
             try:
@@ -798,22 +810,9 @@ async def download_photo(photo_id: int, db: Session = Depends(get_db)):
         if not photo:
             raise HTTPException(status_code=404, detail="照片不存在")
         
-        # 构建存储基础路径（处理相对路径和绝对路径）
-        config_path = Path(settings.storage.base_path)
-        if config_path.is_absolute():
-            storage_base = config_path
-        else:
-            # 相对路径：相对于项目根目录解析（与main.py的逻辑一致）
-            from pathlib import Path as PathLib
-            import sys
-            if getattr(sys, 'frozen', False):
-                # PyInstaller打包环境：相对于exe目录
-                exe_dir = PathLib(sys.executable).parent
-                storage_base = exe_dir / config_path
-            else:
-                # 开发环境：相对于项目根目录（main.py所在目录）
-                project_root = PathLib(__file__).parent.parent.parent  # app/api/photos.py -> app -> project_root
-                storage_base = project_root / config_path
+        # 构建存储基础路径（使用统一的路径解析函数）
+        from app.core.path_utils import resolve_resource_path
+        storage_base = resolve_resource_path(settings.storage.base_path)
         
         is_heic = photo.format and photo.format.upper() in ['HEIC', 'HEIF']
         

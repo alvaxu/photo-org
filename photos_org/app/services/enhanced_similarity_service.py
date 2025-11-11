@@ -57,7 +57,8 @@ class EnhancedSimilarityService:
     def storage_base(self) -> Path:
         """动态获取存储基础路径（每次使用时读取最新配置）"""
         from app.core.config import get_settings
-        return Path(get_settings().storage.base_path).resolve()
+        from app.core.path_utils import resolve_resource_path
+        return resolve_resource_path(get_settings().storage.base_path)
 
     def _get_full_path(self, image_path: str) -> Path:
         """
@@ -755,12 +756,141 @@ class EnhancedSimilarityService:
                 # 返回指定数量的候选照片
                 return filtered_candidates[:limit]
             else:
-                # 如果没有达到阈值的候选，返回相似度最高的几个（降级策略）
-                return candidates[:min(limit, len(candidates))] if candidates else []
+                # 如果没有达到阈值的候选，返回相似度最高的1张（降级策略）
+                if candidates:
+                    return candidates[:1]
+                else:
+                    # 如果candidates为空（所有照片都被Early stopping过滤），
+                    # 重新计算所有候选照片的相似度（不进行Early stopping），返回相似度最高的1张
+                    return self._calculate_all_similarities_without_early_stopping(
+                        db_session, reference_photo, candidate_photos, limit=1
+                    )
             
         except Exception as e:
             print(f"第一层相似照片搜索失败: {e}")
             return []
+
+    def _calculate_all_similarities_without_early_stopping(
+        self, db_session, reference_photo: Photo, candidate_photos: List[Photo], limit: int = 1
+    ) -> List[Dict]:
+        """
+        计算所有候选照片的相似度（不进行Early stopping），用于降级策略
+        
+        当所有照片都被Early stopping过滤时，使用此方法重新计算所有照片的相似度
+        """
+        all_candidates = []
+        
+        for photo in candidate_photos:
+            similarities = {}
+            
+            # 计算所有可能的相似度特征（不进行Early stopping）
+            # 1. 感知哈希相似度
+            if reference_photo.perceptual_hash and photo.perceptual_hash:
+                hash_sim = self.calculate_perceptual_hash_similarity(reference_photo, photo)
+                similarities['perceptual_hash'] = hash_sim
+            
+            # 2. 时间相似度
+            if reference_photo.taken_at and photo.taken_at:
+                time_sim = self.calculate_time_similarity(reference_photo.taken_at, photo.taken_at)
+                similarities['time'] = time_sim
+            
+            # 3. 位置相似度
+            if (reference_photo.location_lat and reference_photo.location_lng and
+                photo.location_lat and photo.location_lng):
+                location_sim = self.calculate_location_similarity(
+                    reference_photo.location_lat, reference_photo.location_lng,
+                    photo.location_lat, photo.location_lng
+                )
+                similarities['location'] = location_sim
+            
+            # 4. 相机相似度
+            camera1 = {
+                'make': reference_photo.camera_make,
+                'model': reference_photo.camera_model,
+                'lens': reference_photo.lens_model,
+                'focal_length': reference_photo.focal_length,
+                'aperture': reference_photo.aperture
+            }
+            camera2 = {
+                'make': photo.camera_make,
+                'model': photo.camera_model,
+                'lens': photo.lens_model,
+                'focal_length': photo.focal_length,
+                'aperture': photo.aperture
+            }
+            camera_sim = self.calculate_camera_similarity(camera1, camera2)
+            similarities['camera'] = camera_sim
+            
+            # AI特征计算（可选）
+            try:
+                from app.models.photo import PhotoAnalysis
+                analysis1 = db_session.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == reference_photo.id).first()
+                analysis2 = db_session.query(PhotoAnalysis).filter(PhotoAnalysis.photo_id == photo.id).first()
+                
+                if analysis1 and analysis2:
+                    result1 = analysis1.analysis_result if analysis1.analysis_result else {}
+                    result2 = analysis2.analysis_result if analysis2.analysis_result else {}
+                    
+                    scene1 = result1.get('scene_type', '')
+                    scene2 = result2.get('scene_type', '')
+                    if scene1 and scene2:
+                        scene_sim = self.calculate_scene_type_similarity(scene1, scene2)
+                        similarities['ai_scene'] = scene_sim
+                    
+                    objects1 = result1.get('objects', [])
+                    objects2 = result2.get('objects', [])
+                    if objects1 and objects2:
+                        objects_sim = self.calculate_objects_similarity(objects1, objects2)
+                        similarities['ai_objects'] = objects_sim
+                    
+                    emotion1 = result1.get('emotion', '')
+                    emotion2 = result2.get('emotion', '')
+                    if emotion1 and emotion2:
+                        emotion_sim = self.calculate_emotion_similarity(emotion1, emotion2)
+                        similarities['ai_emotion'] = emotion_sim
+                    
+                    activity1 = result1.get('activity', '')
+                    activity2 = result2.get('activity', '')
+                    if activity1 and activity2:
+                        activity_sim = self.calculate_activity_similarity(activity1, activity2)
+                        similarities['ai_activity'] = activity_sim
+                
+                # 基础标签相似度
+                try:
+                    ref_tags = self._get_photo_tags_from_db(db_session, reference_photo.id)
+                    cand_tags = self._get_photo_tags_from_db(db_session, photo.id)
+                    if ref_tags and cand_tags:
+                        tags_sim = self.calculate_tags_similarity(ref_tags, cand_tags)
+                        similarities['basic_tags'] = tags_sim
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            
+            # 计算加权综合相似度
+            if similarities:
+                weighted_sim = 0.0
+                total_weight = 0.0
+                
+                for feature, sim_value in similarities.items():
+                    weight = self.SIMILARITY_WEIGHTS.get(feature, 0.0)
+                    weighted_sim += sim_value * weight
+                    total_weight += weight
+                
+                if total_weight > 0:
+                    combined_sim = weighted_sim / total_weight
+                else:
+                    combined_sim = sum(similarities.values()) / len(similarities)
+                
+                all_candidates.append({
+                    'photo': photo,
+                    'similarity': combined_sim,
+                    'details': similarities
+                })
+        
+        # 按相似度排序，返回最高的1张
+        all_candidates.sort(key=lambda x: x['similarity'], reverse=True)
+        return all_candidates[:limit] if all_candidates else []
 
     def find_second_layer_similar_photos(self, db_session, reference_photo: Photo, candidate_photos: List[Photo], threshold: float = 0.05) -> List[Dict]:
         """

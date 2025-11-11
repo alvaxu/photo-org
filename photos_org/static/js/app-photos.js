@@ -607,8 +607,8 @@ async function deletePhoto(photoId) {
 async function searchSimilarPhotos(photoId) {
     console.log('搜索相似照片:', photoId);
     
-    // 检查用户设置，决定是否显示服务选择（默认使用特征向量搜索）
-    let defaultService = localStorage.getItem('defaultSimilarPhotoSearch') || 'features';
+    // 检查用户设置，决定是否显示服务选择（默认每次都询问）
+    let defaultService = localStorage.getItem('defaultSimilarPhotoSearch') || 'ask';
     // 兼容旧配置：将 'hash' 迁移为 'features'
     if (defaultService === 'hash') {
         defaultService = 'features';
@@ -674,56 +674,121 @@ async function searchSimilarPhotosByService(photoId, serviceType) {
         let data;
         
         if (serviceType === 'features') {
-            // 特征向量相似搜索：使用特征向量API
-            response = await fetch(`/api/v1/search/similar/by-features/${photoId}?threshold=${featuresThreshold}&limit=${limit}`);
+            // 特征向量相似搜索：通过聚类API实现
+            // 先检查照片是否在聚类中
+            const clusterCheckResponse = await fetch(`/api/v1/similar-photos-clusters/photos/${photoId}/cluster`);
             
-            // 检查HTTP响应状态
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: '网络请求失败' }));
-                console.error('特征向量相似搜索HTTP错误:', response.status, errorData);
+            if (!clusterCheckResponse.ok) {
+                const errorData = await clusterCheckResponse.json().catch(() => ({ detail: '网络请求失败' }));
+                console.error('检查照片聚类状态失败:', clusterCheckResponse.status, errorData);
                 
-                // 检查是否是未提取特征向量的错误
-                if (response.status === 400 && errorData.detail && errorData.detail.includes('尚未提取特征向量')) {
                     const resultsContainer = document.getElementById('similarPhotosResults');
                     if (resultsContainer) {
                         resultsContainer.innerHTML = `
                             <div class="col-12 text-center">
-                                <p class="text-warning">⚠️ 照片尚未提取特征向量</p>
-                                <p class="text-muted small">${errorData.detail}</p>
-                                <p class="text-muted small mt-2">请先运行"特征提取"批处理任务，为照片生成特征向量</p>
+                            <p class="text-danger">检查照片状态失败</p>
+                            <p class="text-muted small">${errorData.detail || 'HTTP ' + clusterCheckResponse.status}</p>
                             </div>
                         `;
                     }
-                    alert(`搜索相似照片失败: ${errorData.detail}`);
+                alert(`检查照片状态失败: ${errorData.detail || 'HTTP ' + clusterCheckResponse.status}`);
                     return;
                 }
                 
-                // 清理加载状态
+            const clusterCheckData = await clusterCheckResponse.json();
+            
+            if (!clusterCheckData.success) {
                 const resultsContainer = document.getElementById('similarPhotosResults');
                 if (resultsContainer) {
                     resultsContainer.innerHTML = `
                         <div class="col-12 text-center">
-                            <p class="text-danger">搜索失败</p>
+                            <p class="text-danger">检查照片状态失败</p>
+                            <p class="text-muted small">${clusterCheckData.message || '未知错误'}</p>
+                        </div>
+                    `;
+                }
+                alert(`检查照片状态失败: ${clusterCheckData.message || '未知错误'}`);
+                return;
+            }
+            
+            // 如果照片不在聚类中，显示提示
+            if (!clusterCheckData.in_cluster) {
+                const resultsContainer = document.getElementById('similarPhotosResults');
+                if (resultsContainer) {
+                    let message = '';
+                    let actionHint = '';
+                    
+                    if (!clusterCheckData.has_features) {
+                        // 没有特征向量
+                        message = '⚠️ 照片尚未提取特征向量';
+                        actionHint = '请先运行"特征提取"批处理任务，为照片生成特征向量';
+                    } else if (!clusterCheckData.has_clusters) {
+                        // 有特征向量但没有运行过聚类
+                        message = '⚠️ 照片已完成特征提取，但尚未进行聚类';
+                        actionHint = '请前往<a href="/similar-photos" target="_blank" class="text-primary">相似照识别</a>页面运行"开始聚类"功能';
+                    } else {
+                        // 有特征向量且已经运行过聚类，但照片不在任何聚类中（未找到相似照片）
+                        message = 'ℹ️ 未找到相似照片';
+                        actionHint = '该照片在聚类分析中未找到相似的照片，可能是唯一照片或与其他照片相似度较低';
+                    }
+                    
+                    resultsContainer.innerHTML = `
+                        <div class="col-12 text-center py-4">
+                            <p class="${!clusterCheckData.has_clusters && clusterCheckData.has_features ? 'text-warning' : 'text-muted'} mb-2">${message}</p>
+                            <p class="text-muted small">${actionHint}</p>
+                            ${!clusterCheckData.has_clusters && clusterCheckData.has_features ? `
+                            <p class="text-muted small mt-2">
+                                <i class="bi bi-info-circle"></i> 
+                                特征向量搜索需要通过聚类来匹配相似照片。聚类完成后，您就可以使用此功能查找相似照片了。
+                            </p>
+                            ` : clusterCheckData.has_clusters ? `
+                            <div class="alert alert-info mt-3" style="text-align: left; max-width: 600px; margin: 0 auto;">
+                                <p class="mb-2"><strong>💡 建议：</strong></p>
+                                <p class="mb-0 small">特征向量搜索专注于视觉相似度匹配。如果未找到结果，您可以尝试使用<strong>智能分析相似搜索</strong>，它综合时间、位置、相机参数等多种维度进行匹配，可能会发现更多相关照片。</p>
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+                return;
+            }
+            
+            // 照片在聚类中，获取相似照片
+            response = await fetch(`/api/v1/similar-photos-clusters/photos/${photoId}/similar-photos?limit=${limit}`);
+            
+            // 检查HTTP响应状态
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: '网络请求失败' }));
+                console.error('从聚类获取相似照片失败:', response.status, errorData);
+                
+                const resultsContainer = document.getElementById('similarPhotosResults');
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = `
+                        <div class="col-12 text-center">
+                            <p class="text-danger">获取相似照片失败</p>
                             <p class="text-muted small">${errorData.detail || 'HTTP ' + response.status}</p>
                         </div>
                     `;
                 }
-                alert(`搜索相似照片失败: ${errorData.detail || 'HTTP ' + response.status}`);
+                alert(`获取相似照片失败: ${errorData.detail || 'HTTP ' + response.status}`);
                 return;
             }
             
             data = await response.json();
         
-        if (data.success && data.data) {
+            if (data.success) {
                 // 检查是否有相似照片
-                if (!data.data.similar_photos || data.data.similar_photos.length === 0) {
-                    // 没有找到相似照片，但搜索成功
+                if (!data.photos || data.photos.length === 0) {
                     const resultsContainer = document.getElementById('similarPhotosResults');
                     if (resultsContainer) {
                         resultsContainer.innerHTML = `
-                            <div class="col-12 text-center">
-                                <p class="text-muted">没有找到相似照片</p>
-                                <p class="text-muted small">提示：可以尝试降低相似度阈值或使用智能分析相似搜索</p>
+                            <div class="col-12 text-center py-4">
+                                <p class="text-muted mb-2">聚类中只有这一张照片</p>
+                                <p class="text-muted small mb-3">${data.message || ''}</p>
+                                <div class="alert alert-info mt-3" style="text-align: left; max-width: 600px; margin: 0 auto;">
+                                    <p class="mb-2"><strong>💡 建议：</strong></p>
+                                    <p class="mb-0 small">特征向量搜索专注于视觉相似度匹配。如果未找到结果，您可以尝试使用<strong>智能分析相似搜索</strong>，它综合时间、位置、相机参数等多种维度进行匹配，可能会发现更多相关照片。</p>
+                                </div>
                             </div>
                         `;
                     }
@@ -732,30 +797,38 @@ async function searchSimilarPhotosByService(photoId, serviceType) {
                 
                 // 转换格式以适配displaySimilarPhotos函数
                 const formattedData = {
-                    reference_photo: data.data.reference_photo,
-                    similar_photos: data.data.similar_photos.map(photo => ({
-                        ...photo,
-                        similarity: photo.similarity || 0
+                    reference_photo: data.reference_photo,  // 直接从API返回的数据中获取
+                    similar_photos: data.photos.map(item => ({
+                        id: item.photo_id,
+                        filename: item.filename,
+                        thumbnail_path: item.thumbnail_path,
+                        original_path: item.original_path,
+                        width: item.width,
+                        height: item.height,
+                        format: item.format,
+                        taken_at: item.taken_at,
+                        created_at: item.created_at,
+                        similarity: item.similarity || 0,
+                        photo: item.photo  // 保留完整photo对象（如果需要）
                     })),
-                    total: data.data.total || data.data.similar_photos.length,
+                    total: data.total || data.photos.length,
                     showPreciseMatch: false,
                     referencePhotoId: photoId
                 };
                 displaySimilarPhotos(formattedData);
             } else {
-                console.error('特征向量相似搜索失败:', data);
+                console.error('从聚类获取相似照片失败:', data);
                 
-                // 清理加载状态
                 const resultsContainer = document.getElementById('similarPhotosResults');
                 if (resultsContainer) {
                     resultsContainer.innerHTML = `
                         <div class="col-12 text-center">
-                            <p class="text-danger">搜索失败</p>
+                            <p class="text-danger">获取相似照片失败</p>
                             <p class="text-muted small">${data.detail || data.message || '未知错误'}</p>
                         </div>
                     `;
                 }
-                alert(`搜索相似照片失败: ${data.detail || data.message || '未知错误'}`);
+                alert(`获取相似照片失败: ${data.detail || data.message || '未知错误'}`);
             }
         } else {
             // 智能分析相似搜索：使用增强API（现有逻辑）

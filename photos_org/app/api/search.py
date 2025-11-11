@@ -5,12 +5,12 @@
 from typing import List, Optional
 from datetime import date
 from urllib.parse import unquote
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.services.search_service import SearchService
-from app.models.photo import Photo
+from app.models.photo import Photo, PhotoAnalysis, PhotoQuality, PhotoTag, PhotoCategory
 from app.schemas.photo import PhotoSearchResponse, SearchSuggestionsResponse, SearchStatsResponse
 
 router = APIRouter(tags=["搜索"])
@@ -372,8 +372,15 @@ async def search_similar_photos(
         if threshold is None:
             threshold = settings.search.similarity_threshold
         
-        # 获取参考照片
-        photo = db.query(Photo).filter(Photo.id == photo_id).first()
+        # 性能优化：预加载参考照片的关联数据
+        from sqlalchemy.orm import joinedload
+        photo = db.query(Photo).options(
+            joinedload(Photo.tags).joinedload(PhotoTag.tag),
+            joinedload(Photo.categories).joinedload(PhotoCategory.category),
+            joinedload(Photo.analysis_results),
+            joinedload(Photo.quality_assessments)
+        ).filter(Photo.id == photo_id).first()
+        
         if not photo:
             raise HTTPException(status_code=404, detail="照片不存在")
         
@@ -393,21 +400,68 @@ async def search_similar_photos(
             limit=limit
         )
         
+        # 性能优化：批量查询所有相似照片并预加载关联数据，避免N+1查询
+        similar_photo_ids = [sp['photo_id'] for sp in similar_photos]
+        if similar_photo_ids:
+            from sqlalchemy.orm import joinedload
+            photos_dict = {
+                p.id: p for p in db.query(Photo).options(
+                    joinedload(Photo.tags).joinedload(PhotoTag.tag),
+                    joinedload(Photo.categories).joinedload(PhotoCategory.category),
+                    joinedload(Photo.analysis_results),
+                    joinedload(Photo.quality_assessments)
+                ).filter(Photo.id.in_(similar_photo_ids)).all()
+            }
+            
+            # 批量查询analysis和quality
+            analyses = db.query(PhotoAnalysis).filter(
+                PhotoAnalysis.photo_id.in_(similar_photo_ids),
+                PhotoAnalysis.analysis_type == 'content'
+            ).all()
+            analysis_dict = {a.photo_id: a for a in analyses}
+            
+            qualities = db.query(PhotoQuality).filter(PhotoQuality.photo_id.in_(similar_photo_ids)).all()
+            quality_dict = {q.photo_id: q for q in qualities}
+        else:
+            photos_dict = {}
+            analysis_dict = {}
+            quality_dict = {}
+        
         # 格式化结果
         results = []
         for similar_photo in similar_photos:
-            # 从数据库获取完整的照片对象
-            photo_obj = db.query(Photo).filter(Photo.id == similar_photo['photo_id']).first()
+            photo_obj = photos_dict.get(similar_photo['photo_id'])
             if photo_obj:
-                result = search_service._format_photo_result(db=db, photo=photo_obj)
+                result = search_service._format_photo_result(
+                    db=db, 
+                    photo=photo_obj,
+                    analysis=analysis_dict.get(photo_obj.id),
+                    quality=quality_dict.get(photo_obj.id)
+                )
                 if result:
                     result['similarity'] = similar_photo.get('similarity', 0.0)
                     results.append(result)
         
+        # 获取参考照片的analysis和quality（使用已预加载的photo对象）
+        ref_analysis = None
+        ref_quality = None
+        if photo.analysis_results:
+            for a in photo.analysis_results:
+                if a.analysis_type == 'content':
+                    ref_analysis = a
+                    break
+        if photo.quality_assessments:
+            ref_quality = photo.quality_assessments[0]
+        
         return {
             "success": True,
             "data": {
-                "reference_photo": search_service._format_photo_result(db=db, photo=photo),
+                "reference_photo": search_service._format_photo_result(
+                    db=db, 
+                    photo=photo,
+                    analysis=ref_analysis,
+                    quality=ref_quality
+                ),
                 "similar_photos": results,
                 "total": len(results),
                 "threshold": threshold
@@ -438,8 +492,15 @@ async def search_similar_photos_by_features(
         if threshold is None:
             threshold = settings.image_features.similarity_threshold
         
-        # 获取参考照片
-        photo = db.query(Photo).filter(Photo.id == photo_id).first()
+        # 性能优化：预加载参考照片的关联数据
+        from sqlalchemy.orm import joinedload
+        photo = db.query(Photo).options(
+            joinedload(Photo.tags).joinedload(PhotoTag.tag),
+            joinedload(Photo.categories).joinedload(PhotoCategory.category),
+            joinedload(Photo.analysis_results),
+            joinedload(Photo.quality_assessments)
+        ).filter(Photo.id == photo_id).first()
+        
         if not photo:
             raise HTTPException(status_code=404, detail="照片不存在")
         
@@ -453,7 +514,7 @@ async def search_similar_photos_by_features(
         # 使用图像特征服务搜索相似照片
         from app.services.image_feature_service import image_feature_service
         
-        # 搜索相似照片
+        # 搜索相似照片（服务层已返回包含Photo对象的字典）
         similar_photos = image_feature_service.find_similar_photos_by_features(
             db_session=db,
             reference_photo_id=photo_id,
@@ -461,21 +522,31 @@ async def search_similar_photos_by_features(
             limit=limit
         )
         
-        # 格式化结果
+        # 性能优化：像智能搜索一样，手动构建简单字典，只返回显示所需的基本字段
         results = []
-        for similar_photo in similar_photos:
-            # 从数据库获取完整的照片对象
-            photo_obj = db.query(Photo).filter(Photo.id == similar_photo['photo_id']).first()
-            if photo_obj:
-                result = search_service._format_photo_result(db=db, photo=photo_obj)
-                if result:
-                    result['similarity'] = similar_photo.get('similarity', 0.0)
-                    results.append(result)
+        for photo_data in similar_photos:
+            photo_obj = photo_data['photo']
+            results.append({
+                "id": photo_obj.id,
+                "filename": photo_obj.filename,
+                "thumbnail_path": photo_obj.thumbnail_path,
+                "original_path": photo_obj.original_path,
+                "width": photo_obj.width,
+                "height": photo_obj.height,
+                "format": photo_obj.format,
+                "taken_at": photo_obj.taken_at.isoformat() if photo_obj.taken_at else None,
+                "created_at": photo_obj.created_at.isoformat() if photo_obj.created_at else None,
+                "similarity": photo_data['similarity']
+            })
         
         return {
             "success": True,
             "data": {
-                "reference_photo": search_service._format_photo_result(db=db, photo=photo),
+                "reference_photo": {
+                    "id": photo.id,
+                    "filename": photo.filename,
+                    "thumbnail_path": photo.thumbnail_path
+                },
                 "similar_photos": results,
                 "total": len(results),
                 "threshold": threshold
@@ -604,3 +675,73 @@ async def advanced_search_help():
         "success": True,
         "data": help_info
     }
+
+
+@router.post("/similar-photos/cluster")
+async def cluster_similar_photos(
+    db: Session = Depends(get_db)
+):
+    """
+    执行相似照片聚类分析
+    
+    :param db: 数据库会话（仅用于验证，不在后台任务中使用）
+    :return: 聚类任务启动结果
+    """
+    try:
+        import asyncio
+        from app.services.similar_photo_cluster_service import SimilarPhotoClusterService
+        import uuid
+        from datetime import datetime
+        
+        cluster_service = SimilarPhotoClusterService()
+        
+        # 生成任务ID
+        task_id = f"cluster_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}"
+        
+        # 🔥 使用 asyncio.create_task() 启动真正的异步任务（参考人脸识别任务）
+        asyncio.create_task(cluster_service.process_cluster_task(task_id))
+        
+        return {
+            "success": True,
+            "message": "已开始相似照片聚类分析",
+            "task_id": task_id
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"相似照片聚类API失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/similar-photos/cluster/status/{task_id}")
+async def get_cluster_task_status(task_id: str):
+    """
+    获取聚类任务状态
+    
+    :param task_id: 任务ID
+    :return: 任务状态
+    """
+    try:
+        from app.services.similar_photo_cluster_service import cluster_task_status
+        
+        task_status = cluster_task_status.get(task_id)
+        
+        if not task_status:
+            return {
+                "success": False,
+                "status": "not_found",
+                "message": "任务不存在或已过期"
+            }
+        
+        return {
+            "success": True,
+            "task_id": task_id,
+            **task_status
+        }
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"获取聚类任务状态失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

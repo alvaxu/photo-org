@@ -176,16 +176,36 @@ class SearchService:
             # 排序
             query = self._apply_sorting(query, sort_by, sort_order)
 
+            # 性能优化：使用joinedload预加载关联数据，避免N+1查询
+            from sqlalchemy.orm import joinedload
+            query = query.options(
+                joinedload(Photo.tags).joinedload(PhotoTag.tag),
+                joinedload(Photo.categories).joinedload(PhotoCategory.category),
+                joinedload(Photo.analysis_results),
+                joinedload(Photo.quality_assessments)
+            )
+
             # 分页
             query = query.limit(limit).offset(offset)
 
             # 执行查询
             photos = query.all()
 
+            # 性能优化：批量查询analysis和quality，避免N+1查询
+            photo_ids = [photo.id for photo in photos]
+            analyses = db.query(PhotoAnalysis).filter(
+                PhotoAnalysis.photo_id.in_(photo_ids),
+                PhotoAnalysis.analysis_type == 'content'
+            ).all()
+            analysis_dict = {a.photo_id: a for a in analyses}
+            
+            qualities = db.query(PhotoQuality).filter(PhotoQuality.photo_id.in_(photo_ids)).all()
+            quality_dict = {q.photo_id: q for q in qualities}
+
             # 格式化结果
             results = []
             for photo in photos:
-                result = self._format_photo_result(db, photo)
+                result = self._format_photo_result(db, photo, analysis_dict.get(photo.id), quality_dict.get(photo.id))
                 results.append(result)
 
             return results, total_count
@@ -447,30 +467,31 @@ class SearchService:
 
         return query
 
-    def _format_photo_result(self, db: Session, photo: Photo) -> Dict[str, Any]:
-        """格式化照片搜索结果"""
-        # 获取分析结果
-        analysis = db.query(PhotoAnalysis).filter(
-            PhotoAnalysis.photo_id == photo.id,
-            PhotoAnalysis.analysis_type == 'content'
-        ).first()
+    def _format_photo_result(self, db: Session, photo: Photo, analysis: Optional[PhotoAnalysis] = None, quality: Optional[PhotoQuality] = None) -> Dict[str, Any]:
+        """
+        格式化照片搜索结果
+        
+        性能优化：接受预加载的analysis和quality，避免重复查询
+        如果未提供，则从photo对象的关联关系中获取（已通过joinedload预加载）
+        """
+        # 如果未提供analysis，尝试从预加载的关联关系中获取
+        if analysis is None:
+            # 从预加载的analysis_results中查找content类型的分析
+            if photo.analysis_results:
+                for a in photo.analysis_results:
+                    if a.analysis_type == 'content':
+                        analysis = a
+                        break
+        
+        # 如果未提供quality，尝试从预加载的关联关系中获取
+        if quality is None:
+            # 从预加载的quality_assessments中获取第一个（通常只有一个）
+            if photo.quality_assessments:
+                quality = photo.quality_assessments[0]
 
-        # 获取质量评估
-        quality = db.query(PhotoQuality).filter(
-            PhotoQuality.photo_id == photo.id
-        ).first()
-
-        # 获取标签
-        tags_query = db.query(Tag.name).join(PhotoTag).filter(
-            PhotoTag.photo_id == photo.id
-        )
-        tags = [tag[0] for tag in tags_query.all()]
-
-        # 获取分类
-        categories_query = db.query(Category.name).join(PhotoCategory).filter(
-            PhotoCategory.photo_id == photo.id
-        )
-        categories = [cat[0] for cat in categories_query.all()]
+        # 使用预加载的tags和categories（已通过joinedload预加载）
+        tags = [tag.tag.name for tag in photo.tags] if photo.tags else []
+        categories = [cat.category.name for cat in photo.categories] if photo.categories else []
 
         result = {
             "id": photo.id,

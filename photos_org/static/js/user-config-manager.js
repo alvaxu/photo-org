@@ -101,7 +101,7 @@ class UserConfigManager {
      */
     bindRangeSliders() {
         const sliders = [
-            'thumbnailQuality', 'thumbnailSize', 'featuresSimilarityThreshold', 'similarityThreshold', 'duplicateThreshold'
+            'thumbnailQuality', 'thumbnailSize', 'featuresSimilarityThreshold', 'similarityThreshold', 'faceSimilarityThreshold'
         ];
 
         sliders.forEach(id => {
@@ -342,10 +342,10 @@ class UserConfigManager {
         this.setRangeValue('similarityThreshold', similarityThreshold);
         this.updateCurrentValue('similarityThresholdCurrent', similarityThreshold.toString());
         
-        // 重复检测阈值
-        const duplicateThreshold = this.config.analysis?.duplicate_threshold || 5;
-        this.setRangeValue('duplicateThreshold', duplicateThreshold);
-        this.updateCurrentValue('duplicateThresholdCurrent', duplicateThreshold.toString());
+        // 人脸聚类阈值
+        const faceSimilarityThreshold = this.config.face_recognition?.similarity_threshold || 0.7;
+        this.setRangeValue('faceSimilarityThreshold', faceSimilarityThreshold);
+        this.updateCurrentValue('faceSimilarityThresholdCurrent', faceSimilarityThreshold.toString());
 
         // 地图服务配置
         const amapApiKeyInput = document.getElementById('amapApiKey');
@@ -369,8 +369,8 @@ class UserConfigManager {
         // 相似照片搜索方式配置
         const defaultSimilarSearchSelect = document.getElementById('defaultSimilarPhotoSearch');
         if (defaultSimilarSearchSelect) {
-            // 从localStorage加载默认搜索方式设置（默认使用特征向量搜索）
-            let savedSearchService = localStorage.getItem('defaultSimilarPhotoSearch') || 'features';
+            // 从localStorage加载默认搜索方式设置（默认每次都询问）
+            let savedSearchService = localStorage.getItem('defaultSimilarPhotoSearch') || 'ask';
             // 兼容旧配置：将 'hash' 迁移为 'features'
             if (savedSearchService === 'hash') {
                 savedSearchService = 'features';
@@ -424,9 +424,9 @@ class UserConfigManager {
         const defaultSimilarityThreshold = this.defaultConfig.search?.similarity_threshold || 0.6;
         this.updateDefaultValue('similarityThresholdDefault', defaultSimilarityThreshold.toString());
         
-        // 重复检测阈值默认值
-        const defaultDuplicateThreshold = this.defaultConfig.analysis?.duplicate_threshold || 5;
-        this.updateDefaultValue('duplicateThresholdDefault', defaultDuplicateThreshold.toString());
+        // 人脸聚类阈值默认值
+        const defaultFaceSimilarityThreshold = this.defaultConfig.face_recognition?.similarity_threshold || 0.7;
+        this.updateDefaultValue('faceSimilarityThresholdDefault', defaultFaceSimilarityThreshold.toString());
     }
 
     /**
@@ -511,8 +511,8 @@ class UserConfigManager {
             image_features: {
                 similarity_threshold: parseFloat(document.getElementById('featuresSimilarityThreshold').value)
             },
-            analysis: {
-                duplicate_threshold: parseInt(document.getElementById('duplicateThreshold').value)
+            face_recognition: {
+                similarity_threshold: parseFloat(document.getElementById('faceSimilarityThreshold').value)
             },
             maps: {
                 api_key: document.getElementById('amapApiKey').value || null
@@ -643,15 +643,17 @@ class UserConfigManager {
                 this.config.image_features = {};
             }
             this.config.image_features.similarity_threshold = defaults.data.image_features?.similarity_threshold || 0.75;
-            this.config.analysis.duplicate_threshold = defaults.data.analysis.duplicate_threshold;
+            if (!this.config.face_recognition) {
+                this.config.face_recognition = {};
+            }
+            this.config.face_recognition.similarity_threshold = defaults.data.face_recognition?.similarity_threshold || 0.7;
 
             // 更新原始配置副本
             this.originalConfig = JSON.parse(JSON.stringify(this.config));
 
             // 重新填充表单
             this.populateForm();
-            this.hasChanges = false;
-            this.updateSaveButton();
+            this.markAsChanged(); // 重置后标记为有更改，让保存按钮高亮
 
             this.showStatus('页面配置已重置为默认值，其他配置保持不变', 'success');
         } catch (error) {

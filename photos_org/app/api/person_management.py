@@ -14,7 +14,7 @@
 - 提供肖像照生成
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 from typing import List, Dict, Optional
 import logging
@@ -34,32 +34,29 @@ router = APIRouter(prefix="/face-clusters", tags=["person_management"])
 
 @router.get("/clusters")
 async def get_all_clusters(
-    limit: int = None,
-    offset: int = 0,
+    limit: Optional[int] = Query(None, description="每页显示数量"),
+    offset: int = Query(0, ge=0, description="偏移量"),
     db: Session = Depends(get_db)
 ):
     """
     获取所有聚类分组（简化版）
-    :param limit: 限制数量
+    :param limit: 限制数量（默认从config.json读取photos_per_page）
     :param offset: 偏移量
     :param db: 数据库会话
     :return: 聚类列表
     """
     try:
-        # 从配置获取参数
-        from app.core.config import settings
-        
-        # 如果没有指定limit，使用配置中的max_clusters
+        # 如果没有指定limit，从配置读取photos_per_page
         if limit is None:
-            limit = settings.face_recognition.max_clusters
+            limit = getattr(settings.ui, 'photos_per_page', 30)
         
-        # 🔥 优化：只获取符合min_cluster_size条件的聚类，按大小降序
-        min_cluster_size = settings.face_recognition.min_cluster_size
+        # 查询所有聚类（不再过滤min_cluster_size），按大小降序
+        # 先查询总数（用于分页）
+        total_query = db.query(FaceCluster)
+        total = total_query.count()
         
-        
-        clusters = db.query(FaceCluster).filter(
-            FaceCluster.face_count >= min_cluster_size  # 只显示人脸数 >= min_cluster_size 的聚类
-        ).order_by(
+        # 查询分页数据
+        clusters = total_query.order_by(
             FaceCluster.face_count.desc()
         ).offset(offset).limit(limit).all()
         
@@ -106,7 +103,9 @@ async def get_all_clusters(
         return {
             "success": True,
             "clusters": result,
-            "total": len(result)
+            "total": total,
+            "limit": limit,
+            "offset": offset
         }
         
     except Exception as e:
@@ -280,6 +279,65 @@ async def get_cluster_representative_face(
         logger.error(f"获取代表人脸失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/clusters/{cluster_id}")
+async def delete_cluster(
+    cluster_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    删除人脸聚类
+    :param cluster_id: 聚类ID
+    :param db: 数据库会话
+    :return: 删除结果
+    """
+    try:
+        # 获取聚类信息
+        cluster = db.query(FaceCluster).filter(
+            FaceCluster.cluster_id == cluster_id
+        ).first()
+        
+        if not cluster:
+            raise HTTPException(status_code=404, detail="聚类不存在")
+        
+        # 记录人物ID（如果已标记）
+        person_id = cluster.person_id
+        
+        # 删除聚类成员（级联删除）
+        deleted_members = db.query(FaceClusterMember).filter(
+            FaceClusterMember.cluster_id == cluster_id
+        ).delete()
+        
+        # 删除聚类
+        db.delete(cluster)
+        
+        # 如果该聚类已标记，检查该人物是否还有其他聚类
+        if person_id:
+            remaining_clusters = db.query(FaceCluster).filter(
+                FaceCluster.person_id == person_id
+            ).count()
+            
+            # 如果该人物没有其他聚类了，删除人物记录
+            if remaining_clusters == 0:
+                person = db.query(Person).filter(
+                    Person.person_id == person_id
+                ).first()
+                if person:
+                    db.delete(person)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"聚类已删除，共删除 {deleted_members} 个人脸"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除聚类失败: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/clusters/{cluster_id}/reselect-representative")
 async def reselect_cluster_representative(
     cluster_id: str,
@@ -381,6 +439,8 @@ async def get_cluster_photos(
                 
                 photo_info = {
                     "photo_id": photo.id,
+                    "id": photo.id,  # 兼容字段
+                    "filename": photo.filename,  # 添加文件名
                     "original_path": photo.original_path,
                     "thumbnail_path": photo.thumbnail_path,
                     "display_path": display_path,  # 统一的显示路径
@@ -637,7 +697,7 @@ async def get_person_statistics(db: Session = Depends(get_db)):
     :return: 统计信息
     """
     try:
-        # 从配置获取最小聚类大小
+        # 从配置获取最小聚类大小（用于已标记/未标记的统计，但不用于总数统计）
         from app.core.config import settings
         min_cluster_size = settings.face_recognition.min_cluster_size
         
@@ -646,16 +706,25 @@ async def get_person_statistics(db: Session = Depends(get_db)):
             ~FaceDetection.face_id.like('processed_%')
         ).scalar() or 0
         
-        # 🔥 只统计符合min_cluster_size条件的聚类
-        total_clusters = db.query(func.count(FaceCluster.id)).filter(
-            FaceCluster.face_count >= min_cluster_size
-        ).scalar() or 0
+        # 统计已聚类的人脸数（FaceClusterMember表的记录数）
+        clustered_faces = db.query(func.count(FaceClusterMember.id)).scalar() or 0
         
-        # 只统计符合条件且已标记的聚类
+        # 🔥 修改：统计所有聚类（包括只有一张照片的聚类），与列表API保持一致
+        total_clusters = db.query(func.count(FaceCluster.id)).scalar() or 0
+        
+        # 只统计符合条件且已标记的聚类（用于已标记/未标记的统计）
         labeled_clusters = db.query(func.count(FaceCluster.id)).filter(
             FaceCluster.is_labeled == True,
             FaceCluster.face_count >= min_cluster_size
         ).scalar() or 0
+        
+        # 统计所有已标记的聚类（包括小聚类）
+        labeled_clusters_all = db.query(func.count(FaceCluster.id)).filter(
+            FaceCluster.is_labeled == True
+        ).scalar() or 0
+        
+        # 未标记聚类 = 总聚类数 - 已标记聚类数（所有聚类）
+        unlabeled_clusters = total_clusters - labeled_clusters_all
         
         # 获取涉及的照片数量
         photos_with_faces = db.query(func.count(func.distinct(FaceDetection.photo_id))).scalar() or 0
@@ -667,9 +736,10 @@ async def get_person_statistics(db: Session = Depends(get_db)):
             "success": True,
             "statistics": {
                 "total_faces": total_faces,
+                "clustered_faces": clustered_faces,  # 已聚类的人脸数
                 "total_clusters": total_clusters,
-                "labeled_clusters": labeled_clusters,
-                "unlabeled_clusters": total_clusters - labeled_clusters,
+                "labeled_clusters": labeled_clusters_all,  # 使用所有已标记聚类数
+                "unlabeled_clusters": unlabeled_clusters,
                 "photos_with_faces": photos_with_faces,
                 "total_persons": total_persons
             }

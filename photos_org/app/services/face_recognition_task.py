@@ -159,9 +159,10 @@ async def process_face_recognition_task(task_id: str, photo_ids: List[int]):
             if batch_idx < total_batches - 1:
                 await asyncio.sleep(0.1)
         
-        # 完成后执行聚类
-        logger.info("开始执行人脸聚类...")
-        await perform_face_clustering(task_id)
+        # 🔥 移除自动聚类逻辑，改为由用户手动触发
+        # 完成后不再自动执行聚类
+        # logger.info("开始执行人脸聚类...")
+        # await perform_face_clustering(task_id)
         
         # 更新任务状态为完成
         face_recognition_task_status[task_id]["status"] = "completed"

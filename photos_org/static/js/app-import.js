@@ -1366,32 +1366,6 @@ document.addEventListener('DOMContentLoaded', function() {
         aiAnalysisBtn.addEventListener('click', startAIAnalysis);
     }
 
-    // 图像特征提取按钮事件
-    const imageFeatureExtractionBtn = document.getElementById('imageFeatureExtractionBtn');
-    if (imageFeatureExtractionBtn) {
-        imageFeatureExtractionBtn.addEventListener('click', () => {
-            if (typeof window.showImageFeatureExtractionModal === 'function') {
-                window.showImageFeatureExtractionModal();
-            } else {
-                console.warn('图像特征提取功能尚未加载');
-                showWarning('图像特征提取功能尚未加载，请刷新页面重试');
-            }
-        });
-    }
-    
-    // 图像特征提取开始按钮事件
-    const startFeatureExtractionBtn = document.getElementById('startFeatureExtractionBtn');
-    if (startFeatureExtractionBtn) {
-        startFeatureExtractionBtn.addEventListener('click', () => {
-            if (typeof window.startImageFeatureExtraction === 'function') {
-                window.startImageFeatureExtraction();
-            } else {
-                console.warn('图像特征提取功能尚未加载');
-                showWarning('图像特征提取功能尚未加载，请刷新页面重试');
-            }
-        });
-    }
-
     // GPS转地址按钮事件监听
     const gpsToAddressBtn = document.getElementById('gpsToAddressBtn');
     if (gpsToAddressBtn) {
@@ -3169,7 +3143,7 @@ window.processSelectedPhotosBasic = async (photoIds) => {
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle me-2"></i>
                             基础分析将对选中的 ${photoIds.length} 张照片进行质量评估，生成时间、EXIF等基础标签<br>
-                            此功能无需AI，处理速度快，完全免费
+                            此功能是照片基础信息采集的必要步骤，它无需AI，处理速度快
                         </div>
                     </div>
                     <div class="modal-footer">
