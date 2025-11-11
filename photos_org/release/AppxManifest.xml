@@ -64,11 +64,13 @@
     <rescap:Capability Name="broadFileSystemAccess" />
     
     <!-- 网络访问 -->
+    <!-- 互联网客户端访问（用于可选的API功能：AI分析、地图API） -->
     <Capability Name="internetClient" />
-    <Capability Name="internetClientServer" />
     
-    <!-- 私有网络访问（用于家庭网络） -->
+    <!-- 私有网络访问（用于家庭网络多设备访问） -->
     <Capability Name="privateNetworkClientServer" />
+    
+    <!-- 注意：未声明 internetClientServer，因为系统不接受来自互联网的连接，只支持局域网访问 -->
   </Capabilities>
 
 </Package>

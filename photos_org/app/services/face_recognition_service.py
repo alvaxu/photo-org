@@ -104,7 +104,7 @@ class FaceRecognitionService:
             except ImportError:
                 PIL = False
                 logger.warning("⚠ PIL 未安装")
-    
+                
     def _detect_gpu_available(self) -> bool:
         """
         检测GPU是否可用
@@ -147,8 +147,9 @@ class FaceRecognitionService:
             
             # 根据配置决定使用本地模型还是在线模型
             if self.config.use_local_model:
-                # 使用本地模型路径（参考存储服务的路径处理方式）
-                models_base_path = Path(self.config.models_base_path).resolve()
+                # 使用本地模型路径（使用统一的路径解析函数）
+                from app.core.path_utils import resolve_resource_path
+                models_base_path = resolve_resource_path(self.config.models_base_path)
                 model_path = models_base_path / self.config.model
                 logger.info(f"使用本地模型路径: {model_path}")
                 

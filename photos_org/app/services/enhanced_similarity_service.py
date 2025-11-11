@@ -57,7 +57,8 @@ class EnhancedSimilarityService:
     def storage_base(self) -> Path:
         """动态获取存储基础路径（每次使用时读取最新配置）"""
         from app.core.config import get_settings
-        return Path(get_settings().storage.base_path).resolve()
+        from app.core.path_utils import resolve_resource_path
+        return resolve_resource_path(get_settings().storage.base_path)
 
     def _get_full_path(self, image_path: str) -> Path:
         """

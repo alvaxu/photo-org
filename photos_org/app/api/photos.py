@@ -810,22 +810,9 @@ async def download_photo(photo_id: int, db: Session = Depends(get_db)):
         if not photo:
             raise HTTPException(status_code=404, detail="照片不存在")
         
-        # 构建存储基础路径（处理相对路径和绝对路径）
-        config_path = Path(settings.storage.base_path)
-        if config_path.is_absolute():
-            storage_base = config_path
-        else:
-            # 相对路径：相对于项目根目录解析（与main.py的逻辑一致）
-            from pathlib import Path as PathLib
-            import sys
-            if getattr(sys, 'frozen', False):
-                # PyInstaller打包环境：相对于exe目录
-                exe_dir = PathLib(sys.executable).parent
-                storage_base = exe_dir / config_path
-            else:
-                # 开发环境：相对于项目根目录（main.py所在目录）
-                project_root = PathLib(__file__).parent.parent.parent  # app/api/photos.py -> app -> project_root
-                storage_base = project_root / config_path
+        # 构建存储基础路径（使用统一的路径解析函数）
+        from app.core.path_utils import resolve_resource_path
+        storage_base = resolve_resource_path(settings.storage.base_path)
         
         is_heic = photo.format and photo.format.upper() in ['HEIC', 'HEIF']
         

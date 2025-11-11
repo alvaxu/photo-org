@@ -687,8 +687,10 @@ class PeopleManagementStandalone {
                 setTimeout(async () => {
                     try {
                         await this.showFaceRecognitionBatchResults(allBatchTasks, totalPhotos);
-                        // 刷新人物数据
-                        this.loadPeopleData(1); // 人脸识别完成后回到第一页
+                        // 延迟刷新人物数据（给服务器时间完成数据库操作）
+                        setTimeout(async () => {
+                            await this.loadPeopleData(1); // 人脸识别完成后回到第一页
+                        }, 1000);
                     } catch (error) {
                         console.error('显示人脸识别结果失败:', error);
                     }
@@ -1209,8 +1211,10 @@ class PeopleManagementStandalone {
                                         }]
                                     };
                                     peopleManagement.showFaceRecognitionResultsModal(results);
-                                    // 刷新人物数据
-                                    peopleManagement.loadPeopleData(1); // 人脸识别完成后回到第一页
+                                    // 延迟刷新人物数据（给服务器时间完成数据库操作）
+                                    setTimeout(async () => {
+                                        await peopleManagement.loadPeopleData(1); // 人脸识别完成后回到第一页
+                                    }, 1000);
                                 } catch (error) {
                                     console.error('显示人脸识别结果失败:', error);
                                 }
@@ -1238,8 +1242,10 @@ class PeopleManagementStandalone {
                                     }]
                                 };
                                 peopleManagement.showFaceRecognitionResultsModal(results);
-                                // 刷新人物数据
-                                peopleManagement.loadPeopleData();
+                                // 延迟刷新人物数据（给服务器时间完成数据库操作）
+                                setTimeout(async () => {
+                                    await peopleManagement.loadPeopleData(1); // 人脸识别完成后回到第一页
+                                }, 1000);
                             } catch (error) {
                                 console.error('显示人脸识别结果失败:', error);
                             }

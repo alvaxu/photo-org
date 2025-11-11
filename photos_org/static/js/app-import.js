@@ -3143,7 +3143,7 @@ window.processSelectedPhotosBasic = async (photoIds) => {
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle me-2"></i>
                             基础分析将对选中的 ${photoIds.length} 张照片进行质量评估，生成时间、EXIF等基础标签<br>
-                            此功能无需AI，处理速度快，完全免费
+                            此功能是照片基础信息采集的必要步骤，它无需AI，处理速度快
                         </div>
                     </div>
                     <div class="modal-footer">

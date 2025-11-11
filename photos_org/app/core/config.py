@@ -179,6 +179,7 @@ class MapConfig(BaseSettings):
     cache_ttl: int = Field(default=86400, description="地址缓存时间（秒）")
     batch_size: int = Field(default=10, description="批量处理大小")
     configured: bool = Field(default=False, description="是否已配置地图API")
+    offline_geocoding_db_path: str = Field(default="offline_geocoding.db", description="离线地理编码数据库路径")
 
 
 class PersonPhotosPaginationConfig(BaseSettings):
@@ -474,7 +475,8 @@ class Settings(BaseSettings):
                 "cache_enabled": self.maps.cache_enabled,
                 "cache_ttl": self.maps.cache_ttl,
                 "batch_size": self.maps.batch_size,
-                "configured": self.maps.configured
+                "configured": self.maps.configured,
+                "offline_geocoding_db_path": self.maps.offline_geocoding_db_path
             },
             "face_recognition": {
                 "model": self.face_recognition.model,

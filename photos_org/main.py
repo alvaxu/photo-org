@@ -386,6 +386,58 @@ def setup_msix_first_run():
         user_config_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(default_config_path, user_config_path)
         print(f"✅ 已拷贝默认配置到: {user_config_path}")
+        
+        # 获取应用目录（使用与 get_config_paths() 相同的方式，确保一致性）
+        import sys
+        from pathlib import Path
+        if getattr(sys, 'frozen', False):
+            # PyInstaller打包环境：配置文件位于可执行文件所在目录
+            exe_path = Path(sys.executable)
+            app_dir = exe_path.parent
+        else:
+            # 开发环境：从当前文件位置推断
+            app_dir = Path(__file__).parent
+        
+        # 注意：在 MSIX 环境下，default_config_path 的父目录就是应用目录
+        # 使用 default_config_path 的父目录更可靠
+        if default_config_path.exists():
+            app_dir = default_config_path.parent
+        
+        # 加载配置并修改模型路径和 GPS 数据库路径为绝对路径
+        with open(user_config_path, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+        
+        # 修改人脸识别模型路径
+        if 'face_recognition' in config_data:
+            if 'models_base_path' in config_data['face_recognition']:
+                models_path = Path(config_data['face_recognition']['models_base_path'])
+                if not models_path.is_absolute():
+                    # 相对路径：转换为绝对路径
+                    config_data['face_recognition']['models_base_path'] = str((app_dir / models_path).resolve())
+                    print(f"✅ 已设置人脸识别模型路径: {config_data['face_recognition']['models_base_path']}")
+        
+        # 修改图像特征提取模型路径
+        if 'image_features' in config_data:
+            if 'models_base_path' in config_data['image_features']:
+                models_path = Path(config_data['image_features']['models_base_path'])
+                if not models_path.is_absolute():
+                    # 相对路径：转换为绝对路径
+                    config_data['image_features']['models_base_path'] = str((app_dir / models_path).resolve())
+                    print(f"✅ 已设置图像特征提取模型路径: {config_data['image_features']['models_base_path']}")
+        
+        # 修改 GPS 数据库路径
+        if 'maps' in config_data:
+            if 'offline_geocoding_db_path' in config_data['maps']:
+                db_path = Path(config_data['maps']['offline_geocoding_db_path'])
+                if not db_path.is_absolute():
+                    # 相对路径：转换为绝对路径
+                    config_data['maps']['offline_geocoding_db_path'] = str((app_dir / db_path).resolve())
+                    print(f"✅ 已设置 GPS 数据库路径: {config_data['maps']['offline_geocoding_db_path']}")
+        
+        # 保存修改后的配置
+        with open(user_config_path, 'w', encoding='utf-8') as f:
+            json.dump(config_data, f, indent=2, ensure_ascii=False)
+        
         # 重新加载配置
         import importlib
         import app.core.config
@@ -562,42 +614,88 @@ def initialize_application():
     
     # 挂载存储目录（使用最新路径）
     print("📁 正在挂载存储目录...")
-    config_path = Path(settings.storage.base_path)
+    from app.core.path_utils import resolve_resource_path
+    photos_storage_dir = resolve_resource_path(settings.storage.base_path)
     
-    if getattr(sys, 'frozen', False):
-        # PyInstaller打包环境
-        exe_dir = Path(sys.executable).parent
-        
-        if config_path.is_absolute():
-            # 绝对路径：直接使用用户指定的路径
-            photos_storage_dir = config_path
-            print(f"📦 PyInstaller环境：使用绝对路径 {photos_storage_dir}")
-        else:
-            # 相对路径：相对于exe目录解析
-            photos_storage_dir = exe_dir / config_path
-            print(f"📦 PyInstaller环境：相对路径解析为 {photos_storage_dir}")
-        
-        # 确保存储目录存在
-        photos_storage_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        # 开发环境
-        if config_path.is_absolute():
-            photos_storage_dir = config_path
-            print(f"🔧 开发环境：使用绝对路径 {photos_storage_dir}")
-        else:
-            # 相对路径：相对于项目根目录
-            project_root = Path(__file__).parent
-            photos_storage_dir = project_root / config_path
-            print(f"🔧 开发环境：相对路径解析为 {photos_storage_dir}")
-        
-        # 确保存储目录存在
-        photos_storage_dir.mkdir(parents=True, exist_ok=True)
+    # 确保存储目录存在
+    photos_storage_dir.mkdir(parents=True, exist_ok=True)
     
     # 挂载存储目录
     app.mount("/photos_storage", StaticFiles(directory=str(photos_storage_dir)), name="photos_storage")
-    print(f"✅ 存储目录已挂载: {photos_storage_dir}")
+    print(f"✅ 存储目录已挂载")
     
     return settings, engine, photos_storage_dir
+
+
+# 路径解析函数已移至 app.core.path_utils，这里导入以便向后兼容
+from app.core.path_utils import resolve_resource_path
+
+
+def print_resource_paths(settings, storage_path=None, database_path=None):
+    """
+    打印当前环境下真正起作用的资源路径（用于诊断）
+    
+    :param settings: 应用配置对象
+    :param storage_path: 存储路径（Path对象，可选）
+    :param database_path: 数据库路径（Path对象，可选）
+    """
+    import sys
+    from app.core.config import is_msix_environment
+    from pathlib import Path
+    
+    # 判断当前运行环境
+    if getattr(sys, 'frozen', False):
+        if is_msix_environment():
+            env_name = "MSIX环境"
+        else:
+            env_name = "PyInstaller Portable环境"
+    else:
+        env_name = "开发环境"
+    
+    print("\n" + "="*60)
+    print(f"📁 资源路径配置（{env_name}）")
+    print("="*60)
+    
+    # 导入路径解析函数（在函数内部导入，避免循环依赖）
+    from app.core.path_utils import resolve_resource_path
+    
+    # 1. 数据库路径
+    if database_path:
+        db_path = Path(database_path)
+        print(f"   数据库路径: {db_path}")
+        if not db_path.parent.exists():
+            print(f"   ⚠️  警告: 数据库目录不存在")
+    
+    # 2. 存储路径
+    if storage_path:
+        storage_dir = Path(storage_path)
+        print(f"   存储路径: {storage_dir}")
+        if not storage_dir.exists():
+            print(f"   ⚠️  警告: 存储目录不存在")
+    
+    # 3. 人脸识别模型路径
+    if hasattr(settings, 'face_recognition') and settings.face_recognition.models_base_path:
+        face_models_path = resolve_resource_path(settings.face_recognition.models_base_path)
+        print(f"   人脸识别模型路径: {face_models_path}")
+        if not face_models_path.exists():
+            print(f"   ⚠️  警告: 路径不存在")
+    
+    # 4. 图像特征提取模型路径
+    if hasattr(settings, 'image_features') and settings.image_features.models_base_path:
+        image_models_path = resolve_resource_path(settings.image_features.models_base_path)
+        print(f"   图像特征提取模型路径: {image_models_path}")
+        if not image_models_path.exists():
+            print(f"   ⚠️  警告: 路径不存在")
+    
+    # 5. GPS数据库路径
+    if hasattr(settings, 'maps') and settings.maps.offline_geocoding_db_path:
+        gps_db_path = resolve_resource_path(settings.maps.offline_geocoding_db_path)
+        print(f"   GPS数据库路径: {gps_db_path}")
+        if not gps_db_path.exists():
+            print(f"   ⚠️  警告: 路径不存在")
+    
+    print("="*60)
+    print()
 
 
 if __name__ == "__main__":
@@ -628,23 +726,16 @@ if __name__ == "__main__":
     print("📁 正在检查数据库目录...")
     from pathlib import Path
 
-    # 处理数据库路径：如果是绝对路径直接使用，如果是相对路径则相对于可执行文件目录
-    db_path = Path(settings.database.path)
-    if not db_path.is_absolute():
-        # 相对路径：在PyInstaller环境下，相对于可执行文件目录
-        if getattr(sys, 'frozen', False):
-            exe_dir = Path(sys.executable).parent
-            db_path = exe_dir / db_path
-        else:
-            # 开发环境：相对于项目根目录
-            db_path = Path(settings.database.path)
-    
-    db_path = db_path.resolve()  # 转换为绝对路径
+    # 处理数据库路径（使用统一的路径解析函数）
+    from app.core.path_utils import resolve_resource_path
+    db_path = resolve_resource_path(settings.database.path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    print(f"✅ 数据库目录: {db_path.parent}")
 
     # 更新配置中的数据库路径为绝对路径
     settings.database.path = str(db_path)
+
+    # ===== 打印资源路径（用于诊断） =====
+    print_resource_paths(settings, storage_path=photos_storage_dir, database_path=db_path)
 
     # 创建数据库表
     print("🗄️  正在创建或检查数据库表...")
@@ -653,15 +744,32 @@ if __name__ == "__main__":
 
     # 检查并添加缺失的数据库字段
     print("🔧 正在检查数据库字段...")
-    from app.services.database_migration_service import check_and_add_image_features_fields, check_and_add_similar_photo_cluster_fields
-    check_and_add_image_features_fields()
-    check_and_add_similar_photo_cluster_fields()
+    # 临时禁用INFO日志
+    import logging
+    migration_logger = logging.getLogger('app.services.database_migration_service')
+    original_level = migration_logger.level
+    migration_logger.setLevel(logging.WARNING)
+    
+    try:
+        from app.services.database_migration_service import check_and_add_image_features_fields, check_and_add_similar_photo_cluster_fields
+        check_and_add_image_features_fields()
+        check_and_add_similar_photo_cluster_fields()
+    finally:
+        migration_logger.setLevel(original_level)
     print("✅ 数据库字段检查完成")
 
     # 优化人脸识别数据库（添加索引和清理无效数据）
     print("🔧 正在优化人脸识别数据库...")
-    from app.services.face_database_optimization_service import optimize_face_recognition_database
-    optimize_face_recognition_database()
+    # 临时禁用INFO日志
+    optimization_logger = logging.getLogger('app.services.face_database_optimization_service')
+    original_level = optimization_logger.level
+    optimization_logger.setLevel(logging.WARNING)
+    
+    try:
+        from app.services.face_database_optimization_service import optimize_face_recognition_database
+        optimize_face_recognition_database()
+    finally:
+        optimization_logger.setLevel(original_level)
     print("✅ 人脸识别数据库优化完成")
 
     # 初始化系统分类
@@ -715,16 +823,24 @@ if __name__ == "__main__":
 
     # 初始化数据库索引
     print("📊 正在检查数据库索引...")
-    from app.services.index_management_service import IndexManagementService
-    index_service = IndexManagementService()
-    db = next(get_db())
+    # 临时禁用INFO日志
+    index_logger = logging.getLogger('app.services.index_management_service')
+    original_level = index_logger.level
+    index_logger.setLevel(logging.WARNING)
+    
     try:
-        if index_service.ensure_indexes_exist(db):
-            print("✅ 数据库索引检查完成")
-        else:
-            print("⚠️ 数据库索引检查失败，但不影响系统启动")
+        from app.services.index_management_service import IndexManagementService
+        index_service = IndexManagementService()
+        db = next(get_db())
+        try:
+            if index_service.ensure_indexes_exist(db):
+                print("✅ 数据库索引检查完成")
+            else:
+                print("⚠️ 数据库索引检查失败，但不影响系统启动")
+        finally:
+            db.close()
     finally:
-        db.close()
+        index_logger.setLevel(original_level)
 
     # 注意：日志系统已在 initialize_application() 中配置
 
@@ -749,9 +865,6 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("✅ 系统初始化完成")
     print("="*60)
-    print(f"📁 配置存储路径: {settings.storage.base_path}")
-    print(f"📂 实际存储路径: {photos_storage_dir}")
-
 
     # 启动定期缓存清理任务
     print("🧹 启动定期缓存清理任务...")
@@ -791,18 +904,12 @@ if __name__ == "__main__":
     print("🚀 家庭版智能照片系统启动成功！")
     print("=" * 60)
     print()
-    print("-" * 15+"请按住ctrl键点击如下链接打开系统页面"+"-" * 15)
+    print("-" * 15+"请按住ctrl键点击如下链接打开系统页面或等待自动进入系统页面"+"-" * 15)
     print(f"🌐 本机访问: http://127.0.0.1:{settings.server_port}")
-    print(f"📖 本机帮助页面: http://127.0.0.1:{settings.server_port}/help-overview")
-    print(f"⚙️ 本机配置页面: http://127.0.0.1:{settings.server_port}/settings")
-    print(f"📱 手机访问二维码页面: http://127.0.0.1:{settings.server_port}/startup-info")
+    print(f"📱 二维码页面: http://127.0.0.1:{settings.server_port}/startup-info")
     print("-" * 15+"其他设备访问地址（同一网络）"+"-" * 15)
     print(f"🌐 网络访问: http://{local_ip}:{settings.server_port}")
-    print(f"📖 网络帮助页面: http://{local_ip}:{settings.server_port}/help-overview")
-    print(f"⚙️ 网络配置页面: http://{local_ip}:{settings.server_port}/settings")
-    print(f"📱 手机访问二维码页面: http://{local_ip}:{settings.server_port}/startup-info")
-    print()
-    print("💡 提示：在手机浏览器中访问二维码页面，扫描二维码即可快速连接！")
+    print("💡 提示：打开二维码页面，手机📱扫描二维码即可快速连接！")
     print("=" * 60)
     
     # 启动服务器

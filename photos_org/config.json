@@ -47,8 +47,8 @@
     "quality_threshold": 0,
     "concurrent": 3,
     "timeout": 30,
-    "batch_size": 200,
-    "batch_threshold": 100
+    "batch_size": 100,
+    "batch_threshold": 60
   },
   "logging": {
     "level": "INFO",
@@ -77,7 +77,7 @@
   },
   "similarity": {
     "first_layer_weights": {
-      "perceptual_hash": 0.3,
+      "perceptual_hash": 0.5,
       "time": 0.2,
       "location": 0.15,
       "camera": 0.1,
@@ -89,7 +89,7 @@
       "ai_tags": 0.01
     },
     "first_layer_thresholds": {
-      "perceptual_hash": 0.4,
+      "perceptual_hash": 0.5,
       "color_histogram": 0.7,
       "structural": 0.8,
       "scene_type": 0.6,
@@ -137,8 +137,8 @@
       ".heif"
     ],
     "max_upload_files": 50000,
-    "scan_batch_size": 200,
-    "batch_threshold": 100
+    "scan_batch_size": 100,
+    "batch_threshold": 60
   },
   "quality": {
     "weights": {
@@ -162,8 +162,9 @@
     "rate_limit": 180,
     "cache_enabled": true,
     "cache_ttl": 86400,
-    "batch_size": 200,
-    "configured": false
+    "batch_size": 100,
+    "configured": false,
+    "offline_geocoding_db_path": "offline_geocoding.db"
   },
   "face_recognition": {
     "enabled": true,
@@ -171,10 +172,10 @@
     "use_local_model": true,
     "models_base_path": "./models",
     "detection_threshold": 0.6,
-    "similarity_threshold": 0.7,
+    "similarity_threshold": 0.5,
     "max_faces_per_photo": 10,
-    "batch_size": 200,
-    "batch_threshold": 100,
+    "batch_size": 100,
+    "batch_threshold": 60,
     "max_concurrent_batches": 3,
     "max_concurrent_photos": 6,
     "max_progress_checks": 36000,
@@ -195,11 +196,11 @@
     "models_base_path": "./models",
     "model_file": "resnet50/resnet50-0676ba61.pth",
     "feature_dim": 2048,
-    "batch_size": 200,
-    "batch_threshold": 100,
+    "batch_size": 100,
+    "batch_threshold": 60,
     "max_concurrent_batches": 3,
     "max_concurrent_photos": 6,
-    "similarity_threshold": 0.75,
+    "similarity_threshold": 0.72,
     "extraction_timeout": 30
   }
 }

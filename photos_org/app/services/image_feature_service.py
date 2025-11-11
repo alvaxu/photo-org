@@ -147,7 +147,8 @@ class ImageFeatureService:
     def storage_base(self) -> Path:
         """动态获取存储基础路径（每次使用时读取最新配置）"""
         from app.core.config import get_settings
-        return Path(get_settings().storage.base_path).resolve()
+        from app.core.path_utils import resolve_resource_path
+        return resolve_resource_path(get_settings().storage.base_path)
     
     def _get_full_path(self, image_path: str) -> Path:
         """
@@ -183,8 +184,9 @@ class ImageFeatureService:
             
             # 根据配置决定使用本地模型还是在线模型
             if self.config.use_local_model:
-                # 使用本地模型路径
-                models_base_path = Path(self.config.models_base_path).resolve()
+                # 使用本地模型路径（使用统一的路径解析函数）
+                from app.core.path_utils import resolve_resource_path
+                models_base_path = resolve_resource_path(self.config.models_base_path)
                 model_file_path = models_base_path / self.config.model_file
                 logger.info(f"使用本地模型路径: {model_file_path}")
                 
