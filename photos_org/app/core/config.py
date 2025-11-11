@@ -81,7 +81,7 @@ class ServerConfig(BaseSettings):
 class UIConfig(BaseSettings):
     """用户界面配置"""
     photos_per_page: int = Field(default=12, description="每页显示照片数量")
-    similar_photos_limit: int = Field(default=8, description="相似照片显示数量")
+    similar_photos_limit: int = Field(default=8, description="相似照片最多显示数量")
     hot_tags_limit: int = Field(default=10, description="热门标签显示数量")
     hot_categories_limit: int = Field(default=10, description="热门分类显示数量")
 

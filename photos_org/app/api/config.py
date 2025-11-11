@@ -191,7 +191,9 @@ async def update_user_config(request: ConfigUpdateRequest, http_request: Request
         if request.face_recognition:
             if "face_recognition" not in current_config:
                 current_config["face_recognition"] = {}
-            # 只更新 min_cluster_size 和 max_clusters（页面上显示的参数）
+            # 只更新 similarity_threshold、min_cluster_size 和 max_clusters（页面上显示的参数）
+            if "similarity_threshold" in request.face_recognition:
+                current_config["face_recognition"]["similarity_threshold"] = request.face_recognition["similarity_threshold"]
             if "min_cluster_size" in request.face_recognition:
                 current_config["face_recognition"]["min_cluster_size"] = request.face_recognition["min_cluster_size"]
             if "max_clusters" in request.face_recognition:

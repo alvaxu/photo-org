@@ -126,13 +126,17 @@ class PeopleManagementStandalone {
             this.loadPeopleData(this.currentPage);
         });
 
-        document.getElementById('startFaceRecognitionBtn')?.addEventListener('click', () => {
+        // 人脸识别按钮（原 startFaceRecognitionBtn）
+        document.getElementById('faceRecognitionBtn')?.addEventListener('click', () => {
             this.startFaceRecognition();
         });
 
-        document.getElementById('startFaceRecognitionFirstBtn')?.addEventListener('click', () => {
-            this.startFaceRecognition();
+        // 开始聚类按钮（新增）
+        document.getElementById('startFaceClusterBtn')?.addEventListener('click', () => {
+            this.startFaceClustering();
         });
+
+        // 空状态按钮的事件监听器在 showEmptyState() 中动态设置，根据情况调用不同的方法
 
         // 人脸识别模态框中的开始按钮事件监听
         document.getElementById('startFaceBtn')?.addEventListener('click', () => {
@@ -203,6 +207,7 @@ class PeopleManagementStandalone {
         document.getElementById('labeledPeopleCount').textContent = this.statistics.labeled_clusters || 0;
         document.getElementById('unlabeledPeopleCount').textContent = this.statistics.unlabeled_clusters || 0;
         document.getElementById('totalFacesCount').textContent = this.statistics.total_faces || 0;
+        document.getElementById('clusteredFacesCount').textContent = this.statistics.clustered_faces || 0;
         document.getElementById('peopleCount').textContent = this.statistics.total_clusters || 0;
     }
 
@@ -338,6 +343,246 @@ class PeopleManagementStandalone {
         document.getElementById('faceProgress').classList.add('d-none');
         document.getElementById('startFaceBtn').disabled = false;
         document.getElementById('startFaceBtn').textContent = '开始人脸识别';
+    }
+
+    async startFaceClustering() {
+        /**
+         * 开始人脸聚类分析
+         */
+        if (!confirm('确定要开始人脸聚类分析吗？这将重新分析所有已提取人脸特征的照片。')) {
+            return;
+        }
+
+        // 禁用按钮，防止重复点击
+        const startBtn = document.getElementById('startFaceClusterBtn');
+        
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 聚类中...';
+        }
+
+        // 立即显示进度条
+        const progressContainer = document.getElementById('faceClusterProgress');
+        const progressBar = document.getElementById('faceClusterProgressBar');
+        const statusText = document.getElementById('faceClusterStatus');
+        const detailsText = document.getElementById('faceClusterDetails');
+        
+        if (progressContainer) {
+            progressContainer.classList.remove('d-none');
+        }
+        if (progressBar) {
+            progressBar.style.width = '5%';
+            progressBar.setAttribute('aria-valuenow', 5);
+        }
+        if (statusText) {
+            statusText.textContent = '正在启动聚类分析...';
+        }
+        if (detailsText) {
+            detailsText.textContent = '请稍候...';
+        }
+
+        try {
+            const response = await fetch('/api/v1/face/cluster', {
+                method: 'POST'
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success && data.task_id) {
+                // 更新进度
+                if (progressBar) {
+                    progressBar.style.width = '10%';
+                    progressBar.setAttribute('aria-valuenow', 10);
+                }
+                if (statusText) {
+                    statusText.textContent = '聚类任务已启动，正在处理...';
+                }
+                
+                // 开始轮询任务状态
+                this.pollFaceClusterTaskStatus(data.task_id);
+            } else {
+                // 隐藏进度条
+                if (progressContainer) {
+                    progressContainer.classList.add('d-none');
+                }
+                alert('启动聚类分析失败: ' + (data.message || '未知错误'));
+                // 恢复按钮状态
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i class="bi bi-diagram-3"></i> 开始聚类';
+                }
+            }
+        } catch (error) {
+            console.error('启动聚类分析失败:', error);
+            // 隐藏进度条
+            if (progressContainer) {
+                progressContainer.classList.add('d-none');
+            }
+            alert('启动聚类分析失败: ' + error.message);
+            // 恢复按钮状态
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="bi bi-diagram-3"></i> 开始聚类';
+            }
+        }
+    }
+
+    async pollFaceClusterTaskStatus(taskId) {
+        /**
+         * 轮询人脸聚类任务状态，直到完成或失败
+         */
+        const maxAttempts = 900; // 最多轮询900次（30分钟，每次2秒）
+        let attempts = 0;
+        
+        // 显示进度条
+        const progressContainer = document.getElementById('faceClusterProgress');
+        const progressBar = document.getElementById('faceClusterProgressBar');
+        const statusText = document.getElementById('faceClusterStatus');
+        const detailsText = document.getElementById('faceClusterDetails');
+        
+        if (progressContainer) {
+            progressContainer.classList.remove('d-none');
+        }
+        
+        const poll = async () => {
+            try {
+                const response = await fetch(`/api/v1/face/cluster/status/${taskId}`);
+                const data = await response.json();
+                
+                if (!response.ok || !data.success) {
+                    console.error('获取任务状态失败:', data.message);
+                    if (attempts >= maxAttempts) {
+                        alert('聚类任务状态查询超时，请手动刷新页面查看结果。');
+                        this.enableFaceClusterButton();
+                        if (progressContainer) {
+                            progressContainer.classList.add('d-none');
+                        }
+                        return;
+                    }
+                    // 继续轮询
+                    attempts++;
+                    setTimeout(poll, 2000);
+                    return;
+                }
+                
+                const status = data.status;
+                
+                // 更新进度显示
+                if (progressBar && data.progress_percentage !== undefined) {
+                    const progress = Math.min(data.progress_percentage || 0, 100);
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.setAttribute('aria-valuenow', progress);
+                }
+                
+                if (statusText && data.message) {
+                    statusText.textContent = data.message;
+                }
+                
+                // 更新详细信息
+                if (detailsText) {
+                    let details = '';
+                    if (data.current_stage) {
+                        const stageNames = {
+                            'backup_labels': '备份旧聚类标签',
+                            'delete_old_clusters': '删除旧聚类数据',
+                            'clustering': '执行聚类分析',
+                            'restore_labels': '恢复用户标签',
+                            'completed': '完成'
+                        };
+                        details = stageNames[data.current_stage] || data.current_stage;
+                    }
+                    if (data.total_faces !== undefined) {
+                        details += details ? ` - 总人脸数: ${data.total_faces}` : `总人脸数: ${data.total_faces}`;
+                    }
+                    if (data.cluster_count !== undefined) {
+                        details += details ? ` | 已创建 ${data.cluster_count} 个聚类` : `已创建 ${data.cluster_count} 个聚类`;
+                    }
+                    detailsText.textContent = details || '请稍候...';
+                }
+                
+                if (status === 'completed') {
+                    // 任务完成，刷新人物列表
+                    console.log('人脸聚类任务完成:', data.message);
+                    
+                    // 更新最终进度
+                    if (progressBar) {
+                        progressBar.style.width = '100%';
+                        progressBar.setAttribute('aria-valuenow', 100);
+                    }
+                    if (statusText) {
+                        statusText.textContent = '人脸聚类分析完成！';
+                    }
+                    if (detailsText) {
+                        detailsText.textContent = `共创建 ${data.cluster_count || 0} 个聚类`;
+                    }
+                    
+                    // 延迟隐藏进度条并刷新数据
+                    setTimeout(async () => {
+                        if (progressContainer) {
+                            progressContainer.classList.add('d-none');
+                        }
+                        await this.loadPeopleData(1); // 聚类完成后回到第一页
+                        alert('人脸聚类分析完成！' + (data.message || ''));
+                        this.enableFaceClusterButton();
+                    }, 1500);
+                } else if (status === 'failed') {
+                    // 任务失败
+                    console.error('人脸聚类任务失败:', data.message);
+                    if (progressContainer) {
+                        progressContainer.classList.add('d-none');
+                    }
+                    alert('人脸聚类分析失败: ' + (data.message || '未知错误'));
+                    this.enableFaceClusterButton();
+                } else if (status === 'processing') {
+                    // 任务进行中，继续轮询
+                    if (attempts >= maxAttempts) {
+                        alert('人脸聚类任务超时，请手动刷新页面查看结果。');
+                        if (progressContainer) {
+                            progressContainer.classList.add('d-none');
+                        }
+                        this.enableFaceClusterButton();
+                        return;
+                    }
+                    attempts++;
+                    setTimeout(poll, 2000);
+                } else if (status === 'not_found') {
+                    // 任务不存在（可能已完成并清理）
+                    console.warn('任务状态不存在，可能已完成，刷新页面查看结果');
+                    if (progressContainer) {
+                        progressContainer.classList.add('d-none');
+                    }
+                    await this.loadPeopleData(1); // 回到第一页
+                    this.enableFaceClusterButton();
+                }
+            } catch (error) {
+                console.error('轮询任务状态失败:', error);
+                if (attempts >= maxAttempts) {
+                    alert('人脸聚类任务状态查询超时，请手动刷新页面查看结果。');
+                    if (progressContainer) {
+                        progressContainer.classList.add('d-none');
+                    }
+                    this.enableFaceClusterButton();
+                    return;
+                }
+                attempts++;
+                setTimeout(poll, 2000);
+            }
+        };
+        
+        // 开始轮询
+        poll();
+    }
+
+    enableFaceClusterButton() {
+        /**
+         * 恢复聚类按钮状态
+         */
+        const startBtn = document.getElementById('startFaceClusterBtn');
+        
+        if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="bi bi-diagram-3"></i> 开始聚类';
+        }
     }
 
     async startFaceRecognitionProcess() {
@@ -1424,7 +1669,47 @@ class PeopleManagementStandalone {
     }
 
     showEmptyState() {
-        document.getElementById('peopleEmptyState')?.classList.remove('d-none');
+        const emptyStateDiv = document.getElementById('peopleEmptyState');
+        if (!emptyStateDiv) return;
+        
+        // 根据统计信息动态显示不同的提示
+        const totalFaces = this.statistics?.total_faces || 0;
+        const totalClusters = this.statistics?.total_clusters || 0;
+        
+        // 获取提示文本和按钮元素
+        const hintText = emptyStateDiv.querySelector('p.text-muted');
+        const actionButton = document.getElementById('startFaceRecognitionFirstBtn');
+        
+        if (totalFaces === 0) {
+            // 情况1：还没有做人脸识别
+            if (hintText) {
+                hintText.textContent = '请先进行人脸识别分析';
+            }
+            if (actionButton) {
+                actionButton.innerHTML = '<i class="bi bi-camera me-2"></i>开始人脸识别';
+                actionButton.onclick = () => this.startFaceRecognition();
+            }
+        } else if (totalFaces > 0 && totalClusters === 0) {
+            // 情况2：已完成人脸识别但还没有做聚类
+            if (hintText) {
+                hintText.textContent = '已完成人脸识别，请开始聚类分析';
+            }
+            if (actionButton) {
+                actionButton.innerHTML = '<i class="bi bi-diagram-3 me-2"></i>开始聚类';
+                actionButton.onclick = () => this.startFaceClustering();
+            }
+        } else {
+            // 情况3：已有聚类数据（理论上不会到这里，因为renderPeopleCards会先检查）
+            if (hintText) {
+                hintText.textContent = '请先进行人脸识别分析';
+            }
+            if (actionButton) {
+                actionButton.innerHTML = '<i class="bi bi-camera me-2"></i>开始人脸识别';
+                actionButton.onclick = () => this.startFaceRecognition();
+            }
+        }
+        
+        emptyStateDiv.classList.remove('d-none');
         document.getElementById('peopleLoadingState')?.classList.add('d-none');
         document.getElementById('peopleList')?.classList.add('d-none');
     }

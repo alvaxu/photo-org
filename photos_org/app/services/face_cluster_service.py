@@ -45,6 +45,9 @@ from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
+# 全局人脸聚类任务状态跟踪
+face_cluster_task_status = {}
+
 
 class PortraitRotationManager:
     """
@@ -160,6 +163,54 @@ class FaceClusterService:
     def cluster_quality_threshold(self) -> float:
         """动态获取聚类质量阈值（每次使用时读取最新配置）"""
         return self.config.cluster_quality_threshold
+    
+    def _update_task_status(self, task_id: str, updates: dict):
+        """
+        更新任务状态
+        
+        :param task_id: 任务ID
+        :param updates: 要更新的字段字典
+        """
+        if task_id and task_id in face_cluster_task_status:
+            face_cluster_task_status[task_id].update(updates)
+    
+    async def process_cluster_task(self, task_id: str) -> bool:
+        """
+        处理聚类任务（参考相似照识别聚类的process_cluster_task）
+        在后台任务内部创建数据库会话，避免阻塞事件循环
+        
+        :param task_id: 任务ID
+        :return: 是否聚类成功
+        """
+        # 🔥 优化：提前加载依赖库，减少用户等待时间
+        logger.info(f"人脸聚类任务启动（任务ID: {task_id}）...")
+        _lazy_import_dependencies()
+        
+        # 🔥 在后台任务内部创建新的数据库会话（参考相似照识别聚类任务）
+        db = next(get_db())
+        
+        try:
+            # 调用实际的聚类方法
+            result = await self.cluster_faces(db, task_id)
+            return result
+        except Exception as e:
+            # 🔥 捕获所有异常，防止进程退出
+            logger.error(f"人脸聚类任务执行失败: {str(e)}", exc_info=True)
+            import traceback
+            traceback.print_exc()
+            if task_id:
+                face_cluster_task_status[task_id] = {
+                    "status": "failed",
+                    "message": f"人脸聚类任务执行失败: {str(e)}",
+                    "end_time": datetime.now().isoformat()
+                }
+            return False
+        finally:
+            # 确保关闭数据库会话
+            try:
+                db.close()
+            except Exception as e:
+                logger.error(f"关闭数据库会话失败: {str(e)}")
         
     async def cluster_faces(self, db: Session, task_id: Optional[str] = None) -> bool:
         """
@@ -168,13 +219,32 @@ class FaceClusterService:
         :param task_id: 任务ID（可选）
         :return: 是否聚类成功
         """
-        # 延迟导入依赖
-        _lazy_import_dependencies()
+        # 🔥 优化：依赖库已在 process_cluster_task() 中加载，这里不再重复加载
+        # 如果没有提供task_id，生成一个
+        if not task_id:
+            task_id = f"face_cluster_{int(datetime.now().timestamp())}"
         
         try:
-            logger.info("开始人脸聚类分析...")
+            # 初始化任务状态
+            face_cluster_task_status[task_id] = {
+                "status": "processing",
+                "message": "人脸聚类分析进行中",
+                "start_time": datetime.now().isoformat(),
+                "current_stage": "backup_labels",
+                "progress_percentage": 0.0,
+                "cluster_count": 0,
+                "total_faces": 0
+            }
+            
+            logger.info(f"开始人脸聚类分析（任务ID: {task_id}）...")
             
             # 1. 备份旧聚类标签（如果有）
+            self._update_task_status(task_id, {
+                "message": "备份旧聚类标签...",
+                "current_stage": "backup_labels",
+                "progress_percentage": 5.0
+            })
+            
             old_clusters = db.query(FaceCluster).filter(
                 FaceCluster.face_count > 0
             ).all()
@@ -193,12 +263,24 @@ class FaceClusterService:
                             old_representative_features[cluster.cluster_id] = face.face_features
             
             # 2. 删除所有旧聚类
+            self._update_task_status(task_id, {
+                "message": "删除旧聚类数据...",
+                "current_stage": "delete_old_clusters",
+                "progress_percentage": 10.0
+            })
+            
             logger.info("删除旧聚类数据...")
             db.query(FaceClusterMember).delete()
             db.query(FaceCluster).delete()
             db.commit()
             
             # 3. 全量重新聚类所有面容（排除 processed_ 标记记录，按ID排序确保顺序固定）
+            self._update_task_status(task_id, {
+                "message": "开始全量聚类...",
+                "current_stage": "clustering",
+                "progress_percentage": 15.0
+            })
+            
             logger.info("开始全量聚类...")
             all_faces = db.query(FaceDetection).filter(
                 FaceDetection.face_features.isnot(None),
@@ -207,14 +289,39 @@ class FaceClusterService:
             
             logger.info(f"待聚类人脸数量: {len(all_faces)}")
             
+            self._update_task_status(task_id, {
+                "total_faces": len(all_faces),
+                "progress_percentage": 20.0
+            })
+            
             # 直接调用全量聚类
-            await self._create_new_clusters(all_faces, db)
+            cluster_count = await self._create_new_clusters(all_faces, db, task_id)
+            
+            self._update_task_status(task_id, {
+                "cluster_count": cluster_count,
+                "progress_percentage": 80.0
+            })
             
             # 4. 标签恢复：匹配新聚类 → 旧聚类标签
             if old_cluster_labels and old_representative_features:
+                self._update_task_status(task_id, {
+                    "message": "恢复用户标签...",
+                    "current_stage": "restore_labels",
+                    "progress_percentage": 85.0
+                })
+                
                 logger.info("开始恢复用户标签...")
-                restored_count = await self._restore_labels(old_cluster_labels, old_representative_features, db)
+                restored_count = await self._restore_labels(old_cluster_labels, old_representative_features, db, task_id)
                 logger.info(f"✅ 恢复了 {restored_count} 个标签")
+            
+            # 更新任务状态为完成
+            self._update_task_status(task_id, {
+                "status": "completed",
+                "message": f"人脸聚类完成，创建了 {cluster_count} 个聚类",
+                "current_stage": "completed",
+                "progress_percentage": 100.0,
+                "end_time": datetime.now().isoformat()
+            })
             
             logger.info("人脸聚类完成")
             return True
@@ -222,14 +329,21 @@ class FaceClusterService:
         except Exception as e:
             logger.error(f"人脸聚类失败: {e}")
             db.rollback()
+            if task_id:
+                self._update_task_status(task_id, {
+                    "status": "failed",
+                    "message": f"人脸聚类失败: {str(e)}",
+                    "end_time": datetime.now().isoformat()
+                })
             return False
     
-    async def _restore_labels(self, old_cluster_labels: Dict, old_representative_features: Dict, db) -> int:
+    async def _restore_labels(self, old_cluster_labels: Dict, old_representative_features: Dict, db, task_id: Optional[str] = None) -> int:
         """
         恢复用户标签：通过代表人脸特征匹配新聚类和旧聚类
         :param old_cluster_labels: {cluster_id: person_name}
         :param old_representative_features: {cluster_id: face_features}
         :param db: 数据库会话
+        :param task_id: 任务ID（可选）
         :return: 恢复的标签数量
         """
         import numpy as np
@@ -276,6 +390,14 @@ class FaceClusterService:
             person_name = old_cluster_labels[old_cluster_id]
             logger.info(f"标签恢复进度: {idx + 1}/{total_old} (正在匹配: {person_name})")
             
+            # 更新进度（85% - 95%）
+            if task_id and total_old > 0:
+                progress = 85.0 + (idx / total_old) * 10.0
+                self._update_task_status(task_id, {
+                    "message": f"恢复用户标签... ({idx + 1}/{total_old})",
+                    "progress_percentage": min(progress, 95.0)
+                })
+            
             best_new_cluster = None
             best_sim = 0.0
             threshold = 0.55
@@ -304,11 +426,12 @@ class FaceClusterService:
         db.commit()
         return restored_count
     
-    async def _create_new_clusters(self, faces: List, db) -> int:
+    async def _create_new_clusters(self, faces: List, db, task_id: Optional[str] = None) -> int:
         """
         创建新聚类（使用DBSCAN）
         :param faces: 人脸列表
         :param db: 数据库会话
+        :param task_id: 任务ID（可选）
         :return: 创建的聚类数量
         """
         import numpy as np
@@ -317,6 +440,13 @@ class FaceClusterService:
         if len(faces) < 1:
             logger.info(f"人脸数量不足，跳过聚类")
             return 0
+        
+        # 更新进度：提取特征向量（20% - 30%）
+        if task_id:
+            self._update_task_status(task_id, {
+                "message": "提取人脸特征向量...",
+                "progress_percentage": 25.0
+            })
         
         # 提取特征向量
         features = []
@@ -331,6 +461,13 @@ class FaceClusterService:
             return 0
         
         features = np.array(features)
+        
+        # 更新进度：执行DBSCAN聚类（30% - 50%）
+        if task_id:
+            self._update_task_status(task_id, {
+                "message": "执行DBSCAN聚类分析...",
+                "progress_percentage": 40.0
+            })
         
         # 使用DBSCAN进行聚类
         # 🔥 修改：min_samples=1，允许单人照聚类
@@ -347,6 +484,13 @@ class FaceClusterService:
             unique_labels.remove(-1)  # 移除噪声点
         
         logger.info(f"检测到 {len(unique_labels)} 个新聚类")
+        
+        # 更新进度：创建聚类记录（50% - 70%）
+        if task_id:
+            self._update_task_status(task_id, {
+                "message": f"创建聚类记录... (检测到 {len(unique_labels)} 个聚类)",
+                "progress_percentage": 60.0
+            })
         
         # 🔥 优化：两阶段处理
         # 第一阶段：创建所有聚类，先简单选择代表人脸（使用第一个）
@@ -384,6 +528,13 @@ class FaceClusterService:
             clusters_info.append((cluster_id, cluster_faces, len(cluster_faces)))
         
         db.commit()
+        
+        # 更新进度：优化代表人脸选择（70% - 80%）
+        if task_id:
+            self._update_task_status(task_id, {
+                "message": "优化代表人脸选择...",
+                "progress_percentage": 75.0
+            })
         
         # 第二阶段：只对需要显示的聚类进行详细的代表人脸选择
         # 筛选条件：face_count >= min_cluster_size，前 max_clusters 个

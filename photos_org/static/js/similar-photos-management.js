@@ -80,9 +80,7 @@ class SimilarPhotosManagement {
             this.startClustering();
         });
 
-        document.getElementById('startClusterFirstBtn')?.addEventListener('click', () => {
-            this.startClustering();
-        });
+        // startClusterFirstBtn 的点击事件在 showEmptyState() 中动态设置，根据特征提取状态决定行为
 
         // 图像特征提取按钮事件
         const imageFeatureExtractionBtn = document.getElementById('imageFeatureExtractionBtn');
@@ -726,9 +724,90 @@ class SimilarPhotosManagement {
     }
 
     showEmptyState() {
-        document.getElementById('clustersEmptyState')?.classList.remove('d-none');
+        const emptyStateDiv = document.getElementById('clustersEmptyState');
+        if (!emptyStateDiv) return;
+        
+        // 根据统计信息动态显示不同的提示
+        const totalClusters = this.statistics?.total_clusters || 0;
+        
+        // 获取提示文本和按钮元素
+        const hintText = emptyStateDiv.querySelector('p.text-muted');
+        const actionButton = document.getElementById('startClusterFirstBtn');
+        
+        // 异步检查是否已完成特征提取
+        this.checkFeatureExtractionStatus().then(hasFeatures => {
+            if (totalClusters === 0) {
+                if (hasFeatures) {
+                    // 情况2：已完成特征提取但还没有做聚类
+                    if (hintText) {
+                        hintText.textContent = '已完成特征提取，请开始聚类分析';
+                    }
+                    if (actionButton) {
+                        actionButton.innerHTML = '<i class="bi bi-diagram-3 me-2"></i>开始聚类';
+                        // 点击后开始聚类
+                        actionButton.onclick = () => this.startClustering();
+                    }
+                } else {
+                    // 情况1：还没有做特征提取
+                    if (hintText) {
+                        hintText.textContent = '请先进行特征提取，然后开始聚类分析';
+                    }
+                    if (actionButton) {
+                        actionButton.innerHTML = '<i class="bi bi-image me-2"></i>开始特征提取';
+                        // 点击后打开特征提取模态框
+                        actionButton.onclick = () => {
+                            if (typeof window.showImageFeatureExtractionModal === 'function') {
+                                window.showImageFeatureExtractionModal();
+                            } else {
+                                console.warn('图像特征提取功能尚未加载');
+                                alert('图像特征提取功能尚未加载，请刷新页面重试');
+                            }
+                        };
+                    }
+                }
+            }
+        }).catch(error => {
+            console.error('检查特征提取状态失败:', error);
+            // 出错时使用默认提示（情况1）
+            if (hintText) {
+                hintText.textContent = '请先进行特征提取，然后开始聚类分析';
+            }
+            if (actionButton) {
+                actionButton.innerHTML = '<i class="bi bi-image me-2"></i>开始特征提取';
+                actionButton.onclick = () => {
+                    if (typeof window.showImageFeatureExtractionModal === 'function') {
+                        window.showImageFeatureExtractionModal();
+                    } else {
+                        console.warn('图像特征提取功能尚未加载');
+                        alert('图像特征提取功能尚未加载，请刷新页面重试');
+                    }
+                };
+            }
+        });
+        
+        emptyStateDiv.classList.remove('d-none');
         document.getElementById('clustersList')?.classList.add('d-none');
         document.getElementById('clustersLoadingState')?.classList.add('d-none');
+    }
+
+    async checkFeatureExtractionStatus() {
+        /**
+         * 检查是否已完成特征提取
+         * @returns {Promise<boolean>} 如果所有照片都已提取特征返回true，否则返回false
+         */
+        try {
+            const response = await fetch('/api/v1/image-features/pending-photos');
+            const data = await response.json();
+            
+            if (response.ok && data.total !== undefined) {
+                // 如果待提取的照片数量为0，说明已完成特征提取
+                return data.total === 0;
+            }
+            return false;
+        } catch (error) {
+            console.error('检查特征提取状态失败:', error);
+            return false;
+        }
     }
 
     showErrorState(message) {
@@ -861,5 +940,7 @@ let similarPhotosManagement;
 document.addEventListener('DOMContentLoaded', async () => {
     similarPhotosManagement = new SimilarPhotosManagement();
     await similarPhotosManagement.init();
+    // 暴露到全局作用域，供其他模块调用（如特征提取完成后刷新页面）
+    window.similarPhotosManagement = similarPhotosManagement;
 });
 

@@ -286,7 +286,19 @@ async function pollFeatureExtractionStatus(taskId) {
                                 // 不显示错误，因为特征提取已完成，用户可以手动刷新
                             }
                         } else {
-                            console.log('相似照识别页面，跳过照片列表刷新');
+                            // 相似照识别页面，刷新聚类数据以更新空状态显示
+                            console.log('相似照识别页面，刷新聚类数据...');
+                            if (typeof window.similarPhotosManagement !== 'undefined' && 
+                                window.similarPhotosManagement && 
+                                typeof window.similarPhotosManagement.loadClustersData === 'function') {
+                                // 延迟1秒，给服务器时间完成数据库操作
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                try {
+                                    await window.similarPhotosManagement.loadClustersData(1);
+                                } catch (error) {
+                                    console.warn('刷新聚类数据失败（可忽略）:', error);
+                                }
+                            }
                         }
                     }
                 }, 300);

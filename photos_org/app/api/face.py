@@ -32,32 +32,68 @@ router = APIRouter(prefix="/face", tags=["face_recognition"])
 
 @router.post("/cluster")
 async def cluster_faces(
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """
     执行人脸聚类分析
-    :param background_tasks: 后台任务
-    :param db: 数据库会话
-    :return: 聚类结果
+    :param db: 数据库会话（仅用于验证，不在后台任务中使用）
+    :return: 聚类任务启动结果
     """
     try:
-        if not face_service.is_initialized:
-            await face_service.initialize()
-            
-        if not face_service.is_initialized:
-            raise HTTPException(status_code=500, detail="人脸识别服务未初始化")
+        import asyncio
+        from app.services.face_cluster_service import FaceClusterService
+        import uuid
+        from datetime import datetime
         
-        # 异步执行聚类
-        background_tasks.add_task(face_service.cluster_faces, db)
+        # 🔥 聚类分析不需要加载人脸识别模型，只需要使用已提取的特征向量
+        # 移除不必要的 face_service.initialize() 调用，避免加载重型模型
+        
+        cluster_service = FaceClusterService()
+        
+        # 生成任务ID
+        task_id = f"face_cluster_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}"
+        
+        # 🔥 使用 asyncio.create_task() 启动真正的异步任务（参考相似照识别聚类）
+        asyncio.create_task(cluster_service.process_cluster_task(task_id))
         
         return {
             "success": True,
-            "message": "已开始人脸聚类分析"
+            "message": "已开始人脸聚类分析",
+            "task_id": task_id
         }
         
     except Exception as e:
         logger.error(f"人脸聚类API失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/cluster/status/{task_id}")
+async def get_face_cluster_task_status(task_id: str):
+    """
+    获取人脸聚类任务状态
+    
+    :param task_id: 任务ID
+    :return: 任务状态
+    """
+    try:
+        from app.services.face_cluster_service import face_cluster_task_status
+        
+        task_status = face_cluster_task_status.get(task_id)
+        
+        if not task_status:
+            return {
+                "success": False,
+                "status": "not_found",
+                "message": "任务不存在或已过期"
+            }
+        
+        return {
+            "success": True,
+            "task_id": task_id,
+            **task_status
+        }
+        
+    except Exception as e:
+        logger.error(f"获取人脸聚类任务状态失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/clusters")

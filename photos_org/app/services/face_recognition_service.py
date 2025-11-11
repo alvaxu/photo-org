@@ -24,13 +24,11 @@ import json
 # 延迟导入重型库
 insightface = None
 FaceAnalysis = None
-ins_get_image = None
 cv2 = None
-DBSCAN = None
-cosine_similarity = None
+np = None
+# PIL/HEIC 支持延迟加载（仅在需要时加载）
 PIL = None
 Image = None
-np = None
 HEIC_SUPPORT = False
 
 from app.core.config import settings
@@ -52,8 +50,8 @@ class FaceRecognitionService:
         self.config = settings.face_recognition
         
     def _lazy_import_dependencies(self):
-        """延迟导入重型库"""
-        global insightface, FaceAnalysis, ins_get_image, cv2, DBSCAN, cosine_similarity, PIL, Image, np, HEIC_SUPPORT
+        """延迟导入重型库（核心依赖）"""
+        global insightface, FaceAnalysis, cv2, np
         
         if insightface is None:
             try:
@@ -76,36 +74,36 @@ class FaceRecognitionService:
                 import insightface
                 logger.info("✓ 已加载 insightface")
                 from insightface.app import FaceAnalysis
-                from insightface.data import get_image as ins_get_image
                 logger.info("✓ 已加载 FaceAnalysis")
                 import cv2
                 logger.info("✓ 已加载 cv2")
-                from sklearn.cluster import DBSCAN
-                from sklearn.metrics.pairwise import cosine_similarity
-                logger.info("✓ 已加载 sklearn")
                 
-                # 导入 PIL 支持（用于 HEIC 格式）
-                try:
-                    from PIL import Image
-                    PIL = True
-                    logger.info("✓ 已加载 PIL")
-                    
-                    # 尝试导入 HEIC 支持
-                    try:
-                        from pillow_heif import register_heif_opener
-                        register_heif_opener()
-                        HEIC_SUPPORT = True
-                        logger.info("✓ 已加载 HEIC 格式支持")
-                    except ImportError:
-                        HEIC_SUPPORT = False
-                        logger.warning("⚠ HEIC 格式支持未安装 (pillow-heif)")
-                except ImportError:
-                    PIL = False
-                    logger.warning("⚠ PIL 未安装")
-                
-                logger.info("✅ 人脸识别依赖库加载完成")
+                logger.info("✅ 人脸识别核心依赖库加载完成")
             except ImportError as e:
                 logger.error(f"人脸识别依赖导入失败: {e}")
+    
+    def _lazy_import_pil_support(self):
+        """延迟导入 PIL/HEIC 支持（仅在需要处理 HEIC 格式时调用）"""
+        global PIL, Image, HEIC_SUPPORT
+        
+        if PIL is None:
+            try:
+                from PIL import Image
+                PIL = True
+                logger.info("✓ 已加载 PIL（延迟加载）")
+                
+                # 尝试导入 HEIC 支持
+                try:
+                    from pillow_heif import register_heif_opener
+                    register_heif_opener()
+                    HEIC_SUPPORT = True
+                    logger.info("✓ 已加载 HEIC 格式支持（延迟加载）")
+                except ImportError:
+                    HEIC_SUPPORT = False
+                    logger.warning("⚠ HEIC 格式支持未安装 (pillow-heif)")
+            except ImportError:
+                PIL = False
+                logger.warning("⚠ PIL 未安装")
     
     def _detect_gpu_available(self) -> bool:
         """
@@ -225,6 +223,10 @@ class FaceRecognitionService:
                 logger.warning(f"[格式检测] 跳过 GIF 格式文件（不支持人脸识别，动画格式）: {photo_path}, photo_id={photo_id}")
                 return {'detections': [], 'real_face_count': 0, 'skipped': True, 'skip_reason': 'gif_format'}
             
+            # 🔥 优化：延迟加载 PIL/HEIC 支持（仅在需要时加载）
+            if is_heic:
+                self._lazy_import_pil_support()
+            
             if is_heic and HEIC_SUPPORT and Image:
                 # HEIC 格式：使用 PIL 读取并转换为 OpenCV 格式
                 def read_heic_image():
@@ -271,6 +273,10 @@ class FaceRecognitionService:
                         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                     
                     # 如果 OpenCV 读取失败，且是 TIFF/WebP 格式，尝试使用 PIL 读取
+                    if img is None and (is_tiff or is_webp):
+                        # 🔥 优化：延迟加载 PIL 支持（仅在需要时加载）
+                        self._lazy_import_pil_support()
+                    
                     if img is None and (is_tiff or is_webp) and Image:
                         logger.info(f"[图像读取] OpenCV 读取失败，尝试使用 PIL 读取: {photo_path}, photo_id={photo_id}, 格式={file_ext}")
                         try:
@@ -434,110 +440,6 @@ class FaceRecognitionService:
             logger.error(f"保存人脸检测结果失败: {e}")
             db.rollback()
             return False
-    
-    async def cluster_faces(self, db: Session) -> bool:
-        """
-        对人脸进行聚类分析
-        :param db: 数据库会话
-        :return: 是否聚类成功
-        """
-        # 延迟导入依赖
-        self._lazy_import_dependencies()
-        import numpy as np
-        
-        try:
-            logger.info("开始人脸聚类分析...")
-            
-            # 获取所有人脸特征
-            faces = db.query(FaceDetection).filter(
-                FaceDetection.face_features.isnot(None)
-            ).all()
-            
-            if len(faces) < 2:
-                logger.info("人脸数量不足，跳过聚类")
-                return True
-                
-            # 提取特征向量
-            features = []
-            face_ids = []
-            for face in faces:
-                if face.face_features:
-                    features.append(face.face_features)
-                    face_ids.append(face.face_id)
-            
-            if len(features) < 2:
-                logger.info("有效人脸特征不足，跳过聚类")
-                return True
-                
-            features = np.array(features)
-            
-            # 使用DBSCAN进行聚类
-            clustering = DBSCAN(
-                eps=1 - self.config.similarity_threshold,
-                min_samples=self.config.min_cluster_size,
-                metric='cosine'
-            )
-            cluster_labels = clustering.fit_predict(features)
-            
-            # 处理聚类结果
-            unique_labels = set(cluster_labels)
-            if -1 in unique_labels:
-                unique_labels.remove(-1)  # 移除噪声点
-                
-            logger.info(f"检测到 {len(unique_labels)} 个聚类")
-            
-            # 限制聚类数量（Top N）
-            if len(unique_labels) > self.config.max_clusters:
-                # 按聚类大小排序，保留最大的N个
-                cluster_sizes = {}
-                for label in unique_labels:
-                    cluster_sizes[label] = np.sum(cluster_labels == label)
-                
-                # 按大小排序，保留Top N
-                sorted_clusters = sorted(cluster_sizes.items(), key=lambda x: x[1], reverse=True)
-                top_clusters = [label for label, _ in sorted_clusters[:self.config.max_clusters]]
-                
-                logger.info(f"限制聚类数量为Top {self.config.max_clusters}，保留 {len(top_clusters)} 个聚类")
-                unique_labels = set(top_clusters)
-            
-            # 保存聚类结果
-            for cluster_label in unique_labels:
-                cluster_faces = [face_ids[i] for i, label in enumerate(cluster_labels) if label == cluster_label]
-                
-                if len(cluster_faces) < self.config.min_cluster_size:
-                    continue
-                    
-                # 创建聚类
-                cluster_id = f"cluster_{cluster_label}_{int(datetime.now().timestamp())}"
-                cluster = FaceCluster(
-                    cluster_id=cluster_id,
-                    face_count=len(cluster_faces),
-                    representative_face_id=cluster_faces[0],  # 使用第一个作为代表
-                    confidence_score=0.8,  # 默认置信度
-                    is_labeled=False,
-                    cluster_quality="high" if len(cluster_faces) >= 5 else "medium"
-                )
-                db.add(cluster)
-                db.flush()  # 获取cluster ID
-                
-                # 添加聚类成员
-                for face_id in cluster_faces:
-                    member = FaceClusterMember(
-                        cluster_id=cluster_id,
-                        face_id=face_id,
-                        similarity_score=0.8  # 默认相似度
-                    )
-                    db.add(member)
-            
-            db.commit()
-            logger.info(f"人脸聚类完成，创建了 {len(unique_labels)} 个聚类")
-            return True
-            
-        except Exception as e:
-            logger.error(f"人脸聚类失败: {e}")
-            db.rollback()
-            return False
-    
     
     async def get_cluster_statistics(self, db: Session) -> Dict:
         """

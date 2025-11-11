@@ -68,8 +68,11 @@
                             <button class="btn btn-sm btn-outline-primary" id="refreshPeopleBtn">
                                 <i class="bi bi-arrow-clockwise"></i> 刷新
                             </button>
-                            <button class="btn btn-sm btn-outline-success" id="startFaceRecognitionBtn">
-                                <i class="bi bi-camera"></i> 开始人脸识别
+                            <button class="btn btn-sm btn-outline-info" id="faceRecognitionBtn" title="检测照片中的人脸并提取特征向量，用于后续的聚类分析">
+                                <i class="bi bi-camera"></i> 人脸识别
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" id="startFaceClusterBtn" title="基于已提取的人脸特征向量，使用DBSCAN算法对相似人脸进行自动聚类分组，需要先完成人脸识别">
+                                <i class="bi bi-diagram-3"></i> 开始聚类
                             </button>
                             <a class="btn btn-sm btn-outline-secondary" href="/">
                                 <i class="bi bi-grid-3x3-gap"></i> 返回照片库首页
@@ -112,7 +115,35 @@
                                         <h5 class="card-title text-info">📸 总人脸</h5>
                                         <h3 class="text-info" id="totalFacesCount">-</h3>
                                         <small class="text-muted">个人脸</small>
+                                        <div class="mt-2">
+                                            <small class="text-muted">已聚类：<span id="clusteredFacesCount" class="text-info">-</span></small>
+                                        </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 聚类进度显示 -->
+                        <div id="faceClusterProgress" class="d-none mb-4">
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                                        <span class="visually-hidden">处理中...</span>
+                                    </div>
+                                    <strong>人脸聚类分析进行中...</strong>
+                                </div>
+                                <div class="progress mb-2" style="height: 25px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                         id="faceClusterProgressBar"
+                                         role="progressbar"
+                                         style="width: 0%; min-width: 2%; transition: width 0.3s ease;"
+                                         aria-valuenow="0"
+                                         aria-valuemin="0"
+                                         aria-valuemax="100"></div>
+                                </div>
+                                <div class="text-center">
+                                    <p class="mb-1" id="faceClusterStatus">正在准备聚类分析...</p>
+                                    <small class="text-muted" id="faceClusterDetails">请稍候...</small>
                                 </div>
                             </div>
                         </div>

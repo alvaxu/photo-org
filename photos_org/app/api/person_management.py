@@ -697,7 +697,7 @@ async def get_person_statistics(db: Session = Depends(get_db)):
     :return: 统计信息
     """
     try:
-        # 从配置获取最小聚类大小
+        # 从配置获取最小聚类大小（用于已标记/未标记的统计，但不用于总数统计）
         from app.core.config import settings
         min_cluster_size = settings.face_recognition.min_cluster_size
         
@@ -706,16 +706,25 @@ async def get_person_statistics(db: Session = Depends(get_db)):
             ~FaceDetection.face_id.like('processed_%')
         ).scalar() or 0
         
-        # 🔥 只统计符合min_cluster_size条件的聚类
-        total_clusters = db.query(func.count(FaceCluster.id)).filter(
-            FaceCluster.face_count >= min_cluster_size
-        ).scalar() or 0
+        # 统计已聚类的人脸数（FaceClusterMember表的记录数）
+        clustered_faces = db.query(func.count(FaceClusterMember.id)).scalar() or 0
         
-        # 只统计符合条件且已标记的聚类
+        # 🔥 修改：统计所有聚类（包括只有一张照片的聚类），与列表API保持一致
+        total_clusters = db.query(func.count(FaceCluster.id)).scalar() or 0
+        
+        # 只统计符合条件且已标记的聚类（用于已标记/未标记的统计）
         labeled_clusters = db.query(func.count(FaceCluster.id)).filter(
             FaceCluster.is_labeled == True,
             FaceCluster.face_count >= min_cluster_size
         ).scalar() or 0
+        
+        # 统计所有已标记的聚类（包括小聚类）
+        labeled_clusters_all = db.query(func.count(FaceCluster.id)).filter(
+            FaceCluster.is_labeled == True
+        ).scalar() or 0
+        
+        # 未标记聚类 = 总聚类数 - 已标记聚类数（所有聚类）
+        unlabeled_clusters = total_clusters - labeled_clusters_all
         
         # 获取涉及的照片数量
         photos_with_faces = db.query(func.count(func.distinct(FaceDetection.photo_id))).scalar() or 0
@@ -727,9 +736,10 @@ async def get_person_statistics(db: Session = Depends(get_db)):
             "success": True,
             "statistics": {
                 "total_faces": total_faces,
+                "clustered_faces": clustered_faces,  # 已聚类的人脸数
                 "total_clusters": total_clusters,
-                "labeled_clusters": labeled_clusters,
-                "unlabeled_clusters": total_clusters - labeled_clusters,
+                "labeled_clusters": labeled_clusters_all,  # 使用所有已标记聚类数
+                "unlabeled_clusters": unlabeled_clusters,
                 "photos_with_faces": photos_with_faces,
                 "total_persons": total_persons
             }
