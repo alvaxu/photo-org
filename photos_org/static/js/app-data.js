@@ -3,6 +3,9 @@
  * 包含数据加载、状态管理、API调用等核心功能
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const APP_DATA_VERSION = '20250120_01';
+
 // 全局配置
 const CONFIG = {
     API_BASE_URL: '/api/v1',
@@ -1481,3 +1484,8 @@ function getPersonNameById(clusterId) {
 
 window.clearAllFilters = clearAllFilters;
 window.updateFilterStatus = updateFilterStatus;
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('app-data.js', APP_DATA_VERSION);
+}

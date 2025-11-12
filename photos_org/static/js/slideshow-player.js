@@ -8,6 +8,9 @@
  * 4. 播放列表生成和管理
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const SLIDESHOW_PLAYER_VERSION = '20250120_01';
+
 /**
  * 幻灯片播放器核心类
  */
@@ -666,3 +669,8 @@ window.SlideshowDataManager = SlideshowDataManager;
 window.generateSlideshowPlaylist = generateSlideshowPlaylist;
 window.generateSlideshowPlaylistAll = generateSlideshowPlaylistAll;
 window.generateSlideshowPlaylistFromSelection = generateSlideshowPlaylistFromSelection;
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('slideshow-player.js', SLIDESHOW_PLAYER_VERSION);
+}

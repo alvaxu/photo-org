@@ -3,6 +3,9 @@
  * 包含格式化、通知、工具等通用函数
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const APP_UTILS_VERSION = '20250120_02';
+
 // ============ 格式化函数 ============
 
 function formatDate(dateString) {
@@ -975,3 +978,8 @@ window.updatePhotoCount = updatePhotoCount;
 window.showLoading = showLoading;
 window.hideLoading = hideLoading;
 window.showInfo = showInfo;
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('app-utils.js', APP_UTILS_VERSION);
+}

@@ -9,6 +9,9 @@
  * 5. 类似iPhone相册的人物分类界面
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const PEOPLE_MANAGEMENT_STANDALONE_VERSION = '20250120_01';
+
 // 全局配置
 const PEOPLE_CONFIG = {
     IMAGE_PLACEHOLDER: '/static/images/placeholder.jpg'
@@ -1935,3 +1938,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     peopleManagement = new PeopleManagementStandalone();
     await peopleManagement.init();
 });
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('people-management-standalone.js', PEOPLE_MANAGEMENT_STANDALONE_VERSION);
+}

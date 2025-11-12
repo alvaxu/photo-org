@@ -8,6 +8,9 @@
  * 4. 参考人物管理页面的实现
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const SIMILAR_PHOTOS_MANAGEMENT_VERSION = '20250120_01';
+
 // 全局配置
 const SIMILAR_PHOTOS_CONFIG = {
     IMAGE_PLACEHOLDER: '/static/images/placeholder.jpg'
@@ -943,4 +946,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 暴露到全局作用域，供其他模块调用（如特征提取完成后刷新页面）
     window.similarPhotosManagement = similarPhotosManagement;
 });
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('similar-photos-management.js', SIMILAR_PHOTOS_MANAGEMENT_VERSION);
+}
 

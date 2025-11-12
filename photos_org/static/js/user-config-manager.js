@@ -3,6 +3,9 @@
  * 功能：配置加载、保存、重置、导出等
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const USER_CONFIG_MANAGER_VERSION = '20250119_80';
+
 class UserConfigManager {
     constructor() {
         this.config = {};
@@ -877,3 +880,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.configManager = new UserConfigManager();
     }
 });
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('user-config-manager.js', USER_CONFIG_MANAGER_VERSION);
+}

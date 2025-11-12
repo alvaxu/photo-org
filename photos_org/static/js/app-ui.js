@@ -3,6 +3,9 @@
  * 包含UI组件初始化、模态框管理、视图切换等交互功能
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const APP_UI_VERSION = '20250120_01';
+
 // ============ UI组件初始化 ============
 
 function initializeUI() {
@@ -1539,3 +1542,8 @@ function resetZoom() {
 window.zoomInPhoto = zoomInPhoto;
 window.zoomOutPhoto = zoomOutPhoto;
 window.resetZoom = resetZoom;
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('app-ui.js', APP_UI_VERSION);
+}

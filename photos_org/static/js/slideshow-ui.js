@@ -8,6 +8,9 @@
  * 4. 键盘事件处理
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const SLIDESHOW_UI_VERSION = '20250120_01';
+
 /**
  * 幻灯片播放器UI管理类
  */
@@ -1034,3 +1037,8 @@ window.SlideshowUI = SlideshowUI;
 window.startSlideshowFromCurrent = startSlideshowFromCurrent;
 window.startSlideshowFromSelection = startSlideshowFromSelection;
 window.startSlideshowFromAll = startSlideshowFromAll;
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('slideshow-ui.js', SLIDESHOW_UI_VERSION);
+}

@@ -8,6 +8,9 @@
  * 4. 支持混合设备的动态输入切换
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const HYBRID_INTERACTION_VERSION = '20250120_01';
+
 
 /**
  * 混合设备输入管理器
@@ -384,3 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // 导出供其他模块使用
 window.HybridInputManager = HybridInputManager;
 window.PhotoInteractionManager = PhotoInteractionManager;
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('hybrid-interaction.js', HYBRID_INTERACTION_VERSION);
+}

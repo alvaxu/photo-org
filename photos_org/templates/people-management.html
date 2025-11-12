@@ -371,11 +371,92 @@
         </div>
     </div>
 
+    <!-- ============ JS版本检测系统 ============ -->
+    <script>
+        /**
+         * 统一的JavaScript文件版本检测机制
+         * 用于确保用户使用的是最新版本的JS文件，避免缓存问题
+         */
+        
+        // 定义所有JS文件的期望版本号（与HTML中的?v=参数保持一致）
+        window.JS_VERSIONS = {
+            'app-utils.js': '20250120_02',
+            'app-data.js': '20250120_01',
+            'app-ui.js': '20250120_01',
+            'app-photos.js': '20250120_02',
+            'people-management-standalone.js': '20250120_01'
+        };
+        
+        // 版本检测结果收集器
+        window._JS_VERSION_CHECKS = [];
+        
+        // 版本检测注册函数
+        window.registerJSVersion = function(fileName, actualVersion) {
+            try {
+                const expectedVersion = window.JS_VERSIONS?.[fileName];
+                if (expectedVersion && actualVersion !== expectedVersion) {
+                    window._JS_VERSION_CHECKS.push({
+                        fileName: fileName,
+                        expected: expectedVersion,
+                        actual: actualVersion || 'undefined'
+                    });
+                    console.warn(`[版本检测] ${fileName} 版本不匹配: 期望 ${expectedVersion}, 实际 ${actualVersion || 'undefined'}`);
+                }
+            } catch (e) {
+                console.warn('[版本检测] 注册版本时出错:', e);
+            }
+        };
+        
+        // 执行版本检测
+        window.checkJSVersions = function() {
+            try {
+                const checkKey = 'js_version_check_done';
+                if (sessionStorage.getItem(checkKey)) {
+                    return;
+                }
+                
+                if (window._JS_VERSION_CHECKS && window._JS_VERSION_CHECKS.length > 0) {
+                    console.warn('[版本检测] 检测到版本不匹配的文件:', window._JS_VERSION_CHECKS);
+                    
+                    const refreshKey = 'js_version_refresh_attempt';
+                    const lastRefresh = sessionStorage.getItem(refreshKey);
+                    const now = Date.now();
+                    
+                    if (lastRefresh && (now - parseInt(lastRefresh)) < 5000) {
+                        console.warn('[版本检测] 检测到可能的循环刷新，停止刷新');
+                        sessionStorage.removeItem(refreshKey);
+                        return;
+                    }
+                    
+                    sessionStorage.setItem(checkKey, 'true');
+                    sessionStorage.setItem(refreshKey, now.toString());
+                    
+                    setTimeout(function() {
+                        console.log('[版本检测] 自动刷新页面以加载最新版本...');
+                        window.location.reload(true);
+                    }, 500);
+                } else {
+                    sessionStorage.setItem(checkKey, 'true');
+                    console.log('[版本检测] 所有JS文件版本匹配');
+                }
+            } catch (e) {
+                console.error('[版本检测] 检测过程出错:', e);
+            }
+        };
+        
+        // 在所有资源加载完成后执行检测
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                window.checkJSVersions();
+            }, 1000);
+        });
+    </script>
+
     <!-- 应用脚本 -->
-    <script src="/static/js/app-utils.js"></script>
+    <script src="/static/js/app-utils.js?v=20250120_02"></script>
     <script src="/static/js/app-data.js?v=20250120_01"></script>
-    <script src="/static/js/app-ui.js"></script>
-    <script src="/static/js/app-photos.js"></script>
+    <script src="/static/js/app-ui.js?v=20250120_01"></script>
+    <script src="/static/js/app-photos.js?v=20250120_02"></script>
     <script src="/static/js/people-management-standalone.js?v=20250120_01"></script>
 </body>
 </html>

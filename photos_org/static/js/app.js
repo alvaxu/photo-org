@@ -4,6 +4,9 @@
  * 家庭版智能照片系统 - 主应用脚本
  */
 
+// JS文件版本号（与HTML中的?v=参数保持一致）
+const APP_VERSION = '20250120_01';
+
 // 注意：CONFIG, AppState, searchTypePlaceholders, searchScopeHints 已移至 app-data.js
 
 // DOM 元素缓存
@@ -287,3 +290,8 @@ window.PhotoApp = {
 
 window.toggleTags = toggleTags;
 window.selectSuggestion = selectSuggestion;
+
+// 注册版本号（用于版本检测）
+if (typeof window.registerJSVersion === 'function') {
+    window.registerJSVersion('app.js', APP_VERSION);
+}

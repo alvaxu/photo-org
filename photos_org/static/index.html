@@ -448,8 +448,25 @@
                     
                     <!-- 肖像选择区域（可展开） -->
                     <div class="card-body collapse" id="portraitFilterContent">
+                        <!-- 分页信息 -->
+                        <div id="portraitPaginationInfo" class="mb-2 d-none">
+                            <small class="text-muted" id="portraitPaginationText">
+                                第 1 页，共 1 页
+                            </small>
+                        </div>
+                        
+                        <!-- 肖像网格（自动换行） -->
                         <div class="row g-2" id="portraitFilterGrid">
                             <!-- 动态加载的肖像卡片 -->
+                        </div>
+                        
+                        <!-- 分页控件 -->
+                        <div id="portraitPaginationContainer" class="mt-3 d-none">
+                            <nav>
+                                <ul class="pagination pagination-sm justify-content-center mb-0" id="portraitPagination">
+                                    <!-- 动态生成分页按钮 -->
+                                </ul>
+                            </nav>
                         </div>
                     </div>
                 </div>
@@ -1736,6 +1753,115 @@
         });
     </script>
 
+    <!-- ============ JS版本检测系统 ============ -->
+    <script>
+        /**
+         * 统一的JavaScript文件版本检测机制
+         * 用于确保用户使用的是最新版本的JS文件，避免缓存问题
+         * 
+         * 安全机制：
+         * 1. 使用sessionStorage防止循环刷新
+         * 2. 延迟检测，等待所有JS加载完成
+         * 3. 只检测一次，避免重复检测
+         * 4. 兼容性处理，检测函数不存在时不影响功能
+         */
+        
+        // 定义所有JS文件的期望版本号（与HTML中的?v=参数保持一致）
+        window.JS_VERSIONS = {
+            'hybrid-interaction.js': '20250120_01',
+            'app-utils.js': '20250120_02',
+            'app-data.js': '20250120_01',
+            'stats-panel.js': '20250120_01',
+            'app-ui.js': '20250120_01',
+            'app-events.js': '20250120_01',
+            'app-import.js': '20250120_31',
+            'app-photos.js': '20250120_02',
+            'portrait-filter.js': '20250120_02',  // 更新为新版本
+            'search-multiselect.js': '20250120_01',
+            'app.js': '20250120_01',
+            'photo-manager.js': '20250120_01',
+            'slideshow-player.js': '20250120_01',
+            'slideshow-ui.js': '20250120_01',
+            'ui-components.js': '20250120_01'  // 如果没有版本号，使用默认值
+        };
+        
+        // 版本检测结果收集器
+        window._JS_VERSION_CHECKS = [];
+        
+        // 版本检测注册函数（每个JS文件调用此函数注册自己的版本）
+        window.registerJSVersion = function(fileName, actualVersion) {
+            try {
+                const expectedVersion = window.JS_VERSIONS?.[fileName];
+                if (expectedVersion && actualVersion !== expectedVersion) {
+                    window._JS_VERSION_CHECKS.push({
+                        fileName: fileName,
+                        expected: expectedVersion,
+                        actual: actualVersion || 'undefined'
+                    });
+                    console.warn(`[版本检测] ${fileName} 版本不匹配: 期望 ${expectedVersion}, 实际 ${actualVersion || 'undefined'}`);
+                }
+            } catch (e) {
+                // 静默失败，不影响功能
+                console.warn('[版本检测] 注册版本时出错:', e);
+            }
+        };
+        
+        // 执行版本检测（在所有JS加载完成后调用）
+        window.checkJSVersions = function() {
+            try {
+                // 检查是否已经检测过（防止重复检测）
+                const checkKey = 'js_version_check_done';
+                if (sessionStorage.getItem(checkKey)) {
+                    return;
+                }
+                
+                // 检查是否有版本不匹配
+                if (window._JS_VERSION_CHECKS && window._JS_VERSION_CHECKS.length > 0) {
+                    console.warn('[版本检测] 检测到版本不匹配的文件:', window._JS_VERSION_CHECKS);
+                    
+                    // 防止循环刷新：检查sessionStorage中的刷新标记
+                    const refreshKey = 'js_version_refresh_attempt';
+                    const lastRefresh = sessionStorage.getItem(refreshKey);
+                    const now = Date.now();
+                    
+                    // 如果5秒内已经刷新过，不再刷新（防止循环）
+                    if (lastRefresh && (now - parseInt(lastRefresh)) < 5000) {
+                        console.warn('[版本检测] 检测到可能的循环刷新，停止刷新');
+                        sessionStorage.removeItem(refreshKey);
+                        return;
+                    }
+                    
+                    // 标记已检测
+                    sessionStorage.setItem(checkKey, 'true');
+                    // 记录刷新时间
+                    sessionStorage.setItem(refreshKey, now.toString());
+                    
+                    // 延迟刷新，确保日志输出
+                    setTimeout(function() {
+                        console.log('[版本检测] 自动刷新页面以加载最新版本...');
+                        // 使用 location.reload(true) 强制刷新，清除缓存
+                        window.location.reload(true);
+                    }, 500);
+                } else {
+                    // 所有版本匹配，标记检测完成
+                    sessionStorage.setItem(checkKey, 'true');
+                    console.log('[版本检测] 所有JS文件版本匹配');
+                }
+            } catch (e) {
+                console.error('[版本检测] 检测过程出错:', e);
+                // 出错时不刷新，避免影响正常功能
+            }
+        };
+        
+        // 在所有资源加载完成后执行检测（延迟执行，确保所有JS都已加载）
+        window.addEventListener('load', function() {
+            // 延迟1秒执行，确保所有JS文件都已加载并注册版本
+            setTimeout(function() {
+                window.checkJSVersions();
+            }, 1000);
+        });
+    </script>
+
     <!-- 自定义JavaScript -->
             <script src="js/hybrid-interaction.js?v=20250120_01"></script>
             <script src="js/app-utils.js?v=20250120_02"></script>
@@ -1745,7 +1871,7 @@
             <script src="js/app-events.js?v=20250120_01"></script>
             <script src="js/app-import.js?v=20250120_31"></script>
             <script src="js/app-photos.js?v=20250120_02"></script>
-            <script src="js/portrait-filter.js?v=20250120_01"></script>
+            <script src="js/portrait-filter.js?v=20250120_02"></script>
             <script src="js/search-multiselect.js?v=20250120_01"></script>
             <script src="js/app.js?v=20250120_01"></script>
             <script src="js/photo-manager.js?v=20250120_01"></script>
