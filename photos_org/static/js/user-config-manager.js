@@ -52,13 +52,6 @@ class UserConfigManager {
             });
         }
 
-        // 导出配置按钮
-        const exportBtn = document.getElementById('exportConfigBtn');
-        if (exportBtn) {
-            exportBtn.addEventListener('click', () => {
-                this.exportConfig();
-            });
-        }
 
         // 滑块值变化事件
         this.bindRangeSliders();
@@ -664,46 +657,6 @@ class UserConfigManager {
         }
     }
 
-    /**
-     * 导出配置
-     */
-    async exportConfig() {
-        try {
-            const response = await fetch('/api/v1/config/export');
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            // 获取完整的配置数据（包括所有配置项）
-            const configResponse = await fetch('/api/v1/config/user');
-            if (!configResponse.ok) {
-                throw new Error('获取配置数据失败');
-            }
-
-            const configData = await configResponse.json();
-            if (!configData.success) {
-                throw new Error('获取配置数据失败');
-            }
-
-            // 创建下载链接
-            const blob = new Blob([JSON.stringify(configData.data, null, 2)], {
-                type: 'application/json'
-            });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `photos-system-config-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            this.showStatus('配置导出成功', 'success');
-        } catch (error) {
-            console.error('导出配置失败:', error);
-            this.showStatus('导出配置失败: ' + error.message, 'danger');
-        }
-    }
 
     /**
      * 显示加载状态

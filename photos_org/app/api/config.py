@@ -435,27 +435,6 @@ async def reload_config_endpoint():
         }
 
 
-@router.get("/export")
-async def export_config():
-    """导出完整配置文件"""
-    try:
-        config_data = settings.get_full_config()
-        
-        # 创建临时文件
-        temp_file = "config_export.json"
-        with open(temp_file, 'w', encoding='utf-8') as f:
-            json.dump(config_data, f, indent=2, ensure_ascii=False)
-        
-        return FileResponse(
-            path=temp_file,
-            filename="config.json",
-            media_type="application/json"
-        )
-    except Exception as e:
-        logger.error(f"导出配置失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"导出配置失败: {str(e)}")
-
-
 @router.get("/models")
 async def get_available_models():
     """获取可用的AI模型列表"""
