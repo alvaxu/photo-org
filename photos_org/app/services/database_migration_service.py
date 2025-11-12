@@ -246,3 +246,62 @@ def check_and_add_similar_photo_cluster_fields():
         return False
     finally:
         db.close()
+
+
+def check_and_add_favorite_field():
+    """
+    检查并添加收藏字段
+    
+    功能：
+    - 检查 is_favorite 字段是否存在，不存在则添加
+    
+    Returns:
+        bool: 是否成功
+    """
+    db = next(get_db())
+    try:
+        logger.info("开始检查收藏字段...")
+        
+        # 定义需要添加的字段
+        field_to_add = {
+            'name': 'is_favorite',
+            'sql': 'ALTER TABLE photos ADD COLUMN is_favorite BOOLEAN DEFAULT 0',
+            'description': '是否收藏'
+        }
+        
+        # 检查字段是否已存在
+        check_result = db.execute(text(f"""
+            SELECT COUNT(*) as count 
+            FROM pragma_table_info('photos') 
+            WHERE name = '{field_to_add['name']}'
+        """)).fetchone()
+        
+        if check_result[0] == 0:
+            # 字段不存在，添加字段
+            logger.info(f"添加 {field_to_add['name']} 字段 ({field_to_add['description']})...")
+            db.execute(text(field_to_add['sql']))
+            logger.info(f"✅ {field_to_add['name']} 字段添加成功")
+            db.commit()
+            
+            # 验证字段添加结果
+            verify_field = db.execute(text("""
+                SELECT name, type, dflt_value 
+                FROM pragma_table_info('photos') 
+                WHERE name = 'is_favorite'
+            """)).fetchone()
+            
+            if verify_field:
+                logger.info(f"字段验证结果: {verify_field[0]}: {verify_field[1]} (默认值: {verify_field[2]})")
+            
+            return True
+        else:
+            # 字段已存在，跳过
+            logger.info(f"{field_to_add['name']} 字段已存在，跳过")
+            return True
+            
+    except Exception as e:
+        logger.error(f"数据库字段检查失败: {e}")
+        db.rollback()
+        raise
+    finally:
+        db.close()

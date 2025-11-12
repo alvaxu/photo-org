@@ -751,9 +751,14 @@ if __name__ == "__main__":
     migration_logger.setLevel(logging.WARNING)
     
     try:
-        from app.services.database_migration_service import check_and_add_image_features_fields, check_and_add_similar_photo_cluster_fields
+        from app.services.database_migration_service import (
+            check_and_add_image_features_fields,
+            check_and_add_similar_photo_cluster_fields,
+            check_and_add_favorite_field
+        )
         check_and_add_image_features_fields()
         check_and_add_similar_photo_cluster_fields()
+        check_and_add_favorite_field()
     finally:
         migration_logger.setLevel(original_level)
     print("✅ 数据库字段检查完成")

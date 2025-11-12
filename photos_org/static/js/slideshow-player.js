@@ -9,7 +9,7 @@
  */
 
 // JS文件版本号（与HTML中的?v=参数保持一致）
-const SLIDESHOW_PLAYER_VERSION = '20250120_01';
+const SLIDESHOW_PLAYER_VERSION = '20250120_02';
 
 /**
  * 幻灯片播放器核心类
@@ -599,6 +599,11 @@ async function generateSlideshowPlaylistAll() {
         // 添加分类筛选参数
         if (filters.selectedCategories && filters.selectedCategories.length > 0) {
             params.append('category_ids', filters.selectedCategories.join(','));
+        }
+
+        // 添加收藏筛选参数
+        if (filters.favorite_filter) {
+            params.append('is_favorite', 'true');
         }
 
         // 添加自定义日期范围参数

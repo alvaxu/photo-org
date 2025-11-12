@@ -4,7 +4,7 @@
  */
 
 // JS文件版本号（与HTML中的?v=参数保持一致）
-const APP_DATA_VERSION = '20250120_01';
+const APP_DATA_VERSION = '20250120_02';
 
 // 全局配置
 const CONFIG = {
@@ -39,7 +39,8 @@ const AppState = {
         sortOrder: 'desc',
         person_filter: 'all',
         selectedTags: [],
-        selectedCategories: []
+        selectedCategories: [],
+        favorite_filter: false  // 是否只显示收藏照片
     },
     photos: [],
     stats: {}
@@ -454,6 +455,11 @@ async function loadStats() {
             params.append('person_filter', AppState.searchFilters.person_filter);
         }
 
+        // 添加收藏筛选参数
+        if (AppState.searchFilters.favorite_filter) {
+            params.append('is_favorite', 'true');
+        }
+
         // 添加日期筛选参数
         if (AppState.searchFilters.dateFilter === 'custom') {
             if (elements.startDate && elements.startDate.value) {
@@ -543,6 +549,11 @@ async function loadPhotos(page = 1) {
             camera_filter: AppState.searchFilters.cameraFilter,
             person_filter: AppState.searchFilters.person_filter || 'all'
         });
+
+        // 添加收藏筛选参数
+        if (AppState.searchFilters.favorite_filter) {
+            params.append('is_favorite', 'true');
+        }
 
         // 添加标签筛选参数
         if (AppState.searchFilters.selectedTags.length > 0) {
@@ -1134,8 +1145,12 @@ function clearAllFilters() {
         sortOrder: 'desc',
         person_filter: 'all',
         selectedTags: [],
-        selectedCategories: []
+        selectedCategories: [],
+        favorite_filter: false  // 重置收藏筛选
     };
+    
+    // 更新收藏筛选按钮UI
+    updateFavoriteFilterButton();
     
     // 重置所有筛选条件
     elements.searchInput.value = '';
@@ -1287,6 +1302,11 @@ function updateFilterStatus() {
             const personName = getPersonNameById(filters.person_filter);
             statusParts.push(`人物: ${personName || '未知人物'}`);
         }
+    }
+    
+    // 显示收藏筛选
+    if (filters.favorite_filter) {
+        statusParts.push('❤️ 我的收藏');
     }
     
     if (filters.sortBy !== 'taken_at' || filters.sortOrder !== 'desc') {
@@ -1484,6 +1504,53 @@ function getPersonNameById(clusterId) {
 
 window.clearAllFilters = clearAllFilters;
 window.updateFilterStatus = updateFilterStatus;
+
+// ============ 收藏筛选功能 ============
+
+/**
+ * 切换收藏筛选状态
+ */
+function toggleFavoriteFilter() {
+    AppState.searchFilters.favorite_filter = !AppState.searchFilters.favorite_filter;
+    updateFavoriteFilterButton();
+    AppState.currentPage = 1;
+    loadPhotos(1);
+    loadStats();  // 同时刷新统计信息
+    updateFilterStatus();
+}
+
+/**
+ * 更新收藏筛选按钮UI
+ */
+function updateFavoriteFilterButton() {
+    const favoriteBtn = document.getElementById('favoriteFilterBtn');
+    if (!favoriteBtn) return;
+    
+    if (AppState.searchFilters.favorite_filter) {
+        // 激活状态：红色填充 + 实心图标
+        favoriteBtn.className = 'btn btn-sm btn-danger';
+        favoriteBtn.innerHTML = '<i class="bi bi-heart-fill me-1"></i>我的收藏';
+    } else {
+        // 未激活状态：灰色边框 + 空心图标
+        favoriteBtn.className = 'btn btn-sm btn-outline-secondary';
+        favoriteBtn.innerHTML = '<i class="bi bi-heart me-1"></i>我的收藏';
+    }
+}
+
+/**
+ * 绑定收藏筛选按钮事件
+ */
+function bindFavoriteFilterEvent() {
+    const favoriteBtn = document.getElementById('favoriteFilterBtn');
+    if (favoriteBtn) {
+        favoriteBtn.addEventListener('click', toggleFavoriteFilter);
+    }
+}
+
+// 导出收藏筛选函数
+window.toggleFavoriteFilter = toggleFavoriteFilter;
+window.updateFavoriteFilterButton = updateFavoriteFilterButton;
+window.bindFavoriteFilterEvent = bindFavoriteFilterEvent;
 
 // 注册版本号（用于版本检测）
 if (typeof window.registerJSVersion === 'function') {

@@ -38,6 +38,7 @@ class SearchService:
         format_filter: Optional[str] = None,
         camera_filter: Optional[str] = None,
         person_filter: str = "all",
+        is_favorite: Optional[bool] = None,
         tags: Optional[List[str]] = None,
         categories: Optional[List[str]] = None,
         tag_ids: Optional[List[int]] = None,
@@ -127,6 +128,13 @@ class SearchService:
             # 人物筛选
             if person_filter != "all":
                 query = self._apply_person_filter(query, person_filter, db)
+
+            # 收藏筛选
+            if is_favorite is not None:
+                if is_favorite:
+                    query = query.filter(Photo.is_favorite == True)
+                else:
+                    query = query.filter(Photo.is_favorite == False)
 
             # 日期筛选
             if date_from == "no_date" and date_to == "no_date":
@@ -511,6 +519,7 @@ class SearchService:
             "description": photo.description,
             "status": photo.status,
             "created_at": photo.created_at.isoformat() if photo.created_at else None,
+            "is_favorite": photo.is_favorite if hasattr(photo, 'is_favorite') else False,
 
             # AI分析结果（字段名必须与Pydantic模型匹配）
             "analysis": {
@@ -600,8 +609,8 @@ class SearchService:
                          year_filter: Optional[str] = None, format_filter: Optional[str] = None,
                          camera_filter: Optional[str] = None, face_count_filter: Optional[str] = None,
                          tag_ids: Optional[List[int]] = None, category_ids: Optional[List[int]] = None, 
-                         person_filter: Optional[str] = None, date_from: Optional[str] = None, 
-                         date_to: Optional[str] = None) -> Dict[str, Any]:
+                         person_filter: Optional[str] = None, is_favorite: Optional[bool] = None,
+                         date_from: Optional[str] = None, date_to: Optional[str] = None) -> Dict[str, Any]:
         """
         获取搜索统计信息
 
@@ -752,6 +761,13 @@ class SearchService:
             # 人物筛选
             if person_filter and person_filter != 'all':
                 base_query = self._apply_person_filter(base_query, person_filter, db)
+
+            # 收藏筛选
+            if is_favorite is not None:
+                if is_favorite:
+                    base_query = base_query.filter(Photo.is_favorite == True)
+                else:
+                    base_query = base_query.filter(Photo.is_favorite == False)
 
             # 年份筛选（特殊处理）
             if year_filter:

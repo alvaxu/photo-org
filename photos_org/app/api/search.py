@@ -38,6 +38,7 @@ async def search_photos(
     format_filter: Optional[str] = Query(None, description="格式筛选"),
     camera_filter: Optional[str] = Query(None, description="相机筛选"),
     person_filter: str = Query("all", description="人物筛选"),
+    is_favorite: Optional[bool] = Query(None, description="是否只显示收藏照片"),
     tags: Optional[List[str]] = Query(None, description="标签列表"),
     categories: Optional[List[str]] = Query(None, description="分类列表"),
     tag_ids: Optional[str] = Query(None, description="标签ID列表(逗号分隔)"),
@@ -199,6 +200,7 @@ async def search_photos(
             format_filter=format_filter,
             camera_filter=camera_filter,
             person_filter=person_filter,
+            is_favorite=is_favorite,
             tags=tags,
             categories=categories,
             tag_ids=processed_tag_ids,
@@ -267,6 +269,7 @@ async def get_search_stats(
     tag_ids: Optional[str] = Query(None, description="标签ID列表，逗号分隔"),
     category_ids: Optional[str] = Query(None, description="分类ID列表，逗号分隔"),
     person_filter: Optional[str] = Query(None, description="人物筛选"),
+    is_favorite: Optional[bool] = Query(None, description="是否只显示收藏照片"),
     date_from: Optional[str] = Query(None, description="开始日期"),
     date_to: Optional[str] = Query(None, description="结束日期"),
     db: Session = Depends(get_db)
@@ -306,6 +309,7 @@ async def get_search_stats(
             tag_ids=tag_ids_list,
             category_ids=category_ids_list,
             person_filter=person_filter,
+            is_favorite=is_favorite,
             date_from=date_from,
             date_to=date_to
         )

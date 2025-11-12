@@ -242,6 +242,7 @@
                             <h6 class="mb-0 me-3">
                                 <i class="bi bi-search me-1"></i>筛选与排序
                             </h6>
+                            
                             <!-- 筛选状态显示（移到header） -->
                             <div class="ms-3" id="filterStatus" style="display: none;">
                                 <i class="bi bi-funnel me-2 text-info"></i>
@@ -251,10 +252,17 @@
                                 </button>
                             </div>
                         </div>
-                        <button class="btn btn-sm btn-outline-primary" id="searchFilterToggle">
-                            <i class="bi bi-chevron-down" id="searchFilterToggleIcon"></i>
-                            点击展开
-                        </button>
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- 我的收藏按钮（放在右侧，点击展开按钮的左侧） -->
+                            <button class="btn btn-sm btn-outline-secondary" type="button" id="favoriteFilterBtn" title="只显示收藏的照片">
+                                <i class="bi bi-heart me-1"></i>
+                                我的收藏
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" id="searchFilterToggle">
+                                <i class="bi bi-chevron-down" id="searchFilterToggleIcon"></i>
+                                点击展开
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- 可折叠的内容区域 -->
@@ -1770,17 +1778,17 @@
         window.JS_VERSIONS = {
             'hybrid-interaction.js': '20250120_01',
             'app-utils.js': '20250120_02',
-            'app-data.js': '20250120_01',
+            'app-data.js': '20250120_02',
             'stats-panel.js': '20250120_01',
-            'app-ui.js': '20250120_01',
+            'app-ui.js': '20250120_03',
             'app-events.js': '20250120_01',
             'app-import.js': '20250120_31',
             'app-photos.js': '20250120_02',
             'portrait-filter.js': '20250120_02',  // 更新为新版本
             'search-multiselect.js': '20250120_01',
-            'app.js': '20250120_01',
+            'app.js': '20250120_02',
             'photo-manager.js': '20250120_01',
-            'slideshow-player.js': '20250120_01',
+            'slideshow-player.js': '20250120_02',
             'slideshow-ui.js': '20250120_01',
             'ui-components.js': '20250120_01'  // 如果没有版本号，使用默认值
         };
@@ -1865,17 +1873,17 @@
     <!-- 自定义JavaScript -->
             <script src="js/hybrid-interaction.js?v=20250120_01"></script>
             <script src="js/app-utils.js?v=20250120_02"></script>
-            <script src="js/app-data.js?v=20250120_01"></script>
+            <script src="js/app-data.js?v=20250120_02"></script>
             <script src="js/stats-panel.js?v=20250120_01"></script>
-            <script src="js/app-ui.js?v=20250120_01"></script>
+            <script src="js/app-ui.js?v=20250120_03"></script>
             <script src="js/app-events.js?v=20250120_01"></script>
             <script src="js/app-import.js?v=20250120_31"></script>
             <script src="js/app-photos.js?v=20250120_02"></script>
             <script src="js/portrait-filter.js?v=20250120_02"></script>
             <script src="js/search-multiselect.js?v=20250120_01"></script>
-            <script src="js/app.js?v=20250120_01"></script>
+            <script src="js/app.js?v=20250120_02"></script>
             <script src="js/photo-manager.js?v=20250120_01"></script>
-            <script src="js/slideshow-player.js?v=20250120_01"></script>
+            <script src="js/slideshow-player.js?v=20250120_02"></script>
             <script src="js/slideshow-ui.js?v=20250120_01"></script>
     <script src="js/ui-components.js"></script>
 </body>

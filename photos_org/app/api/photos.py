@@ -44,6 +44,7 @@ class PhotoUpdateRequest(BaseModel):
     filename: Optional[str] = Field(None, description="照片文件名")
     taken_at: Optional[str] = Field(None, description="拍摄时间（ISO格式字符串）")
     location_name: Optional[str] = Field(None, description="位置名称")
+    is_favorite: Optional[bool] = Field(None, description="是否收藏")
 
 
 class BatchDeleteRequest(BaseModel):
@@ -178,7 +179,8 @@ async def get_photos(
                 "location_name": photo.location_name,
                 "location_lat": photo.location_lat,
                 "location_lng": photo.location_lng,
-                "location_alt": photo.location_alt
+                "location_alt": photo.location_alt,
+                "is_favorite": photo.is_favorite if hasattr(photo, 'is_favorite') else False
             }
 
             # 从批量查询的字典中获取analysis
@@ -262,6 +264,7 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
             "location_lat": photo.location_lat,
             "location_lng": photo.location_lng,
             "location_alt": photo.location_alt,
+            "is_favorite": photo.is_favorite if hasattr(photo, 'is_favorite') else False,
             "metadata": {}
         }
 
@@ -400,6 +403,8 @@ async def update_photo(
                 raise HTTPException(status_code=400, detail=f"拍摄时间格式错误: {str(e)}，请使用格式：2023-12-19T14:30:00")
         if update_request.location_name is not None:
             update_data["location_name"] = update_request.location_name
+        if update_request.is_favorite is not None:
+            update_data["is_favorite"] = update_request.is_favorite
 
         # 更新照片基本信息
         if update_data:
@@ -448,6 +453,53 @@ async def update_photo(
     except Exception as e:
         logger.error(f"更新照片失败 photo_id={photo_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"更新照片失败: {str(e)}")
+
+
+class FavoriteUpdateRequest(BaseModel):
+    """收藏状态更新请求"""
+    is_favorite: bool = Field(..., description="是否收藏")
+
+
+@router.put("/{photo_id}/favorite", response_model=Dict[str, Any])
+async def update_photo_favorite(
+    photo_id: int,
+    favorite_request: FavoriteUpdateRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    更新照片收藏状态
+
+    - **photo_id**: 照片ID
+    - **favorite_request**: 收藏状态请求
+    """
+    try:
+        photo_service = PhotoService()
+
+        # 检查照片是否存在
+        photo = photo_service.get_photo_by_id(db, photo_id)
+        if not photo:
+            raise HTTPException(status_code=404, detail="照片不存在")
+
+        # 更新收藏状态
+        update_data = {"is_favorite": favorite_request.is_favorite}
+        success = photo_service.update_photo(db, photo_id, update_data)
+        if not success:
+            raise HTTPException(status_code=500, detail="更新收藏状态失败")
+
+        # 重新获取更新后的照片
+        updated_photo = photo_service.get_photo_by_id(db, photo_id)
+        return {
+            "success": True,
+            "photo_id": updated_photo.id,
+            "is_favorite": updated_photo.is_favorite,
+            "message": "已添加到收藏" if updated_photo.is_favorite else "已取消收藏"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新收藏状态失败 photo_id={photo_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"更新收藏状态失败: {str(e)}")
 
 
 @router.delete("/{photo_id}")

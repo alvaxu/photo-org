@@ -104,6 +104,10 @@ class IndexManagementService:
             # 复合索引：优化特征向量搜索查询（image_features_extracted + id 过滤）
             "idx_photos_image_features_composite": "CREATE INDEX IF NOT EXISTS idx_photos_image_features_composite ON photos(image_features_extracted, id) WHERE image_features_extracted = 1",
 
+            # 收藏相关索引（用于优化收藏状态筛选查询）
+            # 部分索引：只索引已收藏的照片，减少索引大小
+            "idx_photos_is_favorite": "CREATE INDEX IF NOT EXISTS idx_photos_is_favorite ON photos(is_favorite) WHERE is_favorite = 1",
+
             # 复合索引优化 (新增 - 最高优先级)
             "idx_photos_status_created": "CREATE INDEX IF NOT EXISTS idx_photos_status_created ON photos(status, created_at)",
             "idx_photos_status_taken": "CREATE INDEX IF NOT EXISTS idx_photos_status_taken ON photos(status, taken_at)",

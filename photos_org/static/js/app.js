@@ -5,7 +5,7 @@
  */
 
 // JS文件版本号（与HTML中的?v=参数保持一致）
-const APP_VERSION = '20250120_01';
+const APP_VERSION = '20250120_02';
 
 // 注意：CONFIG, AppState, searchTypePlaceholders, searchScopeHints 已移至 app-data.js
 
@@ -182,6 +182,11 @@ function bindEvents() {
     elements.startDate.addEventListener('change', handleCustomDateChange);
     elements.endDate.addEventListener('change', handleCustomDateChange);
     elements.clearFiltersSmall.addEventListener('click', clearAllFilters);
+
+    // 收藏筛选按钮事件
+    if (typeof bindFavoriteFilterEvent === 'function') {
+        bindFavoriteFilterEvent();
+    }
 
     // 视图切换事件
     elements.gridView.addEventListener('change', () => switchView('grid'));
