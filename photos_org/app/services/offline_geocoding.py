@@ -11,6 +11,11 @@
 - 不依赖外部API服务
 - 使用本地数据库和算法
 - 支持自定义地理数据
+
+## 3. 数据库初始化
+- 数据库需要通过 utilities/init_offline_geocoding_db.py 脚本初始化
+- 服务类只负责查询，不负责数据初始化
+- 如果数据库不存在或为空，会记录警告信息
 '''
 
 import sqlite3
@@ -24,7 +29,10 @@ class OfflineGeocodingService:
     def __init__(self, db_path: Optional[str] = None):
         """
         初始化离线地理编码服务
+        
         :param db_path: 数据库文件路径（可选，如果为None则从配置读取）
+        
+        注意：数据库需要先通过 utilities/init_offline_geocoding_db.py 脚本初始化
         """
         if db_path is None:
             # 从配置读取路径
@@ -35,119 +43,69 @@ class OfflineGeocodingService:
         from app.core.path_utils import resolve_resource_path
         db_path_obj = resolve_resource_path(db_path)
         self.db_path = str(db_path_obj)
-        self.init_database()
+        
+        # 检查数据库是否存在
+        self._check_database()
     
-    def init_database(self):
+    def _check_database(self):
         """
-        初始化地理数据库
+        检查数据库是否存在且包含数据
+        
+        如果数据库不存在或为空，会记录警告信息
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        from pathlib import Path
+        import logging
+        logger = logging.getLogger(__name__)
         
-        # 创建城市表
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS cities (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                country TEXT NOT NULL,
-                country_code TEXT,
-                latitude REAL NOT NULL,
-                longitude REAL NOT NULL,
-                population INTEGER,
-                region TEXT,
-                timezone TEXT
+        db_file = Path(self.db_path)
+        if not db_file.exists():
+            logger.warning(
+                f"离线地理编码数据库不存在: {self.db_path}\n"
+                f"请运行以下命令初始化数据库:\n"
+                f"  python utilities/init_offline_geocoding_db.py"
             )
-        ''')
+            return
         
-        # 创建国家表
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS countries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                code TEXT NOT NULL,
-                continent TEXT,
-                capital TEXT,
-                latitude REAL,
-                longitude REAL
-            )
-        ''')
-        
-        # 插入主要城市数据
-        cities_data = [
-            # 中国城市
-            ('北京', '中国', 'CN', 39.9042, 116.4074, 21540000, '华北', 'Asia/Shanghai'),
-            ('上海', '中国', 'CN', 31.2304, 121.4737, 24280000, '华东', 'Asia/Shanghai'),
-            ('广州', '中国', 'CN', 23.1291, 113.2644, 15300000, '华南', 'Asia/Shanghai'),
-            ('深圳', '中国', 'CN', 22.5431, 114.0579, 17560000, '华南', 'Asia/Shanghai'),
-            ('成都', '中国', 'CN', 30.5728, 104.0668, 20930000, '西南', 'Asia/Shanghai'),
-            ('杭州', '中国', 'CN', 30.2741, 120.1551, 11940000, '华东', 'Asia/Shanghai'),
-            ('南京', '中国', 'CN', 32.0603, 118.7969, 9420000, '华东', 'Asia/Shanghai'),
-            ('武汉', '中国', 'CN', 30.5928, 114.3055, 12320000, '华中', 'Asia/Shanghai'),
-            ('西安', '中国', 'CN', 34.3416, 108.9398, 12950000, '西北', 'Asia/Shanghai'),
-            ('重庆', '中国', 'CN', 29.4316, 106.9123, 32050000, '西南', 'Asia/Shanghai'),
+        # 检查数据库中是否有数据
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
             
-            # 加拿大城市
-            ('温哥华', '加拿大', 'CA', 49.2827, -123.1207, 675218, 'BC', 'America/Vancouver'),
-            ('多伦多', '加拿大', 'CA', 43.6532, -79.3832, 2930000, 'ON', 'America/Toronto'),
-            ('蒙特利尔', '加拿大', 'CA', 45.5017, -73.5673, 1780000, 'QC', 'America/Montreal'),
-            ('卡尔加里', '加拿大', 'CA', 51.0447, -114.0719, 1300000, 'AB', 'America/Edmonton'),
-            ('渥太华', '加拿大', 'CA', 45.4215, -75.6972, 1017449, 'ON', 'America/Toronto'),
+            # 检查表是否存在
+            cursor.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name IN ('cities', 'countries')
+            """)
+            tables = cursor.fetchall()
             
-            # 美国城市
-            ('纽约', '美国', 'US', 40.7128, -74.0060, 8336817, 'NY', 'America/New_York'),
-            ('洛杉矶', '美国', 'US', 34.0522, -118.2437, 3979576, 'CA', 'America/Los_Angeles'),
-            ('芝加哥', '美国', 'US', 41.8781, -87.6298, 2693976, 'IL', 'America/Chicago'),
-            ('休斯顿', '美国', 'US', 29.7604, -95.3698, 2320268, 'TX', 'America/Chicago'),
-            ('费城', '美国', 'US', 39.9526, -75.1652, 1584064, 'PA', 'America/New_York'),
+            if len(tables) < 2:
+                logger.warning(
+                    f"离线地理编码数据库表结构不完整: {self.db_path}\n"
+                    f"请运行以下命令初始化数据库:\n"
+                    f"  python utilities/init_offline_geocoding_db.py"
+                )
+                conn.close()
+                return
             
-            # 欧洲城市
-            ('伦敦', '英国', 'GB', 51.5074, -0.1278, 8982000, 'England', 'Europe/London'),
-            ('巴黎', '法国', 'FR', 48.8566, 2.3522, 2161000, 'Île-de-France', 'Europe/Paris'),
-            ('柏林', '德国', 'DE', 52.5200, 13.4050, 3669491, 'Berlin', 'Europe/Berlin'),
-            ('罗马', '意大利', 'IT', 41.9028, 12.4964, 2873000, 'Lazio', 'Europe/Rome'),
-            ('马德里', '西班牙', 'ES', 40.4168, -3.7038, 3223000, 'Madrid', 'Europe/Madrid'),
+            # 检查是否有数据
+            cursor.execute("SELECT COUNT(*) FROM cities")
+            city_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM countries")
+            country_count = cursor.fetchone()[0]
             
-            # 亚洲城市
-            ('东京', '日本', 'JP', 35.6762, 139.6503, 13960000, 'Tokyo', 'Asia/Tokyo'),
-            ('首尔', '韩国', 'KR', 37.5665, 126.9780, 9720846, 'Seoul', 'Asia/Seoul'),
-            ('新加坡', '新加坡', 'SG', 1.3521, 103.8198, 5453600, 'Singapore', 'Asia/Singapore'),
-            ('曼谷', '泰国', 'TH', 13.7563, 100.5018, 10539000, 'Bangkok', 'Asia/Bangkok'),
-            ('吉隆坡', '马来西亚', 'MY', 3.1390, 101.6869, 1588000, 'Kuala Lumpur', 'Asia/Kuala_Lumpur'),
+            conn.close()
             
-            # 大洋洲城市
-            ('悉尼', '澳大利亚', 'AU', -33.8688, 151.2093, 5312000, 'NSW', 'Australia/Sydney'),
-            ('墨尔本', '澳大利亚', 'AU', -37.8136, 144.9631, 5078000, 'VIC', 'Australia/Melbourne'),
-            ('奥克兰', '新西兰', 'NZ', -36.8485, 174.7633, 1657000, 'Auckland', 'Pacific/Auckland'),
-        ]
-        
-        # 插入城市数据
-        cursor.executemany('''
-            INSERT OR REPLACE INTO cities (name, country, country_code, latitude, longitude, population, region, timezone)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', cities_data)
-        
-        # 插入国家数据
-        countries_data = [
-            ('中国', 'CN', '亚洲', '北京', 39.9042, 116.4074),
-            ('加拿大', 'CA', '北美洲', '渥太华', 45.4215, -75.6972),
-            ('美国', 'US', '北美洲', '华盛顿', 38.9072, -77.0369),
-            ('英国', 'GB', '欧洲', '伦敦', 51.5074, -0.1278),
-            ('法国', 'FR', '欧洲', '巴黎', 48.8566, 2.3522),
-            ('德国', 'DE', '欧洲', '柏林', 52.5200, 13.4050),
-            ('日本', 'JP', '亚洲', '东京', 35.6762, 139.6503),
-            ('韩国', 'KR', '亚洲', '首尔', 37.5665, 126.9780),
-            ('澳大利亚', 'AU', '大洋洲', '堪培拉', -35.2809, 149.1300),
-            ('新西兰', 'NZ', '大洋洲', '惠灵顿', -41.2924, 174.7787),
-        ]
-        
-        cursor.executemany('''
-            INSERT OR REPLACE INTO countries (name, code, continent, capital, latitude, longitude)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', countries_data)
-        
-        conn.commit()
-        conn.close()
-        print(f"✅ 离线地理数据库初始化完成: {self.db_path}")
+            if city_count == 0 or country_count == 0:
+                logger.warning(
+                    f"离线地理编码数据库为空: {self.db_path}\n"
+                    f"请运行以下命令初始化数据库:\n"
+                    f"  python utilities/init_offline_geocoding_db.py"
+                )
+            else:
+                logger.debug(f"离线地理编码数据库就绪: {self.db_path} (城市: {city_count}, 国家: {country_count})")
+                
+        except sqlite3.Error as e:
+            logger.error(f"检查离线地理编码数据库时出错: {e}")
     
     def calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """
