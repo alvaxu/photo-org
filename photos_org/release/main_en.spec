@@ -56,8 +56,7 @@ a = Analysis(
         (str(ROOT_DIR / 'release' / 'xuwh.ico'), '.'),
 
         # ===== Documentation =====
-        # Essential documentation only
-        (str(ROOT_DIR / 'release' / 'README.md'), '.'),
+        # Note: Documentation files (README.md, README.html) have been removed from the package
         
         # ===== OpenCV Data Files =====
         # OpenCV cascade classifiers and data files (required for image processing)

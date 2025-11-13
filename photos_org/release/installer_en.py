@@ -149,8 +149,6 @@ Make photo management simple and smart!
                 'PhotoSystem.exe',
                 'config.json',
                 'config_default.json',
-                'README.md',
-                'README.html',
                 'installer.py',
                 'startup.bat'
             ]
@@ -458,54 +456,7 @@ read
             print(f"   2. Run: {self.install_path}/startup.sh")
         print()
         print("Access URL: http://localhost:8000")
-
-        # Open README.html in browser
-        self.open_readme_in_browser()
-
         print("="*60)
-
-    def open_readme_in_browser(self):
-        """Open README.html in default browser"""
-        try:
-            import os
-            import webbrowser
-
-            readme_html_path = os.path.join(self.install_path, "README.html")
-
-            # Convert to absolute path and normalize
-            readme_html_path = os.path.abspath(readme_html_path)
-
-            if os.path.exists(readme_html_path):
-                print("\n📖 Opening user guide in browser...")
-
-                # Use file:// URL scheme for local files
-                file_url = f"file://{readme_html_path.replace(os.sep, '/')}"
-
-                # Try to open with default browser
-                try:
-                    # First try with webbrowser module (most reliable)
-                    webbrowser.open(file_url)
-                    print("✅ User guide opened in browser (webbrowser)")
-                except:
-                    # Fallback to system commands
-                    if self.system == "windows":
-                        os.startfile(readme_html_path)
-                        print("✅ User guide opened in browser (os.startfile)")
-                    else:
-                        # For Linux/macOS, try alternative methods
-                        import subprocess
-                        if self.system == "darwin":
-                            subprocess.run(["open", readme_html_path], check=False)
-                        else:
-                            subprocess.run(["xdg-open", readme_html_path], check=False)
-                        print("✅ User guide opened in browser (system command)")
-            else:
-                print("⚠️  User guide file not found")
-                print(f"   Expected location: {readme_html_path}")
-
-        except Exception as e:
-            print(f"⚠️  Could not open user guide: {e}")
-            print("   You can manually open README.html in your installation directory")
 
     def run(self):
         """Run installer"""
