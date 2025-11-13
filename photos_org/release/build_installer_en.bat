@@ -196,6 +196,21 @@ if exist __pycache__ (
     rmdir /s /q __pycache__ 2>nul
 )
 
+REM Update version number in config files before copying
+echo.
+echo ========================================
+echo Updating Application Version Number
+echo ========================================
+echo DEBUG: Running version update script...
+python update_version.py
+if errorlevel 1 (
+    echo ERROR: Failed to update version numbers
+    pause
+    exit /b 1
+)
+echo SUCCESS: Version numbers updated successfully!
+echo.
+
 REM Copy necessary files
 echo DEBUG: Copying config files...
 copy "..\config.json" "!DIST_DIR!\" >nul

@@ -10,6 +10,7 @@ API路由模块初始化文件
 from fastapi import APIRouter
 
 from .health import router as health_router
+from .system import router as system_router
 from .photos import router as photos_router
 from .import_photos import router as import_router
 from .analysis import router as analysis_router
@@ -29,6 +30,7 @@ router = APIRouter()
 
 # 注册子路由
 router.include_router(health_router, prefix="/health", tags=["health"])
+router.include_router(system_router, prefix="/system", tags=["system"])
 router.include_router(photos_router, prefix="/photos", tags=["photos"])
 router.include_router(import_router, prefix="/import", tags=["import"])
 router.include_router(analysis_router, prefix="/analysis", tags=["analysis"])

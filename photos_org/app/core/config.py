@@ -303,6 +303,9 @@ def get_config_paths() -> tuple[Path, Path]:
 class Settings(BaseSettings):
     """全局配置类"""
 
+    # 应用版本号
+    app_version: str = Field(default="20251113_01", description="应用版本号（格式：YYYYMMDD_HH）")
+
     # 子配置
     system: SystemConfig
     database: DatabaseConfig

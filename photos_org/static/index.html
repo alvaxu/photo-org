@@ -46,8 +46,8 @@
     
 
     <!-- 自定义样式 -->
-    <link href="css/style.css?v=20250120_01" rel="stylesheet">
-    <link href="css/search-multiselect.css?v=20250120_01" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <link href="css/search-multiselect.css" rel="stylesheet">
     
     <!-- 地理编码服务选择样式 -->
     <style>
@@ -159,7 +159,7 @@
             margin: 5px 0;
         }
     </style>
-    <link href="css/slideshow-player.css?v=20250120_01" rel="stylesheet">
+    <link href="css/slideshow-player.css" rel="stylesheet">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="images/xuwh.ico">
@@ -168,11 +168,11 @@
     <!-- 顶部导航栏 -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
+            <span class="navbar-brand" style="cursor: default;">
                 <img src="images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
                 智能照片系统
-                <small class="ms-2 text-light opacity-75">2025-V6版</small>
-            </a>
+                <small class="ms-2 text-light opacity-75" id="appVersion">加载中...</small>
+            </span>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -181,22 +181,22 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="#photos" id="navPhotos" data-section="photos">
+                        <a class="nav-link active" href="#photos" id="navPhotos" data-section="photos" title="查看照片库，包括照片的筛选、排序、搜索、分页、删除、编辑等操作">
                             <i class="bi bi-grid-3x3-gap"></i> 照片库
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/startup-info" id="navStartupInfo" title="显示手机访问二维码，方便手机扫描快速连接">
+                        <a class="nav-link" href="/startup-info" id="navStartupInfo" target="_blank" title="显示手机访问二维码，方便手机扫描快速连接">
                             <i class="bi bi-qr-code-scan"></i> 手机访问
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/settings" id="navSettings" data-section="settings">
+                        <a class="nav-link" href="/settings" id="navSettings" data-section="settings"  title="系统配置，包括前端展示、人脸识别、GPS转地址、AI分析等配置">
                             <i class="bi bi-gear"></i> 系统配置
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/help-overview" id="navHelp" data-section="help" target="_blank">
+                        <a class="nav-link" href="/help-overview" id="navHelp" data-section="help" target="_blank" title="查看功能说明，了解系统各项功能和使用方法">
                             <i class="bi bi-info-circle"></i> 功能说明
                         </a>
                     </li>
@@ -1644,6 +1644,15 @@
         </div>
     </div>
 
+    <!-- 页脚 -->
+    <div class="text-center mt-5 pt-4 border-top">
+        <p class="text-muted">
+            <small>
+                © 2025 家庭版智能照片系统 | 版本号: <span id="footerVersion">加载中...</span>
+            </small>
+        </p>
+    </div>
+
     <!-- Chart.js -->
     <script src="lib/chart.js/chart.umd.js"></script>
 
@@ -1708,6 +1717,81 @@
         }
         
         // 确保Bootstrap 5在所有浏览器中正常工作
+        // 版本检测和自动刷新功能
+        async function checkVersionAndRefresh() {
+            try {
+                const response = await fetch('/api/v1/system/version');
+                if (response.ok) {
+                    const data = await response.json();
+                    const currentVersion = data.version; // 使用原始版本号（YYYYMMDD_HH格式）
+                    
+                    // 更新导航栏版本号显示
+                    const versionElement = document.getElementById('appVersion');
+                    if (versionElement && currentVersion) {
+                        versionElement.textContent = currentVersion;
+                    }
+                    
+                    // 更新页脚版本号显示
+                    const footerVersionElement = document.getElementById('footerVersion');
+                    if (footerVersionElement && currentVersion) {
+                        footerVersionElement.textContent = currentVersion;
+                    }
+                    
+                    // 版本检测和自动刷新逻辑
+                    const LAST_VERSION_KEY = 'app_last_version';
+                    const REFRESHED_KEY = 'app_version_refreshed';
+                    const lastVersion = localStorage.getItem(LAST_VERSION_KEY);
+                    const hasRefreshed = sessionStorage.getItem(REFRESHED_KEY);
+                    
+                    // 如果版本号不同且本次会话未刷新过，则自动刷新
+                    if (currentVersion && currentVersion !== lastVersion && !hasRefreshed) {
+                        console.log(`检测到版本更新: ${lastVersion || '未知'} -> ${currentVersion}`);
+                        console.log('自动刷新页面以加载最新版本...');
+                        
+                        // 标记本次会话已刷新，避免重复刷新
+                        sessionStorage.setItem(REFRESHED_KEY, 'true');
+                        // 更新本地存储的版本号
+                        localStorage.setItem(LAST_VERSION_KEY, currentVersion);
+                        
+                        // 延迟刷新，确保日志输出
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
+                        return;
+                    }
+                    
+                    // 版本号相同或已刷新过，更新本地存储的版本号
+                    if (currentVersion) {
+                        localStorage.setItem(LAST_VERSION_KEY, currentVersion);
+                    }
+                } else {
+                    // API调用失败，显示默认文本
+                    const versionElement = document.getElementById('appVersion');
+                    if (versionElement) {
+                        versionElement.textContent = '20251113_10';
+                    }
+                    const footerVersionElement = document.getElementById('footerVersion');
+                    if (footerVersionElement) {
+                        footerVersionElement.textContent = '20251113_10';
+                    }
+                }
+            } catch (error) {
+                console.warn('版本检测失败:', error);
+                // 出错时显示默认文本
+                const versionElement = document.getElementById('appVersion');
+                if (versionElement) {
+                    versionElement.textContent = '20251113_10';
+                }
+                const footerVersionElement = document.getElementById('footerVersion');
+                if (footerVersionElement) {
+                    footerVersionElement.textContent = '20251113_10';
+                }
+            }
+        }
+        
+        // 页面加载时检测版本并自动刷新
+        checkVersionAndRefresh();
+        
         document.addEventListener('DOMContentLoaded', function() {
             // 只在Edge浏览器中应用特定的修复
             if (browser.isEdge) {
@@ -1761,130 +1845,21 @@
         });
     </script>
 
-    <!-- ============ JS版本检测系统 ============ -->
-    <script>
-        /**
-         * 统一的JavaScript文件版本检测机制
-         * 用于确保用户使用的是最新版本的JS文件，避免缓存问题
-         * 
-         * 安全机制：
-         * 1. 使用sessionStorage防止循环刷新
-         * 2. 延迟检测，等待所有JS加载完成
-         * 3. 只检测一次，避免重复检测
-         * 4. 兼容性处理，检测函数不存在时不影响功能
-         */
-        
-        // 定义所有JS文件的期望版本号（与HTML中的?v=参数保持一致）
-        window.JS_VERSIONS = {
-            'hybrid-interaction.js': '20250120_01',
-            'app-utils.js': '20250120_02',
-            'app-data.js': '20250120_02',
-            'stats-panel.js': '20250120_01',
-            'app-ui.js': '20250120_03',
-            'app-events.js': '20250120_01',
-            'app-import.js': '20250120_31',
-            'app-photos.js': '20250120_02',
-            'portrait-filter.js': '20250120_02',  // 更新为新版本
-            'search-multiselect.js': '20250120_01',
-            'app.js': '20250120_02',
-            'photo-manager.js': '20250120_01',
-            'slideshow-player.js': '20250120_02',
-            'slideshow-ui.js': '20250120_01',
-            'ui-components.js': '20250120_01'  // 如果没有版本号，使用默认值
-        };
-        
-        // 版本检测结果收集器
-        window._JS_VERSION_CHECKS = [];
-        
-        // 版本检测注册函数（每个JS文件调用此函数注册自己的版本）
-        window.registerJSVersion = function(fileName, actualVersion) {
-            try {
-                const expectedVersion = window.JS_VERSIONS?.[fileName];
-                if (expectedVersion && actualVersion !== expectedVersion) {
-                    window._JS_VERSION_CHECKS.push({
-                        fileName: fileName,
-                        expected: expectedVersion,
-                        actual: actualVersion || 'undefined'
-                    });
-                    console.warn(`[版本检测] ${fileName} 版本不匹配: 期望 ${expectedVersion}, 实际 ${actualVersion || 'undefined'}`);
-                }
-            } catch (e) {
-                // 静默失败，不影响功能
-                console.warn('[版本检测] 注册版本时出错:', e);
-            }
-        };
-        
-        // 执行版本检测（在所有JS加载完成后调用）
-        window.checkJSVersions = function() {
-            try {
-                // 检查是否已经检测过（防止重复检测）
-                const checkKey = 'js_version_check_done';
-                if (sessionStorage.getItem(checkKey)) {
-                    return;
-                }
-                
-                // 检查是否有版本不匹配
-                if (window._JS_VERSION_CHECKS && window._JS_VERSION_CHECKS.length > 0) {
-                    console.warn('[版本检测] 检测到版本不匹配的文件:', window._JS_VERSION_CHECKS);
-                    
-                    // 防止循环刷新：检查sessionStorage中的刷新标记
-                    const refreshKey = 'js_version_refresh_attempt';
-                    const lastRefresh = sessionStorage.getItem(refreshKey);
-                    const now = Date.now();
-                    
-                    // 如果5秒内已经刷新过，不再刷新（防止循环）
-                    if (lastRefresh && (now - parseInt(lastRefresh)) < 5000) {
-                        console.warn('[版本检测] 检测到可能的循环刷新，停止刷新');
-                        sessionStorage.removeItem(refreshKey);
-                        return;
-                    }
-                    
-                    // 标记已检测
-                    sessionStorage.setItem(checkKey, 'true');
-                    // 记录刷新时间
-                    sessionStorage.setItem(refreshKey, now.toString());
-                    
-                    // 延迟刷新，确保日志输出
-                    setTimeout(function() {
-                        console.log('[版本检测] 自动刷新页面以加载最新版本...');
-                        // 使用 location.reload(true) 强制刷新，清除缓存
-                        window.location.reload(true);
-                    }, 500);
-                } else {
-                    // 所有版本匹配，标记检测完成
-                    sessionStorage.setItem(checkKey, 'true');
-                    console.log('[版本检测] 所有JS文件版本匹配');
-                }
-            } catch (e) {
-                console.error('[版本检测] 检测过程出错:', e);
-                // 出错时不刷新，避免影响正常功能
-            }
-        };
-        
-        // 在所有资源加载完成后执行检测（延迟执行，确保所有JS都已加载）
-        window.addEventListener('load', function() {
-            // 延迟1秒执行，确保所有JS文件都已加载并注册版本
-            setTimeout(function() {
-                window.checkJSVersions();
-            }, 1000);
-        });
-    </script>
-
     <!-- 自定义JavaScript -->
-            <script src="js/hybrid-interaction.js?v=20250120_01"></script>
-            <script src="js/app-utils.js?v=20250120_02"></script>
-            <script src="js/app-data.js?v=20250120_02"></script>
-            <script src="js/stats-panel.js?v=20250120_01"></script>
-            <script src="js/app-ui.js?v=20250120_03"></script>
-            <script src="js/app-events.js?v=20250120_01"></script>
-            <script src="js/app-import.js?v=20250120_31"></script>
-            <script src="js/app-photos.js?v=20250120_02"></script>
-            <script src="js/portrait-filter.js?v=20250120_02"></script>
-            <script src="js/search-multiselect.js?v=20250120_01"></script>
-            <script src="js/app.js?v=20250120_02"></script>
-            <script src="js/photo-manager.js?v=20250120_01"></script>
-            <script src="js/slideshow-player.js?v=20250120_02"></script>
-            <script src="js/slideshow-ui.js?v=20250120_01"></script>
+            <script src="js/hybrid-interaction.js"></script>
+            <script src="js/app-utils.js"></script>
+            <script src="js/app-data.js"></script>
+            <script src="js/stats-panel.js"></script>
+            <script src="js/app-ui.js"></script>
+            <script src="js/app-events.js"></script>
+            <script src="js/app-import.js"></script>
+            <script src="js/app-photos.js"></script>
+            <script src="js/portrait-filter.js"></script>
+            <script src="js/search-multiselect.js"></script>
+            <script src="js/app.js"></script>
+            <script src="js/photo-manager.js"></script>
+            <script src="js/slideshow-player.js"></script>
+            <script src="js/slideshow-ui.js"></script>
     <script src="js/ui-components.js"></script>
 </body>
 </html>

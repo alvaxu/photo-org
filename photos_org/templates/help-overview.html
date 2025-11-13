@@ -41,7 +41,7 @@
     </script>
 
     <!-- 自定义样式 -->
-    <link href="/static/css/style.css?v=20250120_01" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
@@ -109,46 +109,7 @@
     </style>
 </head>
 <body>
-    <!-- 顶部导航栏 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <img src="/static/images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
-                智能照片系统
-                <small class="ms-2 text-light opacity-75">2025-V6版</small>
-            </a>
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="../static/index.html">
-                            <i class="bi bi-grid-3x3-gap"></i> 照片库
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/settings">
-                            <i class="bi bi-gear"></i> 系统配置
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#">
-                            <i class="bi bi-info-circle"></i> 功能说明
-                        </a>
-                    </li>
-                </ul>
-
-                <div class="d-flex">
-                    <button class="btn btn-outline-light" onclick="window.close()">
-                        <i class="bi bi-x-lg"></i> 关闭
-                    </button>
-                </div>
-            </div>
-        </div>
-    </nav>
 
     <!-- 主内容区域 -->
     <div class="container-fluid mt-4">
@@ -160,7 +121,7 @@
 
             <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i>
-                欢迎使用家庭版智能照片系统 V6版 ！本帮助文档将为您详细介绍系统的各项功能和使用方法。
+                欢迎使用家庭版智能照片系统！本帮助文档将为您详细介绍系统的各项功能和使用方法。
             </div>
 
             <!-- 系统概述 -->
@@ -1587,6 +1548,78 @@
             </section>
         </div>
     </div>
+    <!-- 页脚 -->
+    <div class="text-center mt-5 pt-4 border-top">
+        <p class="text-muted">
+            <small>
+                © 2025 家庭版智能照片系统 | 版本号: <span id="footerVersion">加载中...</span>
+            </small>
+        </p>
+    </div>
+
+    <!-- 版本检测和自动刷新功能 -->
+    <script>
+        // 版本检测和自动刷新功能
+        async function checkVersionAndRefresh() {
+            try {
+                const response = await fetch('/api/v1/system/version');
+                if (response.ok) {
+                    const data = await response.json();
+                    const currentVersion = data.version; // 使用原始版本号（YYYYMMDD_HH格式）
+                    
+                    // 更新页脚版本号显示
+                    const footerVersionElement = document.getElementById('footerVersion');
+                    if (footerVersionElement && currentVersion) {
+                        footerVersionElement.textContent = currentVersion;
+                    }
+                    
+                    // 版本检测和自动刷新逻辑
+                    const LAST_VERSION_KEY = 'app_last_version';
+                    const REFRESHED_KEY = 'app_version_refreshed';
+                    const lastVersion = localStorage.getItem(LAST_VERSION_KEY);
+                    const hasRefreshed = sessionStorage.getItem(REFRESHED_KEY);
+                    
+                    // 如果版本号不同且本次会话未刷新过，则自动刷新
+                    if (currentVersion && currentVersion !== lastVersion && !hasRefreshed) {
+                        console.log(`检测到版本更新: ${lastVersion || '未知'} -> ${currentVersion}`);
+                        console.log('自动刷新页面以加载最新版本...');
+                        
+                        // 标记本次会话已刷新，避免重复刷新
+                        sessionStorage.setItem(REFRESHED_KEY, 'true');
+                        // 更新本地存储的版本号
+                        localStorage.setItem(LAST_VERSION_KEY, currentVersion);
+                        
+                        // 延迟刷新，确保日志输出
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
+                        return;
+                    }
+                    
+                    // 版本号相同或已刷新过，更新本地存储的版本号
+                    if (currentVersion) {
+                        localStorage.setItem(LAST_VERSION_KEY, currentVersion);
+                    }
+                } else {
+                    // API调用失败，显示默认文本
+                    const footerVersionElement = document.getElementById('footerVersion');
+                    if (footerVersionElement) {
+                        footerVersionElement.textContent = '20251113_10';
+                    }
+                }
+            } catch (error) {
+                console.warn('版本检测失败:', error);
+                // 出错时显示默认文本
+                const footerVersionElement = document.getElementById('footerVersion');
+                if (footerVersionElement) {
+                    footerVersionElement.textContent = '20251113_10';
+                }
+            }
+        }
+        
+        // 页面加载时检测版本并自动刷新
+        checkVersionAndRefresh();
+    </script>
 
     <!-- Bootstrap JS - 优先使用本地版本 -->
     <script src="/static/lib/bootstrap/js/bootstrap.bundle.min.js"></script>

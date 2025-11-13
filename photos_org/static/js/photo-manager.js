@@ -2,9 +2,6 @@
  * 家庭版智能照片系统 - 照片管理脚本
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const PHOTO_MANAGER_VERSION = '20250120_01';
-
 // 照片管理器类
 class PhotoManager {
     constructor() {
@@ -635,8 +632,3 @@ window.showToast = function(message, type = 'info') {
         alert(message);
     }
 };
-
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('photo-manager.js', PHOTO_MANAGER_VERSION);
-}

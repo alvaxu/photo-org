@@ -7,9 +7,6 @@
  * 3. 与照片库集成
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const PORTRAIT_FILTER_VERSION = '20250120_02';
-
 class PortraitFilterPanel {
     constructor() {
         this.clusters = [];
@@ -511,7 +508,3 @@ document.addEventListener('DOMContentLoaded', () => {
 // 导出到全局
 window.initPortraitFilter = initPortraitFilter;
 
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('portrait-filter.js', PORTRAIT_FILTER_VERSION);
-}

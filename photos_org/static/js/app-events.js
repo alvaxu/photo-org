@@ -8,9 +8,6 @@
  * 4. 导入相关事件处理
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const APP_EVENTS_VERSION = '20250120_01';
-
 /**
  * 绑定基础事件监听器
  */
@@ -247,8 +244,3 @@ function handleKeyboard(event) {
 window.bindBasicEvents = bindBasicEvents;
 window.handleFileSelection = handleFileSelection;
 window.handleKeyboard = handleKeyboard;
-
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('app-events.js', APP_EVENTS_VERSION);
-}

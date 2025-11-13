@@ -9,9 +9,6 @@
  * 5. 智能通知系统（统一格式、详细结果、模态框展示）
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const APP_IMPORT_VERSION = '20250120_31';
-
 /**
  * 更新日志：
  * - 2025-01-19: 完善导入和智能通知系统
@@ -3800,11 +3797,6 @@ function showBatchResultModal(result, totalPhotos) {
     // 显示弹窗
     const modal = new bootstrap.Modal(document.getElementById('batchResultModal'));
     modal.show();
-}
-
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('app-import.js', APP_IMPORT_VERSION);
 }
 
 

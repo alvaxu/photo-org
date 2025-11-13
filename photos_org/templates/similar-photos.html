@@ -45,7 +45,7 @@
     </script>
     
     <!-- 自定义样式 -->
-    <link href="/static/css/style.css?v=20250120_01" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/static/images/xuwh.ico">
@@ -368,99 +368,90 @@
         </div>
     </div>
 
-    <!-- ============ JS版本检测系统 ============ -->
+    <!-- 页脚 -->
+    <div class="text-center mt-5 pt-4 border-top">
+        <p class="text-muted">
+            <small>
+                © 2025 家庭版智能照片系统 | 版本号: <span id="footerVersion">加载中...</span>
+            </small>
+        </p>
+    </div>
+
+    <!-- 版本检测和自动刷新功能 -->
     <script>
-        /**
-         * 统一的JavaScript文件版本检测机制
-         * 用于确保用户使用的是最新版本的JS文件，避免缓存问题
-         */
-        
-        // 定义所有JS文件的期望版本号（与HTML中的?v=参数保持一致）
-        window.JS_VERSIONS = {
-            'app-utils.js': '20250120_02',
-            'app-data.js': '20250120_01',
-            'app-ui.js': '20250120_01',
-            'app-photos.js': '20250120_02',
-            'image-feature-extraction.js': '20250120_01',
-            'similar-photos-management.js': '20250120_01'
-        };
-        
-        // 版本检测结果收集器
-        window._JS_VERSION_CHECKS = [];
-        
-        // 版本检测注册函数
-        window.registerJSVersion = function(fileName, actualVersion) {
+        // 版本检测和自动刷新功能
+        async function checkVersionAndRefresh() {
             try {
-                const expectedVersion = window.JS_VERSIONS?.[fileName];
-                if (expectedVersion && actualVersion !== expectedVersion) {
-                    window._JS_VERSION_CHECKS.push({
-                        fileName: fileName,
-                        expected: expectedVersion,
-                        actual: actualVersion || 'undefined'
-                    });
-                    console.warn(`[版本检测] ${fileName} 版本不匹配: 期望 ${expectedVersion}, 实际 ${actualVersion || 'undefined'}`);
-                }
-            } catch (e) {
-                console.warn('[版本检测] 注册版本时出错:', e);
-            }
-        };
-        
-        // 执行版本检测
-        window.checkJSVersions = function() {
-            try {
-                const checkKey = 'js_version_check_done';
-                if (sessionStorage.getItem(checkKey)) {
-                    return;
-                }
-                
-                if (window._JS_VERSION_CHECKS && window._JS_VERSION_CHECKS.length > 0) {
-                    console.warn('[版本检测] 检测到版本不匹配的文件:', window._JS_VERSION_CHECKS);
+                const response = await fetch('/api/v1/system/version');
+                if (response.ok) {
+                    const data = await response.json();
+                    const currentVersion = data.version; // 使用原始版本号（YYYYMMDD_HH格式）
                     
-                    const refreshKey = 'js_version_refresh_attempt';
-                    const lastRefresh = sessionStorage.getItem(refreshKey);
-                    const now = Date.now();
+                    // 更新页脚版本号显示
+                    const footerVersionElement = document.getElementById('footerVersion');
+                    if (footerVersionElement && currentVersion) {
+                        footerVersionElement.textContent = currentVersion;
+                    }
                     
-                    if (lastRefresh && (now - parseInt(lastRefresh)) < 5000) {
-                        console.warn('[版本检测] 检测到可能的循环刷新，停止刷新');
-                        sessionStorage.removeItem(refreshKey);
+                    // 版本检测和自动刷新逻辑
+                    const LAST_VERSION_KEY = 'app_last_version';
+                    const REFRESHED_KEY = 'app_version_refreshed';
+                    const lastVersion = localStorage.getItem(LAST_VERSION_KEY);
+                    const hasRefreshed = sessionStorage.getItem(REFRESHED_KEY);
+                    
+                    // 如果版本号不同且本次会话未刷新过，则自动刷新
+                    if (currentVersion && currentVersion !== lastVersion && !hasRefreshed) {
+                        console.log(`检测到版本更新: ${lastVersion || '未知'} -> ${currentVersion}`);
+                        console.log('自动刷新页面以加载最新版本...');
+                        
+                        // 标记本次会话已刷新，避免重复刷新
+                        sessionStorage.setItem(REFRESHED_KEY, 'true');
+                        // 更新本地存储的版本号
+                        localStorage.setItem(LAST_VERSION_KEY, currentVersion);
+                        
+                        // 延迟刷新，确保日志输出
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
                         return;
                     }
                     
-                    sessionStorage.setItem(checkKey, 'true');
-                    sessionStorage.setItem(refreshKey, now.toString());
-                    
-                    setTimeout(function() {
-                        console.log('[版本检测] 自动刷新页面以加载最新版本...');
-                        window.location.reload(true);
-                    }, 500);
+                    // 版本号相同或已刷新过，更新本地存储的版本号
+                    if (currentVersion) {
+                        localStorage.setItem(LAST_VERSION_KEY, currentVersion);
+                    }
                 } else {
-                    sessionStorage.setItem(checkKey, 'true');
-                    console.log('[版本检测] 所有JS文件版本匹配');
+                    // API调用失败，显示默认文本
+                    const footerVersionElement = document.getElementById('footerVersion');
+                    if (footerVersionElement) {
+                        footerVersionElement.textContent = '20251113_10';
+                    }
                 }
-            } catch (e) {
-                console.error('[版本检测] 检测过程出错:', e);
+            } catch (error) {
+                console.warn('版本检测失败:', error);
+                // 出错时显示默认文本
+                const footerVersionElement = document.getElementById('footerVersion');
+                if (footerVersionElement) {
+                    footerVersionElement.textContent = '20251113_10';
+                }
             }
-        };
+        }
         
-        // 在所有资源加载完成后执行检测
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                window.checkJSVersions();
-            }, 1000);
-        });
+        // 页面加载时检测版本并自动刷新
+        checkVersionAndRefresh();
     </script>
 
     <!-- 必要的JavaScript文件（用于照片详情功能） -->
-    <script src="/static/js/app-utils.js?v=20250120_02"></script>
-    <script src="/static/js/app-data.js?v=20250120_01"></script>
-    <script src="/static/js/app-ui.js?v=20250120_01"></script>
-    <script src="/static/js/app-photos.js?v=20250120_02"></script>
+    <script src="/static/js/app-utils.js"></script>
+    <script src="/static/js/app-data.js"></script>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/app-photos.js"></script>
     
     <!-- 图像特征提取脚本 -->
-    <script src="/static/js/image-feature-extraction.js?v=20250120_01"></script>
+    <script src="/static/js/image-feature-extraction.js"></script>
     
     <!-- 相似照识别管理脚本 -->
-    <script src="/static/js/similar-photos-management.js?v=20250120_01"></script>
+    <script src="/static/js/similar-photos-management.js"></script>
 </body>
 </html>
 

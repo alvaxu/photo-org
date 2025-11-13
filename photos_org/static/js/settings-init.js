@@ -3,9 +3,6 @@
  * 解决Edge浏览器加载混乱问题
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const SETTINGS_INIT_VERSION = '20250119_80';
-
 // 清理模态框遮罩层
 function cleanupModalBackdrops() {
     const backdrops = document.querySelectorAll('.modal-backdrop');
@@ -32,7 +29,3 @@ window.addEventListener('load', () => {
 // 导出清理函数到全局作用域
 window.cleanupModalBackdrops = cleanupModalBackdrops;
 
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('settings-init.js', SETTINGS_INIT_VERSION);
-}

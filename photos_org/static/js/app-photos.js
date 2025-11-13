@@ -8,9 +8,6 @@
  * 4. 页面导航和显示
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const APP_PHOTOS_VERSION = '20250120_02';
-
 // 旧的触摸延迟处理函数已移除，现在使用新的混合设备交互管理器
 
 /**
@@ -2761,7 +2758,3 @@ window.saveBatchEdit = saveBatchEdit;
 window.addBatchEditTag = addBatchEditTag;
 window.removeBatchEditTag = removeBatchEditTag;
 
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('app-photos.js', APP_PHOTOS_VERSION);
-}

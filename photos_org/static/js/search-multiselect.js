@@ -8,9 +8,6 @@
  * 4. 已选择项目显示和管理
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const SEARCH_MULTISELECT_VERSION = '20250120_01';
-
 /**
  * 搜索式多选组件类
  */
@@ -335,7 +332,3 @@ class SearchMultiSelect {
 // 全局导出
 window.SearchMultiSelect = SearchMultiSelect;
 
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('search-multiselect.js', SEARCH_MULTISELECT_VERSION);
-}

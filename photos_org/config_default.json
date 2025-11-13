@@ -1,4 +1,5 @@
 {
+  "app_version": "20251113_10",
   "system": {
     "max_file_size": 52428800,
     "timeout": 10,

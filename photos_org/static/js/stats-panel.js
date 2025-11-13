@@ -1,6 +1,3 @@
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const STATS_PANEL_VERSION = '20250120_01';
-
 // 统计面板管理类
 class StatsPanel {
     constructor() {
@@ -534,8 +531,3 @@ document.addEventListener('DOMContentLoaded', () => {
     window.statsPanel = new StatsPanel();
     console.log('StatsPanel initialized:', !!window.statsPanel);
 });
-
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('stats-panel.js', STATS_PANEL_VERSION);
-}

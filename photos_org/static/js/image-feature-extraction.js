@@ -4,9 +4,6 @@
  * 参考基础分析和AI分析的批处理实现
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const IMAGE_FEATURE_EXTRACTION_VERSION = '20250120_01';
-
 /**
  * 显示图像特征提取模态框
  */
@@ -471,9 +468,4 @@ function showImageFeatureExtractionResults(status) {
 window.showImageFeatureExtractionModal = showImageFeatureExtractionModal;
 window.startImageFeatureExtraction = startImageFeatureExtraction;
 window.showImageFeatureExtractionResults = showImageFeatureExtractionResults;
-
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('image-feature-extraction.js', IMAGE_FEATURE_EXTRACTION_VERSION);
-}
 

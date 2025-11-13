@@ -2,9 +2,6 @@
  * 家庭版智能照片系统 - UI组件脚本
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const UI_COMPONENTS_VERSION = '20250120_01';
-
 // UI组件管理器
 class UIComponents {
     constructor() {
@@ -548,7 +545,3 @@ document.addEventListener('DOMContentLoaded', () => {
 // 导出到全局作用域
 window.UIComponents = uiComponents;
 
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('ui-components.js', UI_COMPONENTS_VERSION);
-}

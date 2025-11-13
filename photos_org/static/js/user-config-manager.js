@@ -3,9 +3,6 @@
  * 功能：配置加载、保存、重置、导出等
  */
 
-// JS文件版本号（与HTML中的?v=参数保持一致）
-const USER_CONFIG_MANAGER_VERSION = '20250119_80';
-
 class UserConfigManager {
     constructor() {
         this.config = {};
@@ -97,7 +94,8 @@ class UserConfigManager {
      */
     bindRangeSliders() {
         const sliders = [
-            'thumbnailQuality', 'thumbnailSize', 'featuresSimilarityThreshold', 'similarityThreshold', 'faceSimilarityThreshold'
+            'thumbnailQuality', 'thumbnailSize', 'featuresSimilarityThreshold', 'similarityThreshold', 'faceSimilarityThreshold',
+            'photosPerPage', 'similarPhotosLimit'
         ];
 
         sliders.forEach(id => {
@@ -108,7 +106,13 @@ class UserConfigManager {
             if (slider && valueDisplay) {
                 slider.addEventListener('input', (e) => {
                     const value = e.target.value;
-                    valueDisplay.textContent = value;
+                    
+                    // 更新滑块值显示
+                    if (id === 'photosPerPage' || id === 'similarPhotosLimit') {
+                        valueDisplay.textContent = value + '张';
+                    } else {
+                        valueDisplay.textContent = value;
+                    }
                     
                     // 更新当前值显示
                     if (currentValueDisplay) {
@@ -116,6 +120,8 @@ class UserConfigManager {
                             currentValueDisplay.textContent = value + '%';
                         } else if (id === 'thumbnailSize') {
                             currentValueDisplay.textContent = value + 'px';
+                        } else if (id === 'photosPerPage' || id === 'similarPhotosLimit') {
+                            currentValueDisplay.textContent = value + '张';
                         } else {
                             currentValueDisplay.textContent = value;
                         }
@@ -132,7 +138,7 @@ class UserConfigManager {
      */
     bindSelectBoxes() {
         const selects = [
-            'aiModel', 'maxFileSize', 'photosPerPage', 'similarPhotosLimit'
+            'aiModel', 'maxFileSize'
         ];
         
         selects.forEach(id => {
@@ -146,8 +152,6 @@ class UserConfigManager {
                     if (currentValueDisplay) {
                         if (id === 'maxFileSize') {
                             currentValueDisplay.textContent = this.formatFileSize(parseInt(value));
-                        } else if (id === 'photosPerPage' || id === 'similarPhotosLimit') {
-                            currentValueDisplay.textContent = value + '张';
                         } else if (id === 'aiModel') {
                             currentValueDisplay.textContent = value || '未设置';
                         } else {
@@ -318,12 +322,22 @@ class UserConfigManager {
 
         // 界面配置
         const photosPerPage = this.config.ui?.photos_per_page || 12;
-        this.setSelectValue('photosPerPage', photosPerPage);
+        this.setRangeValue('photosPerPage', photosPerPage);
         this.updateCurrentValue('photosPerPageCurrent', photosPerPage + '张');
+        // 更新滑块值显示
+        const photosPerPageValueDisplay = document.getElementById('photosPerPageValue');
+        if (photosPerPageValueDisplay) {
+            photosPerPageValueDisplay.textContent = photosPerPage + '张';
+        }
         
         const similarPhotosLimit = this.config.ui?.similar_photos_limit || 8;
-        this.setSelectValue('similarPhotosLimit', similarPhotosLimit);
+        this.setRangeValue('similarPhotosLimit', similarPhotosLimit);
         this.updateCurrentValue('similarPhotosLimitCurrent', similarPhotosLimit + '张');
+        // 更新滑块值显示
+        const similarPhotosLimitValueDisplay = document.getElementById('similarPhotosLimitValue');
+        if (similarPhotosLimitValueDisplay) {
+            similarPhotosLimitValueDisplay.textContent = similarPhotosLimit + '张';
+        }
         
         // 热门标签和分类配置已移除
 
@@ -444,7 +458,16 @@ class UserConfigManager {
         
         if (slider && valueDisplay) {
             slider.value = value;
-            valueDisplay.textContent = value;
+            // 根据不同的滑块类型显示不同的格式
+            if (id === 'photosPerPage' || id === 'similarPhotosLimit') {
+                valueDisplay.textContent = value + '张';
+            } else if (id === 'thumbnailQuality') {
+                valueDisplay.textContent = value + '%';
+            } else if (id === 'thumbnailSize') {
+                valueDisplay.textContent = value + 'px';
+            } else {
+                valueDisplay.textContent = value;
+            }
         }
     }
 
@@ -881,7 +904,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// 注册版本号（用于版本检测）
-if (typeof window.registerJSVersion === 'function') {
-    window.registerJSVersion('user-config-manager.js', USER_CONFIG_MANAGER_VERSION);
-}
