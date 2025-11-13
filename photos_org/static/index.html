@@ -171,7 +171,6 @@
             <span class="navbar-brand" style="cursor: default;">
                 <img src="images/xuwh.ico" alt="智能照片系统" class="me-2" style="width: 32px; height: 32px;">
                 智能照片系统
-                <small class="ms-2 text-light opacity-75" id="appVersion">加载中...</small>
             </span>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -1725,12 +1724,6 @@
                     const data = await response.json();
                     const currentVersion = data.version; // 使用原始版本号（YYYYMMDD_HH格式）
                     
-                    // 更新导航栏版本号显示
-                    const versionElement = document.getElementById('appVersion');
-                    if (versionElement && currentVersion) {
-                        versionElement.textContent = currentVersion;
-                    }
-                    
                     // 更新页脚版本号显示
                     const footerVersionElement = document.getElementById('footerVersion');
                     if (footerVersionElement && currentVersion) {
@@ -1766,10 +1759,6 @@
                     }
                 } else {
                     // API调用失败，显示默认文本
-                    const versionElement = document.getElementById('appVersion');
-                    if (versionElement) {
-                        versionElement.textContent = '20251113_10';
-                    }
                     const footerVersionElement = document.getElementById('footerVersion');
                     if (footerVersionElement) {
                         footerVersionElement.textContent = '20251113_10';
@@ -1778,10 +1767,6 @@
             } catch (error) {
                 console.warn('版本检测失败:', error);
                 // 出错时显示默认文本
-                const versionElement = document.getElementById('appVersion');
-                if (versionElement) {
-                    versionElement.textContent = '20251113_10';
-                }
                 const footerVersionElement = document.getElementById('footerVersion');
                 if (footerVersionElement) {
                     footerVersionElement.textContent = '20251113_10';

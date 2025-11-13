@@ -395,7 +395,6 @@ echo ========================================
 echo [SUCCESS] Complete Build Successful!
 echo ========================================
 echo.
-echo [OK] README.html generated
 echo [OK] PhotoSystem.exe built
 echo [OK] All files packaged for direct execution
 echo.

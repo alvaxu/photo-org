@@ -130,8 +130,8 @@
 
                 <div class="info-box">
                     <h5><i class="bi bi-house-heart me-2"></i>家庭版智能照片系统</h5>
-                    <p>基于AI技术的智能照片管理平台，，支持照片<strong>去重导入</strong>（导入照片时自动去除名字不同的同一张照片）、分析、分类、标签生成、<strong>人脸识别与根据肖像快速查询、GPS转地址多服务解析、图像特征提取与相似照搜索</strong>、支持对照片及其信息的增删改查、播放和下载。您的照片数据始终存储在您控制的本地设备中，从不上传到云端，<strong>真正的数据永不离身，绝对隐私无忧。</strong></p>
-                </div>
+                    <p>基于AI技术的智能照片管理平台，支持在家庭网络内，通过各种终端，将照片<strong>去重导入</strong>（导入照片时自动去除名字不同的同一张照片）、分析、分类、标签生成、<strong>人脸识别与根据肖像快速查询、GPS转地址多服务解析、图像特征提取与相似照搜索</strong>、
+                        支持对照片及其信息的增删改查、播放和下载。您的照片数据始终存储在您控制的本地设备中，从不上传到云端，既做到了<strong>真正的数据永不离身，绝对隐私无忧。</strong>又做到了<strong>照片随时随地多终端导入和访问</strong>。
 
                 <div class="row g-4">
                     <!-- 第一行 -->
@@ -952,13 +952,7 @@
                             <div class="col-md-6">
                                 <ul class="mb-2 small">
                                     <li><strong>界面设置：</strong>调整每页显示照片数和相似照片数量</li>
-                                    <li><strong>搜索设置：</strong>配置相似度阈值和重复检测阈值
-                                        <ul class="small mt-1">
-                                            <li>特征向量搜索相似度阈值：0.0-1.0，默认0.75（值越高越严格）</li>
-                                            <li>智能分析相似度阈值：0.0-1.0，用于智能分析相似搜索</li>
-                                            <li>默认相似照片搜索方式：特征向量搜索/智能分析相似搜索/每次都询问</li>
-                                        </ul>
-                                    </li>
+                                    <li><strong>搜索设置：</strong>配置相似照聚类阈值、人脸聚类阈值、智能分析相似度阈值、以及默认相似照片搜索方式</li>
                                 </ul>
                             </div>
                         </div>
@@ -1021,16 +1015,14 @@
                     <ul>
                         <li><strong>文件大小限制：</strong>25MB、50MB、100MB、200MB可选</li>
                         <li><strong>缩略图设置：</strong>质量50%、尺寸300像素推荐</li>
-                        <li><strong>重要提醒：</strong>更改目录前先备份原有数据</li>
                     </ul>
                 </div>
 
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5">界面设置</h4>
                     <ul>
-                        <li><strong>每页显示照片数：</strong>6、12、18、24、30张可选</li>
-                        <li><strong>相似照片数量：</strong>4、8、12张可选</li>
-                        <li><strong>推荐配置：</strong>每页12张照片，相似照片8张</li>
+                        <li><strong>每页显示照片数：</strong>6-120张可选</li>
+                        <li><strong>相似照片数量：</strong>2-12张可选</li>
                     </ul>
                 </div>
 
@@ -1038,18 +1030,18 @@
                     <h4 class="h5">搜索设置</h4>
                     <div class="row">
                         <div class="col-md-6">
-                            <h6><i class="bi bi-sliders me-2"></i>相似度阈值</h6>
+                            <h6><i class="bi bi-sliders me-2"></i>聚类阈值</h6>
                             <ul class="small">
-                                <li><strong>特征向量搜索相似度阈值：</strong>0.0-1.0，默认0.75
+                                <li><strong>相似照聚类阈值：</strong>0.0-1.0，默认0.72
                                     <ul class="small mt-1">
-                                        <li>用于特征向量相似搜索的阈值</li>
+                                        <li>用于将相似照进行聚类时的相似度阈值</li>
                                         <li>值越高越严格，匹配的照片越相似</li>
-                                        <li>建议范围：0.7-0.85</li>
                                     </ul>
                                 </li>
-                                <li><strong>智能分析相似度阈值：</strong>0.0-1.0
+                                <li><strong>人脸聚类阈值：</strong>0.0-1.0，默认0.5
                                     <ul class="small mt-1">
-                                        <li>用于智能分析相似搜索的阈值</li>
+                                        <li>用于将人脸进行聚类时的相似度阈值</li>
+                                        <li>值越高越严格，匹配的人脸越相似</li>
                                     </ul>
                                 </li>
                             </ul>
@@ -1064,7 +1056,7 @@
                                         <li><strong>每次都询问：</strong>每次搜索时选择搜索方式</li>
                                     </ul>
                                 </li>
-                                <li><strong>重复检测阈值：</strong>1-20，推荐5</li>
+                                <li><strong>智能分析相似度阈值：</strong>0.0-1.0，默认0.5</li>
                                 <li><strong>平衡配置：</strong>准确性和召回率的良好平衡</li>
                             </ul>
                         </div>
