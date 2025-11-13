@@ -246,6 +246,9 @@ function switchView(viewType) {
 function showPhotoDetail(photo) {
     console.log('显示照片详情:', photo);
     
+    // 保存当前照片对象，以便后续更新收藏状态
+    window.currentPhotoDetail = photo;
+    
     // 获取photoModal元素（支持elements对象或直接查找）
     const photoModal = (typeof elements !== 'undefined' && elements.photoModal) 
         ? elements.photoModal 
@@ -934,44 +937,56 @@ function editPhoto(photoId) {
     alert('编辑功能暂未实现');
 }
 
-// 切换收藏状态（占位符）
-async function toggleFavorite(photoId) {
+// 切换收藏状态
+async function toggleFavorite(photoId, buttonElement = null) {
     try {
         console.log('切换收藏状态:', photoId);
         
-        // 获取收藏按钮
-        const favoriteBtn = elements.photoModal.querySelector('#addToFavoritesBtn');
-        if (!favoriteBtn) {
+        // 1. 查找所有相关按钮（详情页 + 卡片中的按钮）
+        const detailBtn = elements.photoModal?.querySelector('#addToFavoritesBtn');
+        const cardButtons = document.querySelectorAll(`button[data-photo-id="${photoId}"][data-action="favorite"]`);
+        const allButtons = [detailBtn, ...Array.from(cardButtons)].filter(Boolean);
+        
+        // 2. 确定主要按钮（用于获取当前状态）
+        const primaryButton = buttonElement || detailBtn || cardButtons[0];
+        if (!primaryButton) {
             console.error('收藏按钮未找到');
             return;
         }
         
-        // 获取当前收藏状态（从按钮的 data 属性或通过 API 获取）
+        // 3. 获取当前收藏状态
         let currentFavoriteState = false;
-        if (favoriteBtn.dataset.isFavorite !== undefined) {
-            currentFavoriteState = favoriteBtn.dataset.isFavorite === 'true';
+        if (primaryButton.dataset.isFavorite !== undefined) {
+            currentFavoriteState = primaryButton.dataset.isFavorite === 'true';
         } else {
-            // 如果没有保存状态，先获取照片信息
-            try {
-                const response = await fetch(`/api/v1/photos/${photoId}`);
-                if (response.ok) {
-                    const photoData = await response.json();
-                    currentFavoriteState = photoData.is_favorite || false;
+            // 如果没有保存状态，从 AppState.photos 中获取
+            const photo = AppState.photos.find(p => p.id === photoId);
+            if (photo) {
+                currentFavoriteState = photo.is_favorite || false;
+            } else {
+                // 如果 AppState 中没有，通过 API 获取
+                try {
+                    const response = await fetch(`/api/v1/photos/${photoId}`);
+                    if (response.ok) {
+                        const photoData = await response.json();
+                        currentFavoriteState = photoData.is_favorite || false;
+                    }
+                } catch (e) {
+                    console.warn('获取照片信息失败，使用默认状态:', e);
                 }
-            } catch (e) {
-                console.warn('获取照片信息失败，使用默认状态:', e);
             }
         }
         
-        // 切换收藏状态
+        // 4. 切换收藏状态
         const newFavoriteState = !currentFavoriteState;
         
-        // 显示加载状态
-        const originalHTML = favoriteBtn.innerHTML;
-        favoriteBtn.disabled = true;
-        favoriteBtn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+        // 5. 显示所有按钮的加载状态
+        allButtons.forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+        });
         
-        // 调用API更新收藏状态
+        // 6. 调用API更新收藏状态
         const response = await fetch(`/api/v1/photos/${photoId}/favorite`, {
             method: 'PUT',
             headers: {
@@ -989,8 +1004,30 @@ async function toggleFavorite(photoId) {
         
         const result = await response.json();
         
-        // 更新按钮UI（按钮颜色和图标已经能够清楚地显示状态，无需额外提示）
-        updateFavoriteButtonUI(favoriteBtn, result.is_favorite);
+        // 7. 【关键】更新 AppState.photos 中的数据
+        const photoIndex = AppState.photos.findIndex(p => p.id === photoId);
+        if (photoIndex !== -1) {
+            AppState.photos[photoIndex].is_favorite = result.is_favorite;
+        }
+        
+        // 8. 更新所有按钮的UI
+        allButtons.forEach(btn => {
+            updateFavoriteButtonUI(btn, result.is_favorite);
+        });
+        
+        // 9. 如果详情页已打开，更新详情页中的照片对象
+        if (window.currentPhotoDetail && window.currentPhotoDetail.id === photoId) {
+            window.currentPhotoDetail.is_favorite = result.is_favorite;
+        }
+        
+        // 10. 如果当前在"我的收藏"筛选模式下，且取消收藏，刷新列表
+        if (AppState.searchFilters.favorite_filter && !result.is_favorite) {
+            // 取消收藏后，如果当前只显示收藏照片，需要重新加载
+            // 延迟一下，让用户看到按钮状态变化
+            setTimeout(() => {
+                loadPhotos(AppState.currentPage);
+            }, 300);
+        }
         
     } catch (error) {
         console.error('切换收藏状态失败:', error);
@@ -1000,14 +1037,17 @@ async function toggleFavorite(photoId) {
             alert('收藏操作失败: ' + error.message);
         }
         
-        // 恢复按钮状态
-        const favoriteBtn = elements.photoModal.querySelector('#addToFavoritesBtn');
-        if (favoriteBtn) {
-            favoriteBtn.disabled = false;
+        // 恢复所有按钮状态
+        const detailBtn = elements.photoModal?.querySelector('#addToFavoritesBtn');
+        const cardButtons = document.querySelectorAll(`button[data-photo-id="${photoId}"][data-action="favorite"]`);
+        const allButtons = [detailBtn, ...Array.from(cardButtons)].filter(Boolean);
+        
+        allButtons.forEach(btn => {
+            btn.disabled = false;
             // 尝试恢复原始状态（如果可能）
-            const currentState = favoriteBtn.dataset.isFavorite === 'true';
-            updateFavoriteButtonUI(favoriteBtn, currentState);
-        }
+            const currentState = btn.dataset.isFavorite === 'true';
+            updateFavoriteButtonUI(btn, currentState);
+        });
     }
 }
 
@@ -1023,17 +1063,36 @@ function updateFavoriteButtonUI(button, isFavorite) {
     button.disabled = false;
     button.dataset.isFavorite = isFavorite.toString();
     
+    // 判断是否是详情页按钮（通过检查是否有 btn-sm 类或 id 是否为 addToFavoritesBtn）
+    const isDetailPageButton = button.id === 'addToFavoritesBtn' || button.classList.contains('btn-sm');
+    
     // 更新按钮样式和图标
-    if (isFavorite) {
-        // 已收藏：实心图标 + 红色样式
-        button.className = 'btn btn-sm btn-danger';
-        button.innerHTML = '<i class="bi bi-heart-fill"></i>';
-        button.title = '取消收藏';
+    if (isDetailPageButton) {
+        // 详情页：使用带框样式，与其他按钮一致
+        if (isFavorite) {
+            // 已收藏：实心图标 + 红色按钮
+            button.className = 'btn btn-sm btn-danger photo-favorite-btn';
+            button.innerHTML = '<i class="bi bi-heart-fill"></i>';
+            button.title = '取消收藏';
+        } else {
+            // 未收藏：空心图标 + 绿色边框按钮
+            button.className = 'btn btn-sm btn-outline-success photo-favorite-btn';
+            button.innerHTML = '<i class="bi bi-heart"></i>';
+            button.title = '添加到收藏';
+        }
     } else {
-        // 未收藏：空心图标 + 绿色边框样式
-        button.className = 'btn btn-sm btn-outline-success';
-        button.innerHTML = '<i class="bi bi-heart"></i>';
-        button.title = '添加到收藏';
+        // 卡片中的按钮：使用 btn-link 样式，去掉边框和背景
+        if (isFavorite) {
+            // 已收藏：实心图标 + 红色文字
+            button.className = 'btn btn-link text-danger p-0 photo-favorite-btn';
+            button.innerHTML = '<i class="bi bi-heart-fill"></i>';
+            button.title = '取消收藏';
+        } else {
+            // 未收藏：空心图标 + 灰色文字
+            button.className = 'btn btn-link text-muted p-0 photo-favorite-btn';
+            button.innerHTML = '<i class="bi bi-heart"></i>';
+            button.title = '添加到收藏';
+        }
     }
 }
 
@@ -1049,6 +1108,7 @@ function deletePhoto(photoId) {
 window.showPhotoDetail = showPhotoDetail;
 window.createPhotoDetailModal = createPhotoDetailModal;
 window.downloadPhoto = downloadPhoto;
+window.toggleFavorite = toggleFavorite;
 
 // 导出标签功能
 window.toggleTags = toggleTags;

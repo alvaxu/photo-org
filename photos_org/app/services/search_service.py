@@ -519,7 +519,8 @@ class SearchService:
             "description": photo.description,
             "status": photo.status,
             "created_at": photo.created_at.isoformat() if photo.created_at else None,
-            "is_favorite": photo.is_favorite if hasattr(photo, 'is_favorite') else False,
+            # 统一处理 is_favorite：确保返回布尔值（SQLite Boolean 可能返回 0/1）
+            "is_favorite": bool(photo.is_favorite) if hasattr(photo, 'is_favorite') and photo.is_favorite is not None else False,
 
             # AI分析结果（字段名必须与Pydantic模型匹配）
             "analysis": {

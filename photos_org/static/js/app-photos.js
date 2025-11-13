@@ -176,7 +176,19 @@ function createPhotoCard(photo) {
                     </div>
                 </div>
                 <div class="photo-meta">
-                    <i class="bi bi-calendar me-1"></i>${formatDate(photo.taken_at)} (拍摄日期)
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span>
+                            <i class="bi bi-calendar me-1"></i>${formatDate(photo.taken_at)} (拍摄日期)
+                        </span>
+                        <button class="btn btn-link ${photo.is_favorite ? 'text-danger' : 'text-muted'} p-0 photo-favorite-btn" 
+                                data-photo-id="${photo.id}" 
+                                data-action="favorite"
+                                data-is-favorite="${photo.is_favorite || false}"
+                                onclick="event.stopPropagation(); toggleFavorite(${photo.id}, this)"
+                                title="${photo.is_favorite ? '取消收藏' : '添加到收藏'}">
+                            <i class="bi ${photo.is_favorite ? 'bi-heart-fill' : 'bi-heart'}"></i>
+                        </button>
+                    </div>
                     ${hasAddress ? `<div class="photo-address" title="${photo.location_name}">
                         <i class="bi bi-geo-alt me-1"></i>
                         <span class="address-text">${photo.location_name.length > 30 ? photo.location_name.substring(0, 30) + '...' : photo.location_name}</span>
@@ -317,6 +329,16 @@ function createPhotoListItem(photo) {
                         <span class="meta-item">
                             <i class="bi bi-calendar me-1"></i>
                             ${formatDate(photo.taken_at)} (拍摄日期)
+                        </span>
+                        <span class="meta-item">
+                            <button class="btn btn-link ${photo.is_favorite ? 'text-danger' : 'text-muted'} p-0 photo-favorite-btn" 
+                                    data-photo-id="${photo.id}" 
+                                    data-action="favorite"
+                                    data-is-favorite="${photo.is_favorite || false}"
+                                    onclick="event.stopPropagation(); toggleFavorite(${photo.id}, this)"
+                                    title="${photo.is_favorite ? '取消收藏' : '添加到收藏'}">
+                                <i class="bi ${photo.is_favorite ? 'bi-heart-fill' : 'bi-heart'}"></i>
+                            </button>
                         </span>
                         <span class="meta-item">
                             <i class="bi bi-geo-alt me-1"></i>

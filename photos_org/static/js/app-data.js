@@ -472,6 +472,11 @@ async function loadStats() {
             let dateTo = now.toISOString().split('T')[0]; // 今天
 
             switch (AppState.searchFilters.dateFilter) {
+                case 'no_date':
+                    // 特殊处理：筛选无拍摄时间的照片
+                    params.append('date_from', 'no_date');
+                    params.append('date_to', 'no_date');
+                    break;
                 case 'today':
                     dateFrom = dateTo;
                     break;
@@ -501,8 +506,11 @@ async function loadStats() {
                     break;
             }
 
-            if (dateFrom) params.append('date_from', dateFrom);
-            if (dateTo) params.append('date_to', dateTo);
+            // 只有在不是 'no_date' 的情况下才添加日期参数
+            if (AppState.searchFilters.dateFilter !== 'no_date') {
+                if (dateFrom) params.append('date_from', dateFrom);
+                if (dateTo) params.append('date_to', dateTo);
+            }
         }
 
         const url = params.toString()
@@ -581,7 +589,12 @@ async function loadPhotos(page = 1) {
 
         if (data.success) {
             // 兼容两种数据格式：data.data 和 data.photos
-            AppState.photos = data.data || data.photos || [];
+            const rawPhotos = data.data || data.photos || [];
+            // 统一处理 is_favorite 字段：确保是布尔值（处理后端可能返回 0/1 的情况）
+            AppState.photos = rawPhotos.map(photo => ({
+                ...photo,
+                is_favorite: Boolean(photo.is_favorite)
+            }));
             AppState.currentPage = page;
             AppState.totalPhotos = data.total || 0;
             AppState.totalPages = Math.ceil(AppState.totalPhotos / CONFIG.PAGE_SIZE);

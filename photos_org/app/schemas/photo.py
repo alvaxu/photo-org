@@ -145,6 +145,7 @@ class PhotoSearchResult(BaseModel):
     description: Optional[str] = Field(None, description="照片描述")
     status: str = Field(..., description="状态")
     created_at: Optional[str] = Field(None, description="创建时间")
+    is_favorite: bool = Field(False, description="是否收藏")
 
     analysis: Optional[PhotoAnalysisInfo] = Field(None, description="AI分析结果")
     quality: Optional[PhotoQualityInfo] = Field(None, description="质量评估")

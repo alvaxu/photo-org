@@ -180,7 +180,8 @@ async def get_photos(
                 "location_lat": photo.location_lat,
                 "location_lng": photo.location_lng,
                 "location_alt": photo.location_alt,
-                "is_favorite": photo.is_favorite if hasattr(photo, 'is_favorite') else False
+                # 统一处理 is_favorite：确保返回布尔值（SQLite Boolean 可能返回 0/1）
+                "is_favorite": bool(photo.is_favorite) if hasattr(photo, 'is_favorite') and photo.is_favorite is not None else False
             }
 
             # 从批量查询的字典中获取analysis
@@ -264,7 +265,8 @@ async def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
             "location_lat": photo.location_lat,
             "location_lng": photo.location_lng,
             "location_alt": photo.location_alt,
-            "is_favorite": photo.is_favorite if hasattr(photo, 'is_favorite') else False,
+            # 统一处理 is_favorite：确保返回布尔值（SQLite Boolean 可能返回 0/1）
+            "is_favorite": bool(photo.is_favorite) if hasattr(photo, 'is_favorite') and photo.is_favorite is not None else False,
             "metadata": {}
         }
 
@@ -491,7 +493,8 @@ async def update_photo_favorite(
         return {
             "success": True,
             "photo_id": updated_photo.id,
-            "is_favorite": updated_photo.is_favorite,
+            # 统一处理 is_favorite：确保返回布尔值（SQLite Boolean 可能返回 0/1）
+            "is_favorite": bool(updated_photo.is_favorite),
             "message": "已添加到收藏" if updated_photo.is_favorite else "已取消收藏"
         }
 
