@@ -474,7 +474,8 @@ async def generate_portrait_image(photo_path: str, face_bbox: List[int]) -> str:
     
     try:
         # 构建完整路径
-        storage_base = Path(settings.storage.base_path)
+        from app.core.path_utils import resolve_resource_path
+        storage_base = resolve_resource_path(settings.storage.base_path)
         full_path = storage_base / photo_path
         
         if not full_path.exists():

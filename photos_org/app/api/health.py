@@ -54,7 +54,8 @@ async def health_check():
 
     # 检查存储目录
     from pathlib import Path
-    storage_path = Path(settings.storage.base_path)
+    from app.core.path_utils import resolve_resource_path
+    storage_path = resolve_resource_path(settings.storage.base_path)
     if storage_path.exists():
         health_status["checks"]["storage"] = "healthy"
     else:

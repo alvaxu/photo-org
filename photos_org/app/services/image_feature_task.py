@@ -230,8 +230,9 @@ async def process_image_feature_extraction_batch(task_id: str, photo_ids: List[i
                     
                     # 构建完整路径（使用最新配置）
                     from app.core.config import get_settings
+                    from app.core.path_utils import resolve_resource_path
                     current_settings = get_settings()
-                    storage_base = Path(current_settings.storage.base_path)
+                    storage_base = resolve_resource_path(current_settings.storage.base_path)
                     if Path(photo.original_path).is_absolute():
                         full_path = Path(photo.original_path)
                     else:

@@ -551,9 +551,11 @@ function createPhotoDetailModal(photo) {
     })();
     
     // 标准图片路径
-    const standardSrc = '/photos_storage/' + (photo.original_path || photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/');
-    const thumbnailSrc = photo.thumbnail_path ? '/photos_storage/' + photo.thumbnail_path.replace(/\\/g, '/') : '';
+    // 修复：正确处理缩略图路径为空的情况，避免将data URI错误拼接为文件路径
+    const thumbnailSrc = getThumbnailUrl(photo.thumbnail_path);
     const originalSrc = photo.original_path ? '/photos_storage/' + photo.original_path.replace(/\\/g, '/') : '';
+    // 优先使用原图，其次使用缩略图，最后使用占位符
+    const standardSrc = originalSrc || thumbnailSrc;
     
     return `
         <!-- 照片显示区域 -->

@@ -26,7 +26,8 @@ class FaceCropService:
     def cache_dir(self) -> Path:
         """动态获取缓存目录（每次使用时读取最新配置）"""
         from app.core.config import get_settings
-        cache_dir = Path(get_settings().storage.base_path) / "face_crops"
+        from app.core.path_utils import resolve_resource_path
+        cache_dir = resolve_resource_path(get_settings().storage.base_path) / "face_crops"
         cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir
         
@@ -61,8 +62,9 @@ class FaceCropService:
             
             # 构建完整照片路径（使用最新配置）
             from app.core.config import get_settings
+            from app.core.path_utils import resolve_resource_path
             current_settings = get_settings()
-            storage_base = Path(current_settings.storage.base_path)
+            storage_base = resolve_resource_path(current_settings.storage.base_path)
             full_photo_path = storage_base / photo_path
             
             if not full_photo_path.exists():

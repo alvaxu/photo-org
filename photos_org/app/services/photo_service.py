@@ -220,8 +220,9 @@ class PhotoService:
                 try:
                     # 构建完整的文件路径（使用最新配置）
                     from app.core.config import get_settings
+                    from app.core.path_utils import resolve_resource_path
                     current_settings = get_settings()
-                    storage_base = Path(current_settings.storage.base_path)
+                    storage_base = resolve_resource_path(current_settings.storage.base_path)
                     full_original_path = storage_base / photo.original_path
                     
                     # 删除原图（JPEG或其他格式）

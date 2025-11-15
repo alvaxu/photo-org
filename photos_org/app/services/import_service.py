@@ -79,7 +79,8 @@ class ImportService:
     def storage_base(self) -> Path:
         """动态获取存储基础路径（每次使用时读取最新配置）"""
         from app.core.config import get_settings
-        return Path(get_settings().storage.base_path)
+        from app.core.path_utils import resolve_resource_path
+        return resolve_resource_path(get_settings().storage.base_path)
     
     @property
     def originals_path(self) -> Path:
@@ -864,7 +865,7 @@ class ImportService:
         """
         处理物理重复的文件
         
-        :param original_filename: 原始文件名（保留参数以保持API一致性，但不再使用）
+        :param original_filename: 原始文件名（用于数据库filename字段，保留中文名）
         """
         existing_path = duplicate_result['existing_path']
         
@@ -878,11 +879,17 @@ class ImportService:
         # 提取元数据
         exif_data = self.extract_exif_metadata(existing_path)
         
-        # 创建数据库记录（filename会使用existing_path中的文件名，保持与original_path一致）
+        # 获取原始文件名：优先使用 original_filename，否则从 file_path 获取
+        # 确保数据库中的filename字段保存用户上传的原始文件名，而不是存储后的file_hash文件名
+        record_filename = original_filename
+        if record_filename is None:
+            record_filename = Path(file_path).name
+        
+        # 创建数据库记录（使用原始文件名，而不是存储后的 file_hash 文件名）
         photo_data = self.create_photo_record(existing_path, {
             'thumbnail_path': thumbnail_path,
             **exif_data
-        })
+        }, record_filename=record_filename)
         
         return True, "文件已存在，使用现有文件", photo_data, None
 
@@ -994,12 +1001,11 @@ class ImportService:
                 metadata_for_record['original_format'] = format_name  # 'HEIC'或'HEIF'
             
             # 创建数据库记录
+            # 对于所有格式，filename都应该使用原始文件名（保留用户上传的文件名，而不是存储后的file_hash文件名）
             # 对于HEIC格式，filename应该保持原始HEIC文件名（.heic扩展名），而不是转换后的JPEG文件名
             # 但original_path指向转换后的JPEG路径（用于所有处理）
-            record_filename = None
-            if is_heic and original_filename:
-                # 保持原始HEIC文件名
-                record_filename = original_filename
+            # 使用原始文件名作为record_filename，确保数据库中的filename字段保存用户上传的文件名
+            record_filename = original_filename
             # create_photo_record需要完整路径用于读取文件信息
             photo_data = self.create_photo_record(str(storage_full_path), metadata_for_record, record_filename=record_filename)
             
@@ -1064,6 +1070,7 @@ class ImportService:
 
         # 处理缩略图路径
         thumbnail_path = metadata.get('thumbnail_path', '')
+        # 确保 thumbnail_path 为 None 或空字符串时，不保存到数据库（避免前端错误拼接data URI）
         if thumbnail_path:
             try:
                 thumbnail_path_obj = Path(thumbnail_path)
@@ -1072,6 +1079,9 @@ class ImportService:
             except ValueError:
                 # 如果缩略图路径不在storage_base下，保持原路径
                 pass
+        else:
+            # 如果缩略图路径为空或None，设置为None（确保数据库字段为NULL，而不是空字符串）
+            metadata['thumbnail_path'] = None
 
         # 合并元数据
         photo_data = {

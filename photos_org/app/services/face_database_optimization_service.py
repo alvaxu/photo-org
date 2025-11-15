@@ -27,7 +27,8 @@ def optimize_face_recognition_database():
     :return: 是否优化成功
     """
     try:
-        db_path = Path(settings.database.path)
+        from app.core.path_utils import resolve_resource_path
+        db_path = resolve_resource_path(settings.database.path)
         if not db_path.exists():
             logger.error(f"数据库文件不存在: {db_path}")
             return False

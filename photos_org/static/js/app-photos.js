@@ -133,7 +133,7 @@ function createPhotoCard(photo) {
                  title="选择照片">
             </div>
             <div class="photo-image-container">
-                <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
+                <img src="${getThumbnailUrl(photo.thumbnail_path)}"
                      alt="${photo.filename}"
                      class="photo-image"
                      loading="lazy"
@@ -278,7 +278,7 @@ function createPhotoListItem(photo) {
                  title="选择照片">
             </div>
             <div class="photo-thumbnail-container">
-                <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}"
+                <img src="${getThumbnailUrl(photo.thumbnail_path)}"
                      alt="${photo.filename}"
                      class="photo-thumbnail"
                      onclick="viewPhotoDetail(${photo.id})">
@@ -1043,7 +1043,7 @@ function displaySimilarPhotos(data) {
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-2">
-                            <img src="/photos_storage/${(referencePhoto.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
+                            <img src="${getThumbnailUrl(referencePhoto.thumbnail_path)}" 
                                  class="img-thumbnail" alt="${referencePhoto.filename}">
                         </div>
                         <div class="col-md-8">
@@ -1085,7 +1085,7 @@ function displaySimilarPhotos(data) {
             <div class="col-md-3 col-sm-6 mb-3">
                 <div class="card h-100">
                     <div class="position-relative similar-photo-image-container ${containerClass}">
-                        <img src="/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\\\/g, '/')}" 
+                        <img src="${getThumbnailUrl(photo.thumbnail_path)}" 
                              class="card-img-top similar-photo-image" 
                              alt="${photo.filename}">
                         <div class="position-absolute top-0 end-0 m-2">
@@ -1143,7 +1143,7 @@ function showPhotoEditModal(photo) {
     
     // 填充照片信息
     document.getElementById('editPhotoId').value = photo.id;
-    document.getElementById('editPhotoPreview').src = `/photos_storage/${(photo.thumbnail_path || CONFIG.IMAGE_PLACEHOLDER).replace(/\\/g, '/')}`;
+    document.getElementById('editPhotoPreview').src = getThumbnailUrl(photo.thumbnail_path);
     
     // 填充元数据（只显示不可编辑的信息）
     const meta = [];

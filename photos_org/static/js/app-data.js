@@ -14,6 +14,25 @@ const CONFIG = {
     }
 };
 
+/**
+ * 获取照片缩略图URL
+ * 正确处理缩略图路径为空的情况，避免将data URI错误拼接为文件路径
+ * 
+ * @param {string|null|undefined} thumbnail_path - 缩略图路径
+ * @returns {string} 图片URL（文件路径或data URI）
+ */
+function getThumbnailUrl(thumbnail_path) {
+    // 如果缩略图路径存在且不为空，拼接 /photos_storage/ 前缀
+    if (thumbnail_path && thumbnail_path.trim() !== '') {
+        return '/photos_storage/' + thumbnail_path.replace(/\\/g, '/');
+    }
+    // 如果缩略图路径为空，直接返回占位符（data URI）
+    return CONFIG.IMAGE_PLACEHOLDER;
+}
+
+// 确保函数全局可访问（供其他JS文件使用）
+window.getThumbnailUrl = getThumbnailUrl;
+
 // 用户配置缓存
 let userConfig = null;
 
