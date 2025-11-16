@@ -210,8 +210,8 @@
                     <button class="btn btn-outline-light me-2" id="importBtn" data-bs-toggle="modal" data-bs-target="#importModal" title="导入照片到系统中，支持单文件或批量导入">
                         <i class="bi bi-upload"></i> 导入照片
                     </button>
-                    <button class="btn btn-outline-light me-2" id="basicAnalysisBtn" title="对照片进行基础分析，包括质量评估、EXIF信息提取、生成节假日标签等，无需大模型">
-                        <i class="bi bi-graph-up-arrow"></i> 基础分析
+                    <button class="btn btn-outline-light me-2" id="gpsToAddressBtn" title="批量将照片的GPS坐标转换为地址信息，支持多种地址解析服务">
+                        <i class="bi bi-geo-alt"></i> GPS转地址
                     </button>
                     <a class="btn btn-outline-light me-2" href="/similar-photos" id="navSimilarPhotos" data-section="similar-photos" title="相似照片聚类识别和管理，基于特征向量进行相似照片分组（包含特征提取功能）">
                         <i class="bi bi-images"></i> 相似照识别
@@ -219,9 +219,6 @@
                     <a class="btn btn-outline-light me-2" href="/people" id="navPeople" data-section="people" title="检测照片中的人脸并进行聚类识别，支持人物管理和标记">
                         <i class="bi bi-people"></i> 人脸识别
                     </a>
-                    <button class="btn btn-outline-light me-2" id="gpsToAddressBtn" title="批量将照片的GPS坐标转换为地址信息，支持多种地址解析服务">
-                        <i class="bi bi-geo-alt"></i> GPS转地址
-                    </button>
                     <button class="btn btn-outline-light me-2" id="aiAnalysisBtn" title="使用AI对照片进行深度分析，生成内容描述、智能分类和AI标签，需要配置API密钥">
                         <i class="bi bi-robot"></i> AI分析(可选)
                     </button>
@@ -643,10 +640,7 @@
                                     <i class="bi bi-trash"></i> 删除选中
                                 </button>
                                 <button class="btn btn-sm btn-outline-primary" id="batchEditBtn" disabled>
-                                    <i class="bi bi-pencil-square"></i> 批量编辑
-                                </button>
-                                <button class="btn btn-sm btn-warning" id="basicProcessSelectedBtn" disabled>
-                                    <i class="bi bi-graph-up-arrow"></i> 基础分析
+                                    <i class="bi bi-pencil-square"></i> 编辑选中
                                 </button>
                                 <button class="btn btn-sm btn-primary" id="aiProcessSelectedBtn" disabled>
                                     <i class="bi bi-robot"></i> AI分析
@@ -672,7 +666,7 @@
                         <!-- 空状态 -->
                         <div id="emptyState" class="text-center py-5 d-none">
                             <i class="bi bi-images display-1 text-muted"></i>
-                            <h4 class="mt-3 text-muted">暂无照片</h4>
+                            <h4 class="mt-3 text-muted">暂无符合条件的照片</h4>
                             <p class="text-muted">请先导入一些照片开始使用</p>
                             <button class="btn btn-primary" id="importFirstBtn">
                                 <i class="bi bi-upload me-2"></i>导入第一张照片
@@ -1154,40 +1148,6 @@
     </div>
 
 
-    <!-- 基础分析模态框 -->
-    <div class="modal fade" id="basicModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">基础分析</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i>
-                        基础分析将对照片进行质量评估，生成时间、EXIF等基础标签<br>
-                        此功能是照片基础信息采集的必要步骤，它无需AI，处理速度快
-                    </div>
-
-                    <!-- 照片数量统计 -->
-                    <div class="alert alert-warning" id="basicPhotoCountInfo" style="display: none;">
-                        <i class="bi bi-info-circle me-2"></i>
-                        <span id="basicPhotoCountText">正在获取照片数量...</span>
-                    </div>
-
-                    <div id="basicProgress" class="d-none mt-3">
-                        <div class="progress mb-2">
-                            <div class="progress-bar" id="basicProgressBar" style="width: 0%"></div>
-                        </div>
-                        <p class="text-center" id="basicStatus">正在处理...</p>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="startBasicBtn">开始基础分析</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- AI分析模态框 -->
     <div class="modal fade" id="aiModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">

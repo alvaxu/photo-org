@@ -345,7 +345,7 @@ class SimilarPhotosManagement {
         /**
          * 轮询聚类任务状态，直到完成或失败
          */
-        const maxAttempts = 900; // 最多轮询900次（30分钟，每次2秒）
+        const maxAttempts = 14400; // 最多轮询14400次（8小时，每次2秒）
         let attempts = 0;
         
         // 显示进度条

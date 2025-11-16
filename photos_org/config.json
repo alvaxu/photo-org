@@ -1,5 +1,5 @@
 {
-  "app_version": "20251113_13",
+  "app_version": "20251116_17",
   "system": {
     "max_file_size": 52428800,
     "timeout": 10,
@@ -44,12 +44,7 @@
     "thumbnail_quality": 50
   },
   "analysis": {
-    "duplicate_threshold": 5,
-    "quality_threshold": 0,
-    "concurrent": 3,
-    "timeout": 30,
-    "batch_size": 100,
-    "batch_threshold": 60
+    "concurrent": 3
   },
   "logging": {
     "level": "INFO",
@@ -179,7 +174,7 @@
     "batch_threshold": 60,
     "max_concurrent_batches": 3,
     "max_concurrent_photos": 6,
-    "max_progress_checks": 36000,
+    "max_progress_checks": 14400,
     "max_clusters": 30,
     "min_cluster_size": 2,
     "auto_cluster": true,

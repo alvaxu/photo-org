@@ -122,7 +122,7 @@ async def update_user_config(request: ConfigUpdateRequest, http_request: Request
         # - ui: photos_per_page, similar_photos_limit
         # - search: similarity_threshold
         # - image_features: similarity_threshold
-        # - analysis: duplicate_threshold
+        # - analysis: (无用户可配置参数)
         
         if request.dashscope:
             if "dashscope" not in current_config:
@@ -181,12 +181,7 @@ async def update_user_config(request: ConfigUpdateRequest, http_request: Request
             if "similarity_threshold" in request.image_features:
                 current_config["image_features"]["similarity_threshold"] = request.image_features["similarity_threshold"]
         
-        if request.analysis:
-            if "analysis" not in current_config:
-                current_config["analysis"] = {}
-            # 只更新 duplicate_threshold
-            if "duplicate_threshold" in request.analysis:
-                current_config["analysis"]["duplicate_threshold"] = request.analysis["duplicate_threshold"]
+        # analysis 配置无用户可配置参数，跳过
         
         if request.face_recognition:
             if "face_recognition" not in current_config:
@@ -272,7 +267,7 @@ async def reset_user_config():
         # - ui: photos_per_page, similar_photos_limit
         # - search: similarity_threshold
         # - image_features: similarity_threshold
-        # - analysis: duplicate_threshold
+        # - analysis: (无用户可配置参数)
         # - face_recognition: min_cluster_size, max_clusters
         
         # 重置 dashscope（只重置 model 和 api_key）
@@ -328,12 +323,7 @@ async def reset_user_config():
             if "similarity_threshold" in default_config["image_features"]:
                 current_config["image_features"]["similarity_threshold"] = default_config["image_features"]["similarity_threshold"]
         
-        # 重置 analysis（只重置 duplicate_threshold）
-        if "analysis" in default_config:
-            if "analysis" not in current_config:
-                current_config["analysis"] = {}
-            if "duplicate_threshold" in default_config["analysis"]:
-                current_config["analysis"]["duplicate_threshold"] = default_config["analysis"]["duplicate_threshold"]
+        # analysis 配置无用户可配置参数，跳过
         
         # 重置 face_recognition（只重置 min_cluster_size 和 max_clusters）
         if "face_recognition" in default_config:

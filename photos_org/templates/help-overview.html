@@ -172,7 +172,7 @@
                             </div>
                             <h5 class="card-title text-center mb-3">智能分析，灵活选择</h5>
                             <ul class="list-unstyled">
-                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>基础分析：获取数据快速评估</li>
+                                <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>导入时自动完成质量评估和基础标签生成</li>
                                 <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>AI分析：深度内容识别和分类</li>
                                 <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>人脸识别：自动聚类人物</li>
                                 <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>重复照片自动检测</li>
@@ -241,7 +241,7 @@
                                 <li>初次启动，如系统提示创建存放照片和数据库的目录，建议选择空间足够放你所有照片的磁盘</li>
                                 <li>系统启动后，会自动打开默认浏览器进入照片系统</li>
                                 <li>注意：启动完成后，请不要关闭启动窗口</li>
-                                <li>如果你担心磁盘损坏导致照片丢失，建议你经常将photo_db和storage两个目录拷贝到别的地方作为备份</li>
+                                <li>如果你担心磁盘损坏导致照片丢失，建议你经常执行数据备份功能</li>
                             </ol>
                         </div>
 
@@ -256,18 +256,17 @@
                     
                     <div class="alert alert-info mt-3">
                         <i class="bi bi-info-circle me-2"></i>
-                        <strong>导航栏功能：</strong>页面顶部提供快速入口，包括<strong>导入照片</strong>、<strong>基础分析</strong>、<strong>特征提取</strong>、<strong>人脸识别</strong>、<strong>GPS转地址</strong>、<strong>AI分析（可选）</strong>等核心功能按钮。
+                        <strong>导航栏功能：</strong>页面顶部提供快速入口，包括<strong>导入照片</strong>、<strong>GPS转地址</strong>、<strong>相似照识别</strong>、<strong>人脸识别</strong>、<strong>AI分析（可选）</strong>、<strong>数据备份</strong>等核心功能按钮。
                     </div>
                 </div>
 
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5"><i class="bi bi-gear me-2"></i>首次使用建议</h4>
                     <ol>
-                        <li>导入照片到系统中</li>
-                        <li>先进行基础分析（本地快速的基础数据提取、分析和质量评估）</li>
-                        <li>运行特征提取（基于ResNet50提取图像特征向量，用于高精度相似照片搜索）</li>
-                        <li>启动人脸识别（本地AI模型，自动聚类人物，用于基于人脸筛选）</li>
+                        <li>导入照片到系统中（导入时会自动完成质量评估和基础标签生成）</li>
                         <li>进行GPS转地址（选择高德、Nominatim或离线三种服务中的一种进行地址解析）</li>
+                        <li>运行相似照识别（基于ResNet50提取图像特征向量，用于相似照聚类和高精度相似照搜索</li>
+                        <li>启动人脸识别（基于本地AI模型提取和识别人脸，用于聚类人物和基于人脸筛选照片）</li>
                         <li>使用智能搜索和筛选功能管理照片</li>
                         <li>享受智能照片管理体验！</li>
                         <li><a href="#api-key-config" class="text-decoration-none">还可申请并配置免费额度大模型API密钥以便对照片进行更深入AI分析；如选用高德API解析照片地址，也需申请并配置免费额度高德API密钥</a></li>
@@ -282,61 +281,57 @@
                 <!-- 3.1 照片导入 -->
                 <div class="step-card p-3 mb-3">
                     <h4 class="h5">3.1 照片导入</h4>
-                    <p>系统支持多种方式导入照片，确保您的家庭照片库完整且有序。</p>
+                    <p>系统支持多种方式导入照片，确保您的家庭照片库完整且有序。导入时会自动完成质量评估和基础标签生成。</p>
                     <ul>
                         <li><strong>单文件上传：</strong>点击"导入照片"按钮，选择单个文件上传</li>
                         <li><strong>文件夹扫描：</strong>选择"扫描文件夹"模式，批量导入整个文件夹</li>
-                        <li><strong>智能处理：</strong>自动生成缩略图，支持同时处理多张照片</li>
+                        <li><strong>智能处理：</strong>
+                            <ul>
+                                <li>自动生成缩略图</li>
+                                <li>自动完成质量评估（清晰度、亮度、对比度、色彩、构图等）</li>
+                                <li>自动生成基础标签（时间标签、节假日标签、EXIF标签等）</li>
+                                <li>支持同时处理多张照片</li>
+                            </ul>
+                        </li>
                         <li><strong>格式支持：</strong>JPG、PNG、HEIC等多种常见照片格式</li>
                         <li><strong>处理过程：</strong>批量处理时，当前浏览器窗口可实时显示进度和处理结果，建议不要关闭，但可以打开新窗口访问照片</li>
                     </ul>
                 </div>
 
-                <!-- 3.2 智能分析（基础分析 + AI分析） -->
+                <!-- 3.2 AI分析（可选） -->
                 <div class="step-card p-3 mb-3">
-                    <h4 class="h5">3.2 智能分析（基础分析 + AI分析）</h4>
-                    <p>系统提供两种分析功能，基础分析获取基础信息并做质量评估，AI分析对照片进行深度分析。</p>
+                    <h4 class="h5">3.2 AI分析（可选）</h4>
+                    <p>系统在导入照片时已自动完成质量评估和基础标签生成。如需更深入的内容分析，可使用AI分析功能对照片进行深度分析。</p>
 
-                    <!-- 分析功能概述 -->
+                    <!-- AI分析功能概述 -->
                     <div class="info-box mb-3">
-                        <h6><i class="bi bi-robot me-2"></i>分析功能分为两步</h6>
+                        <h6><i class="bi bi-robot me-2"></i>AI分析功能</h6>
                         <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-graph-up me-2 text-primary"></i>基础分析</h6>
-                                <ul class="mb-2 small">
-                            <li><strong>质量评估：</strong>分析照片的技术质量，包括清晰度、亮度、对比度、色彩、构图等指标</li>
-                                    <li><strong>基础标签：</strong>生成时间标签、节假日标签、EXIF标签等基础信息</li>
-                                    <li><strong>无需网络：</strong>可在离线环境下使用、速度快</li>
-                                    <li><strong>重新分析：</strong>处理过的照片可以重新分析</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
+                            <div class="col-md-12">
                                 <h6><i class="bi bi-robot me-2 text-success"></i>AI分析（需申请AI密钥）</h6>
                                 <ul class="mb-2 small">
                                     <li><strong>AI内容分析：</strong>使用千问大模型识别照片中的物体、场景、人物情感等，生成详细描述</li>
                                     <li><strong>智能分类：</strong>基于AI分析结果自动为照片添加合适的标签和分类</li>
                                     <li><strong>需要网络：</strong>需要有效的API密钥和上网连接</li>
-                                    <li><strong>重新分析：</strong>处理过的照片可以重新分析</li>
+                                    <li><strong>重新分析：</strong>处理过的照片可以重新选择进行分析，更新分析结果</li>
                                 </ul>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 智能分析的使用方式 -->
+                    <!-- AI分析的使用方式 -->
                     <div class="mb-3">
-                        <h6><i class="bi bi-play-circle me-2"></i>智能分析的使用方式</h6>
+                        <h6><i class="bi bi-play-circle me-2"></i>AI分析的使用方式</h6>
                         <div class="row">
                             <div class="col-md-6">
-                                <h6><i class="bi bi-graph-up me-2 text-primary"></i>导航栏分析</h6>
-                        <ul class="small">
-                                    <li><strong>基础分析：</strong>点击导航栏"基础分析"按钮，批量处理所有未进行基础分析的照片</li>
+                                <h6><i class="bi bi-robot me-2 text-success"></i>导航栏分析</h6>
+                                <ul class="small">
                                     <li><strong>AI分析：</strong>点击导航栏"AI分析"按钮，批量处理所有未进行AI分析的照片</li>
-                        </ul>
+                                </ul>
                             </div>
                             <div class="col-md-6">
                                 <h6><i class="bi bi-mouse me-2 text-success"></i>选择性分析</h6>
                                 <ul class="small">
-                                    <li><strong>基础分析：</strong>在照片展示区选择特定照片，点击"基础分析"按钮进行处理</li>
                                     <li><strong>AI分析：</strong>在照片展示区选择特定照片，点击"AI分析"按钮进行处理</li>
                                     <li><strong>重新分析：</strong>已分析的照片也可以重新选择进行分析，更新分析结果</li>
                                 </ul>
@@ -344,16 +339,15 @@
                         </div>
                     </div>
 
-                    <!-- 智能分析的执行步骤 -->
+                    <!-- AI分析的执行步骤 -->
                     <div class="mb-3">
-                        <h6><i class="bi bi-list-ol me-2"></i>智能分析的执行步骤</h6>
+                        <h6><i class="bi bi-list-ol me-2"></i>AI分析的执行步骤</h6>
                         <ol class="small">
-                            <li>导入照片后，照片质量状态显示为"尚未进行基础分析"（灰色折线图标）</li>
-                            <li>先点击"基础分析"按钮进行质量评估和基础标签生成，完成后质量状态显示为相应等级（如"优秀"红色星星图标）</li>
-                            <li>如需更深入分析，可再点击"AI分析"按钮进行AI内容分析，完成后AI状态显示为"AI已分析"（绿色机器人图标）</li>
+                            <li>导入照片后，照片质量状态已自动显示（如"优秀"红色星星图标），表示质量评估和基础标签已自动完成</li>
+                            <li>如需更深入分析，可点击"AI分析"按钮进行AI内容分析</li>
                             <li>在确认对话框中确认开始分析</li>
                             <li>分析过程中显示实时进度条和处理结果，建议不要关闭当前浏览器窗口，但可以打开新窗口访问照片</li>
-                            <li>分析完成后可在照片详情页面查看完整结果</li>
+                            <li>分析完成后，AI状态显示为"AI已分析"（绿色机器人图标），可在照片详情页面查看完整结果</li>
                         </ol>
                     </div>
 
@@ -751,7 +745,7 @@
                             <li><strong>悬停预览：</strong>鼠标悬停显示照片详细信息和快速操作按钮</li>
                             <li><strong>相似照片：</strong>点击相似照片按钮查看内容相似的相关照片</li>
                             <li><strong>编辑信息：</strong> 修改照片名、描述、添加或编辑标签和分类、补充拍摄时间、地址等</li>
-                            <li><strong>批量操作：</strong> 选择多张照片进行批量删除、下载、编辑、重新地址转换、基础分析、AI分析等</li>
+                            <li><strong>批量操作：</strong> 选择多张照片进行批量删除、下载、编辑、重新地址转换、AI分析等</li>
                         </ul>
                     </div>
 
@@ -881,7 +875,7 @@
                                                     </li>
                                                     <li class="mb-2">
                                                         <i class="bi bi-star me-2 text-warning"></i>
-                                                        <strong>质量等级：</strong>基础分析结果（○未评估、⭐优秀、⭑良好、⊝一般、⚠️较差、❌很差）
+                                                        <strong>质量等级：</strong>导入时自动评估的结果（○未评估、⭐优秀、⭑良好、⊝一般、⚠️较差、❌很差）
                                                     </li>
                                                     <li class="mb-2">
                                                         <i class="bi bi-robot me-2 text-success"></i>
@@ -1222,7 +1216,7 @@
                             </h2>
                             <div id="ai1" class="accordion-collapse collapse show" data-bs-parent="#aiAccordion">
                                 <div class="accordion-body">
-                                    A: 基础分析是免费的本地处理，主要进行质量评估和生成基础标签，无需网络连接。AI分析需要API密钥和网络连接，使用千问大模型进行深度内容分析，包括场景识别、物体检测、情感分析等。
+                                    A: 基础分析在导入照片时自动完成，包括质量评估和基础标签生成，无需额外操作。AI分析需要API密钥和网络连接，使用千问大模型进行深度内容分析，包括场景识别、物体检测、情感分析等。
                                 </div>
                             </div>
                         </div>
@@ -1248,7 +1242,7 @@
                             </h2>
                             <div id="ai3" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
                                 <div class="accordion-body">
-                                    A: 选择需要重新分析的照片，点击相应的"基础分析"或"AI分析"按钮即可重新处理。系统会自动清理旧的分析结果并生成新的结果。
+                                    A: 基础分析在导入时自动完成，无法单独重新运行。如需重新进行AI分析，选择需要重新分析的照片，点击"AI分析"按钮即可重新处理。系统会自动清理旧的分析结果并生成新的结果。
                                 </div>
                             </div>
                         </div>
@@ -1261,7 +1255,7 @@
                             </h2>
                             <div id="ai4" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
                                 <div class="accordion-body">
-                                    A: 基础分析包括质量评估（清晰度、亮度、对比度等）和基础标签生成（时间、EXIF信息）。AI分析包括内容识别（场景、物体、人脸、情感）、智能分类、重复检测等功能。
+                                    A: 导入时自动完成基础分析，包括质量评估（清晰度、亮度、对比度等）和基础标签生成（时间、EXIF信息）。AI分析包括内容识别（场景、物体、人脸、情感）、智能分类、重复检测等功能。
                                 </div>
                             </div>
                         </div>
@@ -1274,7 +1268,7 @@
                             </h2>
                             <div id="ai5" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
                                 <div class="accordion-body">
-                                    A: 基础分析完成后，照片会显示质量等级图标（⭐优秀、⭑良好等）。AI分析完成后，会显示AI分析状态图标（🤖已分析），并生成场景、物体、情感等标签。可以在照片详情页面查看完整的分析结果。
+                                    A: 导入完成后，照片会立即显示质量等级图标（⭐优秀、⭑良好等），表示质量评估和基础标签已自动完成。AI分析完成后，会显示AI分析状态图标（🤖已分析），并生成场景、物体、情感等标签。可以在照片详情页面查看完整的分析结果。
                                 </div>
                             </div>
                         </div>
@@ -1287,7 +1281,7 @@
                             </h2>
                             <div id="ai6" class="accordion-collapse collapse" data-bs-parent="#aiAccordion">
                                 <div class="accordion-body">
-                                    A: 导航栏分析对所有符合条件的照片进行批量处理，会显示待分析照片数量。选择性分析允许您在照片展示区选择特定照片进行分析，包括重新分析已处理的照片。导航栏分析只处理未分析的照片，选择性分析可以处理任何选中的照片。
+                                    A: 导航栏分析对所有符合条件的照片进行批量处理，会显示待分析照片数量。选择性分析允许您在照片展示区选择特定照片进行分析，包括重新分析已处理的照片。导航栏分析只处理未进行AI分析的照片，选择性分析可以处理任何选中的照片。
                                 </div>
                             </div>
                         </div>

@@ -66,6 +66,64 @@ function getQualityText(level) {
 function getQualityStatus(photo) {
     // 检查是否有质量分析结果（API返回的字段名是 score）
     const qualityScore = photo.quality?.score || 0;
+    
+    // 获取技术问题数据（支持两种字段名：issues 和 technical_issues）
+    const technicalIssues = photo.quality?.issues || photo.quality?.technical_issues || null;
+    
+    // 解析技术问题
+    let issuesText = '';
+    if (technicalIssues) {
+        let issuesList = [];
+        
+        // 处理不同的数据格式
+        if (typeof technicalIssues === 'object') {
+            // 如果是对象，尝试从 issues 字段获取数组
+            if (Array.isArray(technicalIssues.issues)) {
+                issuesList = technicalIssues.issues;
+            } else if (Array.isArray(technicalIssues)) {
+                // 如果本身就是数组
+                issuesList = technicalIssues;
+            } else if (technicalIssues.has_issues && technicalIssues.count > 0) {
+                // 如果有 has_issues 和 count，但 issues 字段可能不存在，尝试其他方式
+                issuesList = technicalIssues.issues || [];
+            }
+        } else if (typeof technicalIssues === 'string') {
+            // 如果是字符串，尝试解析 JSON
+            try {
+                const parsed = JSON.parse(technicalIssues);
+                if (Array.isArray(parsed.issues)) {
+                    issuesList = parsed.issues;
+                } else if (Array.isArray(parsed)) {
+                    issuesList = parsed;
+                }
+            } catch (e) {
+                // 解析失败，忽略
+            }
+        }
+        
+        // 格式化问题列表
+        if (issuesList.length > 0) {
+            const maxIssues = 5;
+            const displayIssues = issuesList.slice(0, maxIssues);
+            const remainingCount = issuesList.length - maxIssues;
+            
+            issuesText = '\n\n技术问题：\n' + 
+                        displayIssues.map(issue => `• ${issue}`).join('\n');
+            
+            if (remainingCount > 0) {
+                issuesText += `\n...还有 ${remainingCount} 个问题`;
+            }
+        } else {
+            // 如果没有问题列表，但 technicalIssues 存在，检查是否有明确的"无问题"标志
+            if (typeof technicalIssues === 'object') {
+                // 如果明确标记为无问题，显示"无"
+                if (technicalIssues.has_issues === false || technicalIssues.count === 0) {
+                    issuesText = '\n\n技术问题：无';
+                }
+                // 如果 has_issues 为 true 但 issues 数组为空，可能是数据格式问题，不显示技术问题部分
+            }
+        }
+    }
 
     if (qualityScore > 0) {
         // 有质量评估结果，根据分数确定等级和图标
@@ -78,7 +136,7 @@ function getQualityStatus(photo) {
             text: levelInfo.text,
             class: getQualityClass(levelInfo.level),
             isAssessed: true,
-            title: `质量评分：${qualityScore}分 - ${levelInfo.text}\n点击强制重新基础分析`
+            title: `质量评分：${qualityScore}分 - ${levelInfo.text}${issuesText}`
         };
     } else {
         // 未进行质量评估（分数为0或无质量数据）
@@ -90,7 +148,7 @@ function getQualityStatus(photo) {
             text: '未评估',
             class: 'unassessed',
             isAssessed: false,
-            title: '尚未进行基础分析'
+            title: '尚未进行质量分析'
         };
     }
 }
@@ -357,7 +415,11 @@ function showImportDetails(detailsData) {
                         <div class="alert ${alertClass} mb-4">
                             <i class="bi bi-info-circle me-2"></i>
                             <strong>${icon} ${summaryText}</strong><br>
-                            <small class="text-muted">🎯 下一步：请先点击上方导航栏的"基础分析"按钮，进行质量评估和基础标签生成；如需更深入的AI分析，再点击"AI分析"按钮</small>
+                            <small class="text-muted">🎯 下一步：导入时已自动完成质量评估和基础标签生成。如需更深入的分析，可以：<br>
+                            • 点击"GPS转地址"按钮解析有GPS信息的照片的地址信息<br>
+                            • 点击"相似照识别"按钮进行相似照片识别和聚类<br>
+                            • 点击"人脸识别"按钮进行人脸识别和分组<br>
+                            • 点击"AI分析"按钮进行AI内容分析</small>
                         </div>
                         <div class="row mb-3">
                             <div class="col-md-3">
@@ -471,162 +533,6 @@ function showImportDetails(detailsData) {
 
 // ============ 智能处理结果详情显示函数 ============
 
-function showBatchProcessDetails(detailsData) {
-    console.log('showBatchProcessDetails 被调用，数据:', detailsData);
-
-    // 解析新的统计数据
-    const totalPhotos = detailsData.total || detailsData.batch_total_photos || 0;
-    const fullyAnalyzed = detailsData.fully_analyzed || 0;
-    const unanalyzed = detailsData.unanalyzed || 0;
-    const missingQuality = detailsData.missing_quality || 0;
-    const missingAI = detailsData.missing_ai || 0;
-
-    // 计算成功和失败的数量
-    const successfulPhotos = fullyAnalyzed;
-    const failedPhotos = unanalyzed + missingQuality + missingAI;
-
-    console.log('处理结果统计:', {
-        totalPhotos,
-        fullyAnalyzed,
-        unanalyzed,
-        missingQuality,
-        missingAI,
-        successfulPhotos,
-        failedPhotos
-    });
-
-    let icon, alertClass, summaryText;
-    if (failedPhotos > 0) {
-        icon = '⚠️';
-        alertClass = 'alert-warning';
-        summaryText = `智能处理完成：${totalPhotos}张照片中，${successfulPhotos}张完整分析，${failedPhotos}张需要补全`;
-    } else if (successfulPhotos > 0) {
-        icon = '✅';
-        alertClass = 'alert-success';
-        summaryText = `智能处理完成：${totalPhotos}张照片全部完整分析`;
-    } else if (totalPhotos > 0) {
-        // 有照片但没有成功和失败的，说明所有照片都已完成处理
-        icon = '✅';
-        alertClass = 'alert-success';
-        summaryText = `智能处理完成：所有${totalPhotos}张照片都已完成智能分析`;
-    }
-    
-    const modalHtml = `
-        <div class="modal fade" id="batchProcessDetailsModal" tabindex="-1" aria-labelledby="batchProcessDetailsModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="batchProcessDetailsModalLabel">智能处理结果详情</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
-                    </div>
-                    <div class="modal-body">
-                        <!-- 处理结果摘要 -->
-                        <div class="alert ${alertClass} mb-4">
-                            <i class="bi bi-info-circle me-2"></i>
-                            <strong>${icon} ${summaryText}</strong><br>
-                            <small class="text-muted">所有照片已完成AI分析、质量评估和智能分类</small>
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <div class="card text-center">
-                                    <div class="card-body">
-                                        <h5 class="card-title text-primary">${totalPhotos}</h5>
-                                        <p class="card-text">总照片数</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="card text-center">
-                                    <div class="card-body">
-                                        <h5 class="card-title text-success">${fullyAnalyzed}</h5>
-                                        <p class="card-text">已完整分析</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <div class="card text-center">
-                                    <div class="card-body">
-                                        <h5 class="card-title text-muted">${unanalyzed}</h5>
-                                        <p class="card-text">未分析</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card text-center">
-                                    <div class="card-body">
-                                        <h5 class="card-title text-warning">${missingQuality}</h5>
-                                        <p class="card-text">缺质量评估</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card text-center">
-                                    <div class="card-body">
-                                        <h5 class="card-title text-info">${missingAI}</h5>
-                                        <p class="card-text">缺AI分析</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        ${failedPhotos > 0 ? `
-                        <div class="mt-4">
-                            <h6>处理详情：</h6>
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle me-2"></i>
-                                ${unanalyzed > 0 ? `有 ${unanalyzed} 张照片未分析；` : ''}
-                                ${missingQuality > 0 ? `${missingQuality} 张照片缺少质量评估；` : ''}
-                                ${missingAI > 0 ? `${missingAI} 张照片缺少AI分析；` : ''}
-                                请在照片展示区选择这些照片，然后点击该区域的“智能处理”按钮，尝试再次处理。
-                            </div>
-                        </div>
-                        ` : `
-                        <div class="mt-4">
-                            <div class="alert alert-success">
-                                <i class="bi bi-check-circle me-2"></i>
-                                所有照片已成功完成智能分析和质量评估，现在您可以搜索、查看和整理您的照片了！
-                            </div>
-                        </div>
-                        `}
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
-                            <i class="bi bi-check-lg me-1"></i>
-                            完成
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // 移除已存在的模态框
-    const existingModal = document.getElementById('batchProcessDetailsModal');
-    if (existingModal) {
-        console.log('移除已存在的模态框');
-        existingModal.remove();
-    }
-    
-    // 添加新的模态框
-    console.log('添加新的模态框到DOM');
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // 显示模态框
-    const modalElement = document.getElementById('batchProcessDetailsModal');
-    if (modalElement) {
-        console.log('模态框元素已创建，准备显示');
-        const modal = new bootstrap.Modal(modalElement);
-        modal.show();
-        console.log('模态框显示命令已执行');
-    } else {
-        console.error('无法找到模态框元素');
-    }
-}
-
 // ============ 工具函数 ============
 
 function debounce(func, delay) {
@@ -679,163 +585,6 @@ window.showSuccess = showSuccess;
 window.showWarning = showWarning;
 window.createToastContainer = createToastContainer;
 window.showImportDetails = showImportDetails;
-// ============ 基础分析结果详情显示函数 ============
-
-function showBasicProcessDetails(detailsData) {
-    console.log('showBasicProcessDetails 被调用，数据:', detailsData);
-
-    // 解析基础分析的统计数据
-    const totalPhotos = detailsData.total_files || detailsData.total_photos || detailsData.total || detailsData.batch_total_photos || 0;
-    const successfulPhotos = detailsData.imported_photos || detailsData.completed_photos || detailsData.successful_photos || 0;
-    const failedPhotos = detailsData.failed_photos || 0;
-
-    let icon, alertClass, summaryText;
-    if (failedPhotos > 0) {
-        icon = '⚠️';
-        alertClass = 'alert-warning';
-        summaryText = `基础分析完成：${totalPhotos}张照片中，${successfulPhotos}张成功分析，${failedPhotos}张需要补全`;
-    } else if (successfulPhotos > 0) {
-        icon = '✅';
-        alertClass = 'alert-success';
-        summaryText = `基础分析完成：${totalPhotos}张照片全部成功分析`;
-    } else if (totalPhotos > 0) {
-        // 有照片但没有成功和失败的，说明所有照片都已完成处理
-        icon = '✅';
-        alertClass = 'alert-success';
-        summaryText = `基础分析完成：所有${totalPhotos}张照片都已完成基础分析`;
-    }
-
-    const modalHtml = `
-        <div class="modal fade" id="basicProcessDetailsModal" tabindex="-1" aria-labelledby="basicProcessDetailsModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="basicProcessDetailsModalLabel">基础分析结果详情</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
-                    </div>
-                    <div class="modal-body">
-                        <!-- 处理结果摘要 -->
-                        <div class="alert ${alertClass} mb-4">
-                            <i class="bi bi-info-circle me-2"></i>
-                            <strong>${icon} ${summaryText}</strong><br>
-                            <small class="text-muted">所有照片已完成质量评估和基础标签生成</small>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <div class="card text-center">
-                                    <div class="card-body">
-                                        <h5 class="card-title text-primary">${totalPhotos}</h5>
-                                        <p class="card-text">总照片数</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="card text-center">
-                                    <div class="card-body">
-                                        <h5 class="card-title text-success">${successfulPhotos}</h5>
-                                        <p class="card-text">已分析</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        ${failedPhotos > 0 ? `
-                        <div class="mt-4">
-                            <h6>处理详情：</h6>
-                            <div class="alert alert-info">
-                                <i class="bi bi-info-circle me-2"></i>
-                                有 ${failedPhotos} 张照片基础分析失败；
-                                请在照片展示区选择这些照片，然后点击该区域的"基础分析"按钮，尝试再次处理。
-                            </div>
-                        </div>
-                        ` : `
-                        <div class="mt-4">
-                            <div class="alert alert-success">
-                                <i class="bi bi-check-circle me-2"></i>
-                                所有照片已成功完成基础分析，现在您可以查看照片的质量评分和基础标签了！
-                            </div>
-                        </div>
-                        `}
-
-                        ${detailsData.batch_details ? `
-                        <div class="mt-4">
-                            <h6>批次处理详情：</h6>
-                            <div class="alert alert-info">
-                                <i class="bi bi-grid me-2"></i>
-                                共分 ${detailsData.batch_count} 批处理，
-                                ${detailsData.completed_batches || 0} 批成功，
-                                ${detailsData.failed_batches || 0} 批失败
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>批次</th>
-                                            <th>照片数量</th>
-                                            <th>完成数量</th>
-                                            <th>状态</th>
-                                            <th>详情</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${detailsData.batch_details.map(batch => `
-                                            <tr>
-                                                <td>第${batch.batch_index}批</td>
-                                                <td>${batch.total_photos}</td>
-                                                <td>${batch.completed_photos}</td>
-                                                <td>
-                                                    ${batch.status === 'completed' ? '<span class="badge bg-success">成功</span>' :
-                                                      batch.status === 'error' ? '<span class="badge bg-danger">失败</span>' :
-                                                      '<span class="badge bg-warning">处理中</span>'}
-                                                </td>
-                                                <td>
-                                                    ${batch.error ? `<small class="text-danger">${batch.error}</small>` :
-                                                      batch.status === 'completed' ? '<small class="text-success">处理完成</small>' :
-                                                      '<small class="text-muted">正在处理</small>'}
-                                                </td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        ` : ''}
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
-                            <i class="bi bi-check-lg me-1"></i>
-                            完成
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // 移除已存在的模态框
-    const existingModal = document.getElementById('basicProcessDetailsModal');
-    if (existingModal) {
-        console.log('移除已存在的模态框');
-        existingModal.remove();
-    }
-
-    // 添加新的模态框
-    console.log('添加新的模态框到DOM');
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-    // 显示模态框
-    const modalElement = document.getElementById('basicProcessDetailsModal');
-    if (modalElement) {
-        console.log('模态框元素已创建，准备显示');
-        const modal = new bootstrap.Modal(modalElement);
-        modal.show();
-        console.log('模态框已显示');
-    } else {
-        console.error('模态框元素创建失败');
-    }
-}
-
 // ============ AI分析结果详情显示函数 ============
 
 function showAIProcessDetails(detailsData) {

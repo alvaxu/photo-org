@@ -110,16 +110,20 @@ class PhotoService:
             self.logger.error(f"获取照片失败 photo_id={photo_id}: {str(e)}")
             return None
 
-    def create_photo(self, db: Session, photo_data: PhotoCreate) -> Tuple[Optional[Photo], bool]:
+    def create_photo(self, db: Session, photo_data: PhotoCreate, 
+                     quality_result: Optional[Dict[str, Any]] = None,
+                     exif_tags: Optional[List[Dict[str, Any]]] = None,
+                     time_tags: Optional[List[Dict[str, Any]]] = None) -> Tuple[Optional[Photo], bool]:
         """
         创建照片记录
 
-        Args:
-            db: 数据库会话
-            photo_data: 照片数据
-
-        Returns:
-            (photo, is_new): 照片对象和是否为新创建的标志
+        :function: 创建照片记录，并可选择同时创建质量分析和标签
+        :param db: 数据库会话
+        :param photo_data: 照片数据
+        :param quality_result: 质量分析结果（可选）
+        :param exif_tags: EXIF标签列表（可选）
+        :param time_tags: 时间标签列表（可选）
+        :return: (photo, is_new): 照片对象和是否为新创建的标志
             - photo: Photo对象或None（失败时）
             - is_new: True表示新创建，False表示已存在（并发情况）
         """
@@ -136,10 +140,72 @@ class PhotoService:
             # 创建Photo对象
             photo = Photo(**photo_dict)
             
-            # 保存到数据库
+            # 保存到数据库（先保存以获取photo_id）
             db.add(photo)
-            db.commit()
+            db.flush()  # 刷新以获取photo_id，但不提交（等待质量分析和标签一起提交）
             db.refresh(photo)
+            
+            # 阶段一：在同一个事务中创建质量分析和标签
+            try:
+                # 1. 创建质量分析记录
+                quality_analysis_success = False
+                if quality_result:
+                    from app.models.photo import PhotoQuality
+                    technical_issues = quality_result.get("technical_issues", {})
+                    if isinstance(technical_issues, list):
+                        technical_issues_data = {
+                            "issues": technical_issues,
+                            "count": len(technical_issues),
+                            "has_issues": len(technical_issues) > 0
+                        }
+                    else:
+                        technical_issues_data = technical_issues
+                    
+                    # 检查质量分析结果是否有效（包含quality_score）
+                    if quality_result.get("quality_score") is not None:
+                        quality_record = PhotoQuality(
+                            photo_id=photo.id,
+                            quality_score=quality_result.get("quality_score"),
+                            sharpness_score=quality_result.get("sharpness_score"),
+                            brightness_score=quality_result.get("brightness_score"),
+                            contrast_score=quality_result.get("contrast_score"),
+                            color_score=quality_result.get("color_score"),
+                            composition_score=quality_result.get("composition_score"),
+                            quality_level=quality_result.get("quality_level"),
+                            technical_issues=technical_issues_data
+                        )
+                        db.add(quality_record)
+                        quality_analysis_success = True
+                
+                # 2. 创建标签记录（EXIF标签 + 时间标签）
+                all_tags = []
+                if exif_tags:
+                    all_tags.extend(exif_tags)
+                if time_tags:
+                    all_tags.extend(time_tags)
+                
+                if all_tags:
+                    from app.models.photo import Tag, PhotoTag
+                    from app.services.classification_service import ClassificationService
+                    classification_service = ClassificationService()
+                    # 使用ClassificationService的_save_auto_tags方法保存标签
+                    saved_tags = classification_service._save_auto_tags(photo.id, all_tags, db)
+                    self.logger.debug(f"为照片创建标签成功 photo_id={photo.id}, tags={saved_tags}")
+                
+                # 3. 根据质量分析结果更新status
+                # 如果质量分析成功，status更新为'quality_completed'；否则保持'imported'
+                if quality_analysis_success:
+                    photo.status = 'quality_completed'
+                    self.logger.debug(f"照片质量分析成功，status更新为quality_completed photo_id={photo.id}")
+                # 如果质量分析失败或不存在，保持status为'imported'（已在create_photo_record中设置）
+                
+            except Exception as tag_error:
+                # 标签创建失败不影响照片创建，只记录日志
+                self.logger.warning(f"创建质量分析或标签失败 photo_id={photo.id}: {str(tag_error)}")
+                # 如果质量分析失败，保持status为'imported'
+            
+            # 提交所有更改（照片 + 质量分析 + 标签 + status更新）
+            db.commit()
             
             self.logger.info(f"照片创建成功: {photo.filename}")
             return photo, True  # 返回新创建的记录，is_new=True
@@ -601,12 +667,62 @@ class PhotoService:
                             update_data["filename"] = new_filename
                             details['filename_updated'] += 1
 
+                # 阶段二：检查是否更新了taken_at，如果更新了，自动更新时间标签
+                taken_at_updated = False
+                new_taken_at = None
+                old_taken_at = photo.taken_at  # 保存原始值用于比较
+                
+                if 'taken_at' in update_data:
+                    new_taken_at = update_data.get('taken_at')
+                    # 判断值是否实际变化（考虑None的情况）
+                    if old_taken_at != new_taken_at:
+                        taken_at_updated = True
+                
                 # 更新基本信息
                 if update_data:
                     for key, value in update_data.items():
                         if hasattr(photo, key):
                             setattr(photo, key, value)
                     photo.updated_at = datetime.now()
+                
+                # 阶段二：如果taken_at已更新，自动更新时间标签（在db.commit()之前）
+                if taken_at_updated:
+                    try:
+                        from app.services.classification_service import ClassificationService
+                        from app.models.photo import Tag, PhotoTag
+                        from sqlalchemy import and_
+                        
+                        classification_service = ClassificationService()
+                        
+                        # 1. 删除旧的时间标签（category='time'的标签）
+                        time_tags = db.query(Tag).filter(Tag.category == 'time').all()
+                        time_tag_ids = [tag.id for tag in time_tags]
+                        
+                        if time_tag_ids:
+                            # 删除该照片的所有时间标签关联
+                            db.query(PhotoTag).filter(
+                                and_(
+                                    PhotoTag.photo_id == photo_id,
+                                    PhotoTag.tag_id.in_(time_tag_ids)
+                                )
+                            ).delete(synchronize_session=False)
+                        
+                        # 2. 生成新的时间标签（如果new_taken_at不为None）
+                        if new_taken_at:
+                            self.logger.debug(f"批量编辑：开始生成新时间标签 photo_id={photo_id}, new_taken_at={new_taken_at}")
+                            new_time_tags = classification_service.generate_time_tags_from_datetime(new_taken_at)
+                            self.logger.debug(f"批量编辑：生成的时间标签数量: {len(new_time_tags) if new_time_tags else 0}, tags={[tag.get('name') for tag in new_time_tags] if new_time_tags else []}")
+                            if new_time_tags:
+                                # 使用ClassificationService的_save_auto_tags方法保存新标签
+                                saved_tags = classification_service._save_auto_tags(photo_id, new_time_tags, db)
+                                self.logger.info(f"批量编辑：为照片添加时间标签成功 photo_id={photo_id}, tags={saved_tags}")
+                            else:
+                                self.logger.warning(f"批量编辑：生成的时间标签为空 photo_id={photo_id}, new_taken_at={new_taken_at}")
+                        else:
+                            self.logger.debug(f"批量编辑：new_taken_at为None，不生成新时间标签 photo_id={photo_id}")
+                    except Exception as e:
+                        self.logger.warning(f"批量编辑：自动更新时间标签失败 photo_id={photo_id}: {str(e)}")
+                        # 时间标签更新失败不影响照片更新，只记录日志
 
                 # 处理标签
                 if request.tags_operation:

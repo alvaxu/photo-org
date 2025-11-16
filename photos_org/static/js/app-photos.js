@@ -43,7 +43,7 @@ function getProcessingStatus(photo) {
         return {
             status: 'quality_completed',
             iconClass: 'bi-check-circle',
-            text: '基础分析完成',
+            text: '质量分析完成',
             className: 'status-quality-completed',
             canProcess: true  // 支持继续AI分析或重新处理
         };
@@ -55,7 +55,7 @@ function getProcessingStatus(photo) {
             iconClass: 'bi-check-circle',
             text: 'AI分析完成',
             className: 'status-content-completed',
-            canProcess: true  // 支持继续基础分析或重新处理
+            canProcess: true  // 支持继续AI分析或重新处理
         };
     }
 
@@ -160,7 +160,6 @@ function createPhotoCard(photo) {
                         <i class="bi ${qualityStatus.icon} quality-icon ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
                            data-level="${qualityStatus.level}"
                            data-photo-id="${photo.id}"
-                           onclick="event.stopPropagation(); forceBasicAnalysis(${photo.id})"
                            title="${qualityStatus.title}"
                            style="color: ${qualityStatus.color}"></i>
                         <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
@@ -305,7 +304,6 @@ function createPhotoListItem(photo) {
                             <i class="bi ${qualityStatus.icon} quality-icon ${qualityStatus.isAssessed ? 'quality-assessed' : 'quality-unassessed'}"
                                data-level="${qualityStatus.level}"
                                data-photo-id="${photo.id}"
-                               onclick="event.stopPropagation(); forceBasicAnalysis(${photo.id})"
                                title="${qualityStatus.title}"
                                style="color: ${qualityStatus.color}"></i>
                             <i class="bi ${aiStatus.iconClass} ai-status-icon ${aiStatus.hasAIAnalysis ? 'ai-analyzed' : 'ai-not-analyzed'}"
@@ -331,16 +329,6 @@ function createPhotoListItem(photo) {
                             ${formatDate(photo.taken_at)} (拍摄日期)
                         </span>
                         <span class="meta-item">
-                            <button class="btn btn-link ${photo.is_favorite ? 'text-danger' : 'text-muted'} p-0 photo-favorite-btn" 
-                                    data-photo-id="${photo.id}" 
-                                    data-action="favorite"
-                                    data-is-favorite="${photo.is_favorite || false}"
-                                    onclick="event.stopPropagation(); toggleFavorite(${photo.id}, this)"
-                                    title="${photo.is_favorite ? '取消收藏' : '添加到收藏'}">
-                                <i class="bi ${photo.is_favorite ? 'bi-heart-fill' : 'bi-heart'}"></i>
-                            </button>
-                        </span>
-                        <span class="meta-item">
                             <i class="bi bi-geo-alt me-1"></i>
                             ${photo.location_name || '未知位置'}
                         </span>
@@ -361,6 +349,16 @@ function createPhotoListItem(photo) {
                         <span class="meta-item">
                             <i class="bi bi-clock me-1"></i>
                             ${formatDateTime(photo.created_at)}
+                        </span>
+                        <span class="meta-item" style="margin-left: auto;">
+                            <button class="btn btn-link ${photo.is_favorite ? 'text-danger' : 'text-muted'} p-0 photo-favorite-btn" 
+                                    data-photo-id="${photo.id}" 
+                                    data-action="favorite"
+                                    data-is-favorite="${photo.is_favorite || false}"
+                                    onclick="event.stopPropagation(); toggleFavorite(${photo.id}, this)"
+                                    title="${photo.is_favorite ? '取消收藏' : '添加到收藏'}">
+                                <i class="bi ${photo.is_favorite ? 'bi-heart-fill' : 'bi-heart'}"></i>
+                            </button>
                         </span>
                     </div>
                 </div>
@@ -471,6 +469,7 @@ function updateNavigation(activeSection) {
 
 /**
  * 显示照片页面
+ * 完全刷新：重置所有筛选条件，刷新统计信息，重新加载照片
  */
 function showPhotosSection() {
     // 显示照片网格区域
@@ -479,8 +478,17 @@ function showPhotosSection() {
         mainContent.style.display = 'block';
     }
     
-    // 加载照片数据
-    loadPhotos();
+    // 完全刷新：重置所有筛选条件，刷新统计信息，重新加载照片
+    // 使用 clearAllFilters 实现完全刷新功能
+    if (window.clearAllFilters) {
+        window.clearAllFilters();
+    } else {
+        // 如果 clearAllFilters 不可用，则只加载照片和统计
+        loadPhotos(1);
+        if (window.loadStats) {
+            window.loadStats();
+        }
+    }
 }
 
 // ============ 照片操作函数 ============
@@ -1478,7 +1486,7 @@ class PhotoSelector {
             summaryParts.push(`${statusCounts.analyzing}张分析中`);
         }
         if (statusCounts.quality_completed > 0) {
-            summaryParts.push(`${statusCounts.quality_completed}张基础分析完成`);
+            summaryParts.push(`${statusCounts.quality_completed}张质量分析完成`);
         }
         if (statusCounts.content_completed > 0) {
             summaryParts.push(`${statusCounts.content_completed}张AI分析完成`);
@@ -1510,13 +1518,6 @@ class PhotoSelector {
         const aiBtn = document.getElementById('aiProcessSelectedBtn');
         const downloadBtn = document.getElementById('downloadSelectedBtn');
 
-        if (basicBtn) {
-            basicBtn.disabled = false;
-            basicBtn.innerHTML = '<i class="bi bi-graph-up"></i> 基础分析';
-            console.log('基础分析按钮已启用');
-        } else {
-            console.error('未找到基础分析按钮');
-        }
 
         if (aiBtn) {
             aiBtn.disabled = false;
@@ -1539,17 +1540,8 @@ class PhotoSelector {
     // 禁用分析按钮
     disableProcessButtons() {
         console.log('禁用分析按钮');
-        const basicBtn = document.getElementById('basicProcessSelectedBtn');
         const aiBtn = document.getElementById('aiProcessSelectedBtn');
         const downloadBtn = document.getElementById('downloadSelectedBtn');
-
-        if (basicBtn) {
-            basicBtn.disabled = true;
-            basicBtn.innerHTML = '<i class="bi bi-graph-up"></i> 基础分析';
-            console.log('基础分析按钮已禁用');
-        } else {
-            console.error('未找到基础分析按钮');
-        }
 
         if (aiBtn) {
             aiBtn.disabled = true;
@@ -1611,14 +1603,14 @@ window.savePhotoEdit = savePhotoEdit;
 // 照片选择相关函数
 window.processSelectedPhotos = () => {
     console.log('processSelectedPhotos函数被调用');
-    console.log('智能处理功能已移除，请使用基础分析或AI分析功能');
-    showWarning('智能处理功能已移除，请使用基础分析或AI分析功能');
+    console.log('智能处理功能已移除，请使用AI分析功能');
+    showWarning('智能处理功能已移除，请使用AI分析功能');
 };
 
 window.reprocessSelectedPhotos = () => {
     console.log('reprocessSelectedPhotos函数被调用');
-    console.log('智能处理功能已移除，请使用基础分析或AI分析功能');
-    showWarning('智能处理功能已移除，请使用基础分析或AI分析功能');
+    console.log('智能处理功能已移除，请使用AI分析功能');
+    showWarning('智能处理功能已移除，请使用AI分析功能');
 };
 
 /**
@@ -1988,69 +1980,6 @@ window.resolvePhotoAddress = resolvePhotoAddress;
 window.updatePhotoAddress = updatePhotoAddress;
 window.downloadSinglePhoto = downloadSinglePhoto;
 window.downloadSelectedPhotos = downloadSelectedPhotos;
-
-/**
- * 强制基础分析单张照片（同步处理）
- */
-async function forceBasicAnalysis(photoId) {
-    const qualityIcon = document.querySelector(`.quality-icon[data-photo-id="${photoId}"]`);
-    if (!qualityIcon) return;
-
-    // 确认对话框
-    const isAssessed = qualityIcon.classList.contains('quality-assessed');
-    const confirmMessage = isAssessed 
-        ? '确定要强制重新进行基础分析吗？' 
-        : '确定要进行基础分析吗？';
-    
-    if (!confirm(confirmMessage)) {
-        return;
-    }
-
-    // 保存原始状态
-    const originalClass = qualityIcon.className;
-    const originalTitle = qualityIcon.title;
-    
-    try {
-        // 显示加载状态
-        qualityIcon.className = 'quality-icon processing';
-        qualityIcon.title = '分析中...';
-        qualityIcon.style.opacity = '0.5';
-
-        // 调用同步API（暂用异步接口，等待后续添加同步接口）
-        const response = await fetch(`${CONFIG.API_BASE_URL}/analysis/photos/${photoId}/analyze-quality`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'}
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-            // 🔥 修复：保持当前页面，不回到首页
-            // 获取当前页码（如果有的话），否则使用第1页
-            const currentPage = (typeof AppState !== 'undefined' && AppState.currentPage) ? AppState.currentPage : 1;
-            await window.loadPhotos(currentPage);
-            await window.loadStats();
-            
-            showToast('基础分析完成', 'success');
-        } else {
-            // 恢复原状态
-            qualityIcon.className = originalClass;
-            qualityIcon.title = originalTitle;
-            qualityIcon.style.opacity = '';
-            showToast(result.message || '基础分析失败', 'error');
-        }
-
-    } catch (error) {
-        console.error('基础分析失败:', error);
-        // 恢复原状态
-        qualityIcon.className = originalClass;
-        qualityIcon.title = originalTitle;
-        qualityIcon.style.opacity = '';
-        showToast('基础分析失败，请检查网络连接', 'error');
-    }
-}
-
-window.forceBasicAnalysis = forceBasicAnalysis;
 
 /**
  * 强制AI分析单张照片（同步处理）

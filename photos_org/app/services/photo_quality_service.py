@@ -142,6 +142,83 @@ class PhotoQualityService:
             self.logger.error(f"照片质量评估失败 {image_path}: {str(e)}")
             raise Exception(f"照片质量评估失败: {str(e)}")
 
+    def assess_quality_from_pil_image(self, pil_image) -> Dict[str, Any]:
+        """
+        从PIL Image对象评估照片质量
+
+        :function: 从PIL Image对象直接进行质量评估，避免重复读取文件
+        :param pil_image: PIL Image对象
+        :return: 质量评估结果字典，格式与assess_quality相同
+        """
+        # 延迟导入依赖
+        _lazy_import_dependencies()
+        
+        try:
+            # 确保PIL Image是RGB格式
+            if pil_image.mode != 'RGB':
+                pil_image = pil_image.convert('RGB')
+            
+            # 转换为numpy数组
+            image_array = np.array(pil_image)
+            
+            # 转换为BGR格式（OpenCV默认格式）
+            image = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
+            
+            # 最终检查
+            if image is None:
+                raise Exception("无法转换PIL Image为OpenCV格式")
+
+            # 各项质量评估
+            sharpness_score = self._assess_sharpness(image)
+            brightness_score = self._assess_brightness(image)
+            contrast_score = self._assess_contrast(image)
+            color_score = self._assess_color_quality(image)
+            composition_score = self._assess_composition(image)
+
+            # 技术问题检测（使用原始PIL Image）
+            technical_issues_raw = self._detect_technical_issues(image, pil_image)
+            # 将列表转换为字典格式以兼容数据库存储
+            technical_issues = {
+                "issues": technical_issues_raw,
+                "count": len(technical_issues_raw),
+                "has_issues": len(technical_issues_raw) > 0
+            }
+
+            # 综合质量评分（加权平均）
+            weights = {
+                'sharpness': 0.3,
+                'brightness': 0.2,
+                'contrast': 0.2,
+                'color': 0.15,
+                'composition': 0.15
+            }
+
+            quality_score = (
+                sharpness_score * weights['sharpness'] +
+                brightness_score * weights['brightness'] +
+                contrast_score * weights['contrast'] +
+                color_score * weights['color'] +
+                composition_score * weights['composition']
+            )
+
+            # 质量等级
+            quality_level = self._get_quality_level(quality_score)
+
+            return {
+                "quality_score": round(quality_score, 2),
+                "sharpness_score": round(sharpness_score, 2),
+                "brightness_score": round(brightness_score, 2),
+                "contrast_score": round(contrast_score, 2),
+                "color_score": round(color_score, 2),
+                "composition_score": round(composition_score, 2),
+                "quality_level": quality_level,
+                "technical_issues": technical_issues
+            }
+
+        except Exception as e:
+            self.logger.error(f"从PIL Image评估照片质量失败: {str(e)}")
+            raise Exception(f"从PIL Image评估照片质量失败: {str(e)}")
+
     def _assess_sharpness(self, image) -> float:
         """
         评估图像清晰度

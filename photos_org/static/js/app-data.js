@@ -654,10 +654,57 @@ function renderStats() {
     // 填充相机筛选器选项
     populateCameraFilterOptions(stats);
 
+    // 更新导航栏徽章
+    updateNavigationBadges(stats);
+
     // 如果StatsPanel不存在，输出警告但不显示降级内容
     if (!window.statsPanel) {
         console.warn('StatsPanel not available, skipping stats rendering');
     }
+}
+
+/**
+ * 更新导航栏按钮的徽章显示
+ * @param {Object} stats - 统计数据对象
+ */
+function updateNavigationBadges(stats) {
+    const counts = stats?.pending_counts || {};
+    
+    // 更新各个按钮的徽章
+    updateBadge('navSimilarPhotos', counts.similar_photos);
+    updateBadge('navPeople', counts.face_recognition);
+    updateBadge('gpsToAddressBtn', counts.gps_to_address);
+    updateBadge('aiAnalysisBtn', counts.ai_analysis);
+}
+
+/**
+ * 更新单个按钮的徽章
+ * @param {string} buttonId - 按钮ID
+ * @param {number} count - 待处理数量
+ */
+function updateBadge(buttonId, count) {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    
+    // 确保按钮有相对定位
+    if (getComputedStyle(button).position === 'static') {
+        button.style.position = 'relative';
+    }
+    
+    // 移除现有徽章
+    const existingBadge = button.querySelector('.nav-badge');
+    if (existingBadge) {
+        existingBadge.remove();
+    }
+    
+    // 如果数量为0或未定义，不显示徽章
+    if (!count || count === 0) return;
+    
+    // 创建徽章元素
+    const badge = document.createElement('span');
+    badge.className = 'nav-badge';
+    badge.textContent = count > 99 ? '99+' : count.toString();
+    button.appendChild(badge);
 }
 
 // 填充相机筛选器选项
@@ -1376,6 +1423,7 @@ window.loadUserConfig = loadUserConfig;
 window.loadStats = loadStats;
 window.loadPhotos = loadPhotos;
 window.initSearchMultiSelect = initSearchMultiSelect;
+window.updateNavigationBadges = updateNavigationBadges;
 
 // 导出渲染函数
 window.renderStats = renderStats;

@@ -55,12 +55,7 @@ class StorageConfig(BaseSettings):
 
 class AnalysisConfig(BaseSettings):
     """分析配置"""
-    duplicate_threshold: int = Field(default=5, description="重复检测阈值")
-    quality_threshold: int = Field(default=0, description="质量评估阈值")
     concurrent: int = Field(default=2, description="分析并发数")
-    timeout: int = Field(default=30, description="分析超时时间（秒）")
-    batch_size: int = Field(default=10, description="批量分析大小")
-    batch_threshold: int = Field(default=200, description="分析分批阈值")
 
 
 class LoggingConfig(BaseSettings):
@@ -457,12 +452,7 @@ class Settings(BaseSettings):
                 "similarity_threshold": self.search.similarity_threshold
             },
             "analysis": {
-                "duplicate_threshold": self.analysis.duplicate_threshold,
-                "quality_threshold": self.analysis.quality_threshold,
-                "concurrent": self.analysis.concurrent,
-                "timeout": self.analysis.timeout,
-                "batch_size": self.analysis.batch_size,
-                "batch_threshold": self.analysis.batch_threshold
+                "concurrent": self.analysis.concurrent
             },
             "import": {
                 "max_upload_files": self.import_config.max_upload_files,

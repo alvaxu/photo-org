@@ -654,6 +654,67 @@ class ClassificationService:
 
         return tags
 
+    def generate_exif_tags_from_metadata(self, metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        从metadata字典生成EXIF标签（镜头、光圈、焦距）
+
+        :function: 从metadata字典中提取EXIF信息并生成标签，用于导入阶段
+        :param metadata: 包含EXIF信息的metadata字典，可能包含lens_model、aperture、focal_length等字段
+        :return: EXIF标签列表
+        """
+        tags = []
+
+        # 镜头信息标签
+        lens_model = metadata.get('lens_model') or metadata.get('lens')
+        if lens_model:
+            tags.append({
+                'name': str(lens_model),
+                'type': 'lens',
+                'confidence': 1.0
+            })
+
+        # 光圈标签
+        aperture = metadata.get('aperture') or metadata.get('f_number')
+        if aperture:
+            # 确保光圈值格式正确
+            aperture_str = str(aperture)
+            if not aperture_str.startswith('f/'):
+                aperture_str = f'f/{aperture_str}'
+            tags.append({
+                'name': aperture_str,
+                'type': 'aperture',
+                'confidence': 1.0
+            })
+
+        # 焦距标签
+        focal_length = metadata.get('focal_length')
+        if focal_length:
+            # 确保焦距值格式正确
+            focal_str = str(focal_length)
+            if not focal_str.endswith('mm'):
+                focal_str = f'{focal_str}mm'
+            tags.append({
+                'name': focal_str,
+                'type': 'focal_length',
+                'confidence': 1.0
+            })
+
+        return tags
+
+    def generate_time_tags_from_datetime(self, taken_at: datetime) -> List[Dict[str, Any]]:
+        """
+        从datetime对象生成时间标签（季节、时段、节假日）
+
+        :function: 根据拍摄时间生成时间相关标签，用于导入阶段和taken_at更新时
+        :param taken_at: 拍摄时间的datetime对象
+        :return: 时间标签列表
+        """
+        if not taken_at:
+            return []
+        
+        # 复用现有的_extract_time_tags方法
+        return self._extract_time_tags(taken_at)
+
     def _extract_tags_from_exif(self, photo: Photo) -> List[Dict[str, Any]]:
         """从EXIF信息生成标签"""
         tags = []
@@ -731,6 +792,9 @@ class ClassificationService:
     def _save_auto_tags(self, photo_id: int, tags: List[Dict[str, Any]], db: Session) -> List[str]:
         """保存自动标签"""
         saved_tags = []
+        created_count = 0
+        updated_count = 0
+        skipped_count = 0
 
         for tag_data in tags:
             # 查找或创建标签
@@ -764,6 +828,7 @@ class ClassificationService:
 
                 # 更新标签使用次数（只有新增关联时才增加计数）
                 tag.usage_count = (tag.usage_count or 0) + 1
+                created_count += 1
             else:
                 # 如果关联已存在，只更新置信度（如果新的置信度更高或现有置信度为None）
                 # 🔥 修复：处理 existing_photo_tag.confidence 可能为 None 的情况
@@ -773,8 +838,15 @@ class ClassificationService:
                 
                 if existing_confidence is None or new_confidence > existing_confidence:
                     existing_photo_tag.confidence = new_confidence
+                    updated_count += 1
+                else:
+                    skipped_count += 1
 
             saved_tags.append(tag_data['name'])
+
+        # 记录保存结果
+        if created_count > 0 or updated_count > 0:
+            self.logger.debug(f"保存自动标签完成 photo_id={photo_id}, 创建={created_count}, 更新={updated_count}, 跳过={skipped_count}, tags={saved_tags}")
 
         # 不在这里提交，由调用方统一提交
         return saved_tags

@@ -1783,6 +1783,14 @@ body {
     font-size: 0.8rem;
 }
 
+.photo-list-item .meta-item .photo-favorite-btn.text-danger {
+    color: var(--danger-color, #dc3545) !important;
+}
+
+.photo-list-item .meta-item .photo-favorite-btn.text-danger i {
+    color: var(--danger-color, #dc3545) !important;
+}
+
 .photo-list-item .photo-description {
     font-size: 0.875rem;
     color: var(--dark-color);
@@ -2693,4 +2701,33 @@ kbd {
         padding: 0.25rem 0.4rem;
         font-size: 0.75rem;
     }
+}
+
+/* ===== 导航栏徽章样式 ===== */
+.nav-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    line-height: 1;
+}
+
+/* 确保导航栏按钮有相对定位 */
+#navSimilarPhotos,
+#navPeople,
+#gpsToAddressBtn,
+#aiAnalysisBtn {
+    position: relative;
 }

@@ -979,7 +979,7 @@ class PeopleManagementStandalone {
                             <div class="mt-4">
                                 <div class="alert alert-success">
                                     <i class="bi bi-check-circle me-2"></i>
-                                    所有照片已成功完成人脸识别，现在您可以在人物管理页面查看识别结果了！
+                                    所有照片已成功完成人脸识别，现在您可以点击”开始聚类”按钮进行分组了！
                                 </div>
                             </div>
                             `}
@@ -1131,7 +1131,7 @@ class PeopleManagementStandalone {
         }
         
         let checkCount = 0;
-        const maxChecks = window.userConfig?.face_recognition?.max_progress_checks || 1800; // 最多检查次数
+        const maxChecks = window.userConfig?.face_recognition?.max_progress_checks || 14400; // 最多检查14400次，每次2秒，总共8小时
         let hasShownResults = false; // 添加标志防止重复显示结果
 
         const statusCheckInterval = setInterval(async () => {
@@ -1271,7 +1271,7 @@ class PeopleManagementStandalone {
                 this.showError('人脸识别超时，请稍后重试');
                 document.getElementById('startFaceBtn').disabled = false;
             }
-        }, 1000); // 每1秒检查一次
+        }, 2000); // 每2秒检查一次
     }
 
     editPersonName(clusterId, currentName = '') {

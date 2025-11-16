@@ -133,20 +133,32 @@ class StatsPanel {
             <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="平均质量分: ${stats.avg_quality || 0}">
                 <i class="bi bi-graph-up text-warning"></i>${stats.avg_quality ? stats.avg_quality.toFixed(1) : 0}
             </span>
-            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="基础分析未完成: ${(stats.photos_unanalyzed || 0) + (stats.photos_ai_analyzed || 0)}">
-                <i class="bi bi-graph-up-arrow text-secondary"></i>${(stats.photos_unanalyzed || 0) + (stats.photos_ai_analyzed || 0)}
+            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="有GPS信息: ${stats.photos_with_gps || 0}">
+                <i class="bi bi-geo-alt text-primary"></i>${stats.photos_with_gps || 0}
+            </span>
+            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="待转换GPS地址: ${stats.photos_gps_without_address || 0}">
+                <i class="bi bi-geo-alt-fill text-warning"></i>${stats.photos_gps_without_address || 0}
+            </span>
+            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="有地址信息: ${stats.photos_geocoded || 0}">
+                <i class="bi bi-house text-info"></i>${stats.photos_geocoded || 0}
+            </span>
+            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="已提取特征: ${stats.photos_features_extracted || 0}">
+                <i class="bi bi-diagram-3 text-success"></i>${stats.photos_features_extracted || 0}
+            </span>
+            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="待提取特征: ${stats.photos_features_pending || 0}">
+                <i class="bi bi-diagram-3 text-warning"></i>${stats.photos_features_pending || 0}
+            </span>
+            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="已检测人脸: ${stats.photos_face_detected || 0}">
+                <i class="bi bi-person-check text-success"></i>${stats.photos_face_detected || 0}
+            </span>
+            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="待检测人脸: ${stats.photos_face_pending || 0}">
+                <i class="bi bi-person-x text-warning"></i>${stats.photos_face_pending || 0}
             </span>
             <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="AI分析未完成: ${(stats.photos_unanalyzed || 0) + (stats.photos_basic_analyzed || 0)}">
                 <i class="bi bi-robot text-secondary"></i>${(stats.photos_unanalyzed || 0) + (stats.photos_basic_analyzed || 0)}
             </span>
             <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="全部分析完成: ${stats.photos_fully_analyzed || 0}">
                 <i class="bi bi-check-circle-fill text-success"></i>${stats.photos_fully_analyzed || 0}
-            </span>
-            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="有GPS信息: ${stats.photos_with_gps || 0}">
-                <i class="bi bi-geo-alt text-primary"></i>${stats.photos_with_gps || 0}
-            </span>
-            <span class="stats-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="已转地址: ${stats.photos_geocoded || 0}">
-                <i class="bi bi-house text-info"></i>${stats.photos_geocoded || 0}
             </span>
         `;
 

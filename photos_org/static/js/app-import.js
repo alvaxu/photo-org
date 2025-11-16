@@ -77,7 +77,6 @@ class ModalProtector {
         // 设置事件监听器（双重保护）
         this.setupClosePrevention();
 
-        // 基础分析模态框不再需要取消按钮保护（已移除取消按钮）
     }
 
     /**
@@ -95,7 +94,6 @@ class ModalProtector {
         // 移除事件监听器
         this.removeClosePrevention();
 
-        // 基础分析模态框不再需要取消按钮恢复（已移除取消按钮）
     }
 
     /**
@@ -111,7 +109,7 @@ class ModalProtector {
             messageDiv.innerHTML = `
                 <i class="bi bi-shield-lock-fill me-2"></i>
                 <small class="fw-bold">
-                    ${this.modalId === 'basicModal' ? '基础分析' : '导入'}进行中，此窗口无法关闭<br>
+                    导入进行中，此窗口无法关闭<br>
                     请等待任务完成，不要关闭此页面
                 </small>
             `;
@@ -167,7 +165,6 @@ class ModalProtector {
 
 // 创建全局实例 - 延迟初始化，不影响页面启动
 window.importModalProtector = new ModalProtector('importModal');
-window.basicModalProtector = new ModalProtector('basicModal');
 window.aiModalProtector = new ModalProtector('aiModal');
 
 /**
@@ -1356,12 +1353,6 @@ window.validateFolderPath = validateFolderPath;
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 基础分析按钮事件监听
-    const basicAnalysisBtn = document.getElementById('basicAnalysisBtn');
-    if (basicAnalysisBtn) {
-        basicAnalysisBtn.addEventListener('click', startBasicAnalysis);
-    }
-
     // AI分析按钮事件监听
     const aiAnalysisBtn = document.getElementById('aiAnalysisBtn');
     if (aiAnalysisBtn) {
@@ -1372,12 +1363,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const gpsToAddressBtn = document.getElementById('gpsToAddressBtn');
     if (gpsToAddressBtn) {
         gpsToAddressBtn.addEventListener('click', startBatchGpsToAddress);
-    }
-
-    // 基础分析模态框中的开始按钮事件监听
-    const startBasicBtn = document.getElementById('startBasicBtn');
-    if (startBasicBtn) {
-        startBasicBtn.addEventListener('click', startBasicProcess);
     }
 
     // AI分析模态框中的开始按钮事件监听
@@ -1406,9 +1391,7 @@ window.showImportConfirmation = showImportConfirmation;
 window.confirmFolderImport = confirmFolderImport;
 window.cancelFolderImport = cancelFolderImport;
 window.hideFolderPreview = hideFolderPreview;
-window.startBasicAnalysis = startBasicAnalysis;
 window.startAIAnalysis = startAIAnalysis;
-window.startBasicProcess = startBasicProcess;
 window.startAIProcess = startAIProcess;
 
 /**
@@ -1419,7 +1402,7 @@ window.startAIProcess = startAIProcess;
  */
 function monitorImportProgress(taskId, totalFiles) {
     let checkCount = 0;
-    const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
+    const maxChecks = 1800; // 最多检查1800次，每次2秒，总共1小时
 
     console.log('开始监控文件处理进度，总文件数:', totalFiles);
 
@@ -1557,7 +1540,7 @@ function monitorImportProgress(taskId, totalFiles) {
         } catch (error) {
             console.error('进度监控失败:', error);
         }
-    }, 1000); // 每1秒检查一次
+    }, 2000); // 每2秒检查一次
 }
 
 /**
@@ -1569,26 +1552,24 @@ function monitorImportProgress(taskId, totalFiles) {
  */
 function monitorBatchProgress(taskIds, totalFiles, failedBatches = [], startTime = null) {
     let checkCount = 0;
-    const maxElapsedTime = 60 * 60 * 1000; // 1小时超时（毫秒）
-    const actualStartTime = startTime || Date.now();
+    const maxChecks = 14400; // 最多检查14400次，每次2秒，总共8小时
 
     console.log('开始监控批次聚合进度，总任务数:', taskIds.length, '总文件数:', totalFiles);
 
-    // 🔄 渐进式查询频率：开始快，后来慢
-    let currentInterval = 2000; // 起始2秒（导入比基础分析频率稍低）
+    // 🔄 固定查询频率：每2秒检查一次
+    const checkInterval = 2000; // 固定2秒间隔
     let progressInterval;
 
     const checkProgress = async () => {
         checkCount++;
 
-        // 超时保护 - 基于实际时间
-        const elapsedTime = Date.now() - actualStartTime;
-        if (elapsedTime >= maxElapsedTime) {
+        // 超时保护 - 基于检查次数
+        if (checkCount > maxChecks) {
             if (progressInterval) {
                 clearInterval(progressInterval);
                 clearTimeout(progressInterval);
             }
-            console.error('批次进度监控超时，经过时间:', Math.round(elapsedTime/1000), '秒');
+            console.error('批次进度监控超时，检查次数:', checkCount);
             elements.importStatus.textContent = '处理超时';
             elements.importDetails.textContent = '服务器处理时间过长，请检查服务器状态';
             elements.importProgressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
@@ -1708,36 +1689,12 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = [], startTime
             console.error('批次进度监控失败:', error);
         }
 
-        // 🔄 动态调整查询频率
-        // 0-30秒：2秒间隔，30-120秒：5秒间隔，120-300秒：10秒间隔，300秒以后：20秒间隔
-        const elapsedSeconds = (Date.now() - startTime) / 1000;
-        let nextInterval;
-
-        if (elapsedSeconds < 30) {
-            nextInterval = 2000; // 2秒
-        } else if (elapsedSeconds < 120) {
-            nextInterval = 5000; // 5秒
-        } else if (elapsedSeconds < 300) {
-            nextInterval = 10000; // 10秒
-        } else {
-            nextInterval = 20000; // 20秒
-        }
-
-        // 如果频率改变，重新设置定时器
-        if (nextInterval !== currentInterval) {
-            currentInterval = nextInterval;
-            if (progressInterval) {
-                clearInterval(progressInterval);
-                clearTimeout(progressInterval);
-            }
-            progressInterval = setTimeout(checkProgress, currentInterval);
-        } else {
-            progressInterval = setTimeout(checkProgress, currentInterval);
-        }
+        // 继续轮询，使用固定2秒间隔
+        progressInterval = setTimeout(checkProgress, checkInterval);
     };
 
-    // 启动首次检查
-    progressInterval = setTimeout(checkProgress, currentInterval);
+    // 启动首次检查（立即执行，不延迟）
+    checkProgress();
 }
 
 
@@ -1751,418 +1708,6 @@ function monitorBatchProgress(taskIds, totalFiles, failedBatches = [], startTime
 
 
 
-
-/**
- * 开始基础分析
- */
-async function startBasicAnalysis() {
-    // 开始基础分析
-
-    // 重置模态框状态到初始状态
-    resetBasicModal();
-
-    // 显示基础分析模态框
-    const modal = new bootstrap.Modal(document.getElementById('basicModal'));
-    modal.show();
-
-    // 获取基础分析统计信息
-    try {
-        const countResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/basic-pending-count`);
-        const countData = await countResponse.json();
-
-        const countInfo = document.getElementById('basicPhotoCountInfo');
-        const countText = document.getElementById('basicPhotoCountText');
-        const startBtn = document.getElementById('startBasicBtn');
-
-        if (countResponse.ok && countData.count > 0) {
-            // 有照片需要分析
-            countInfo.style.display = 'block';
-            countText.textContent = `发现 ${countData.count} 张照片需要基础分析`;
-            startBtn.disabled = false;
-            startBtn.textContent = '开始基础分析';
-        } else if (countResponse.ok && countData.count === 0) {
-            // 所有照片都已完成基础分析
-            countInfo.style.display = 'block';
-            countText.textContent = '所有照片都已完成基础分析';
-            startBtn.disabled = true;
-            startBtn.textContent = '无需分析';
-        } else {
-            // API调用失败
-            countInfo.style.display = 'none';
-            startBtn.disabled = true;
-            startBtn.textContent = '开始基础分析';
-        }
-    } catch (error) {
-        console.error('获取基础分析统计失败:', error);
-        // 出错时隐藏统计信息并禁用按钮
-        document.getElementById('basicPhotoCountInfo').style.display = 'none';
-        document.getElementById('startBasicBtn').disabled = true;
-        document.getElementById('startBasicBtn').textContent = '开始基础分析';
-    }
-}
-
-/**
- * 单批处理基础分析（传统逻辑）
- * @param {Array} photoIds - 需要分析的照片ID数组
- */
-async function processBasicAnalysisSingleBatch(photoIds) {
-    // 禁用开始按钮，防止重复点击
-    document.getElementById('startBasicBtn').disabled = true;
-
-    try {
-        // 开始基础分析
-        const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                photo_ids: photoIds,
-                analysis_types: ['quality']  // 基础分析只包含质量评估
-            })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            showError('开始基础分析失败: ' + (data.detail || '未知错误'));
-            document.getElementById('startBasicBtn').disabled = false;
-            return;
-        }
-
-        // 监控分析进度 - 直接使用当前任务的照片数作为总数
-        await monitorBasicAnalysisProgress(data.task_id, photoIds.length, photoIds.length);
-
-    } catch (error) {
-        console.error('基础分析单批处理失败:', error);
-        showError('基础分析失败: ' + error.message);
-        document.getElementById('startBasicBtn').disabled = false;
-    }
-}
-
-/**
- * 分批处理基础分析 - 使用分阶段启动和并发控制
- * @param {Array} photoIds - 所有需要分析的照片ID
- * @param {number} batchSize - 每批大小
- */
-async function processBasicAnalysisInBatches(photoIds, batchSize) {
-    const totalPhotos = photoIds.length;
-    const totalBatches = Math.ceil(totalPhotos / batchSize);
-
-    // 🔥 新增：从配置读取最大并发批次数
-    const maxConcurrentBatches = CONFIG.analysisConfig?.concurrent || 3;
-    
-    console.log(`分批处理基础分析：${totalPhotos}张照片，分为${totalBatches}批，最多${maxConcurrentBatches}批并发`);
-
-    // 禁用开始按钮，防止重复点击
-    document.getElementById('startBasicBtn').disabled = true;
-
-    // 显示分批处理状态
-    document.getElementById('basicStatus').textContent = `准备分批分析 ${totalPhotos} 张照片，共${totalBatches}批，最多${maxConcurrentBatches}批并发...`;
-
-    try {
-        // 🔥 新增：准备所有批次信息
-        const allBatchTasks = [];  // 所有批次任务信息
-        const activeTasks = new Map();  // 当前活跃任务 Map<taskId, batchInfo>
-        let nextBatchIndex = 0;
-        
-        // 准备所有批次信息
-        for (let i = 0; i < totalBatches; i++) {
-            const start = i * batchSize;
-            const end = Math.min(start + batchSize, totalPhotos);
-            const batchPhotoIds = photoIds.slice(start, end);
-
-            allBatchTasks.push({
-                batchIndex: i + 1,
-                photoIds: batchPhotoIds,
-                taskId: null,
-                status: 'pending'
-            });
-        }
-        
-        // 🔥 新增：分阶段启动批次
-        await processBasicAnalysisWithConcurrency(allBatchTasks, activeTasks, maxConcurrentBatches, totalPhotos);
-
-        // 🔥 新增：完成后处理逻辑（参考旧版实现）
-        console.log('所有批次分析完成，开始显示结果');
-
-        // 解除保护
-        if (window.basicModalProtector) {
-            window.basicModalProtector.unprotect();
-        }
-
-        // 重置按钮状态
-        document.getElementById('startBasicBtn').disabled = false;
-
-        // 关闭模态框
-        const modal = bootstrap.Modal.getInstance(document.getElementById('basicModal'));
-        if (modal) {
-            modal.hide();
-        }
-
-        // 显示结果页
-        setTimeout(async () => {
-            try {
-                // 🔥 修复：参考旧模式构建批次进度数据
-                const batchProgress = {};
-                
-                // 初始化批次进度（参考旧模式第2109-2118行）
-                allBatchTasks.forEach(batch => {
-                    if (batch.taskId) {
-                        batchProgress[batch.taskId] = {
-                            completed: true, // 所有批次都已完成
-                            completed_photos: batch.photoIds ? batch.photoIds.length : 0,
-                            total_photos: batch.photoIds ? batch.photoIds.length : 0,
-                            progress_percentage: 100,
-                            status: 'completed',
-                            batchIndex: batch.batchIndex,
-                            error: null
-                        };
-                    }
-                });
-                
-                await showBasicAnalysisBatchResults(allBatchTasks, batchProgress, totalPhotos);
-                
-                // 刷新数据
-                if (window.loadPhotos) await window.loadPhotos();
-                if (window.loadStats) await window.loadStats();
-            } catch (error) {
-                console.error('显示基础分析结果失败:', error);
-            }
-        }, 100);
-
-    } catch (error) {
-        console.error('基础分析分批处理失败:', error);
-        showError('基础分析分批处理失败: ' + error.message);
-        document.getElementById('startBasicBtn').disabled = false;
-    }
-}
-
-/**
- * 🔥 新增：带并发控制的基础分析分批处理
- * @param {Array} allBatchTasks - 所有批次任务信息
- * @param {Map} activeTasks - 当前活跃任务
- * @param {number} maxConcurrentBatches - 最大并发批次数
- * @param {number} totalPhotos - 总照片数
- */
-async function processBasicAnalysisWithConcurrency(allBatchTasks, activeTasks, maxConcurrentBatches, totalPhotos) {
-    let nextBatchIndex = 0;
-    
-    // 第一阶段：启动初始并发批次
-    const initialBatches = Math.min(maxConcurrentBatches, allBatchTasks.length);
-    console.log(`启动初始${initialBatches}个批次`);
-    
-    for (let i = 0; i < initialBatches; i++) {
-        await startNextBatch(allBatchTasks, activeTasks, nextBatchIndex++);
-    }
-    
-    // 第二阶段：监控并动态扩容
-    await monitorAndScaleConcurrentBatches(allBatchTasks, activeTasks, maxConcurrentBatches, totalPhotos);
-}
-
-/**
- * 🔥 新增：启动下一个批次
- * @param {Array} allBatchTasks - 所有批次任务信息
- * @param {Map} activeTasks - 当前活跃任务
- * @param {number} batchIndex - 批次索引
- */
-async function startNextBatch(allBatchTasks, activeTasks, batchIndex) {
-    if (batchIndex >= allBatchTasks.length) {
-        return;
-    }
-    
-    const batchTask = allBatchTasks[batchIndex];
-    const currentBatch = batchIndex + 1;
-    
-    // 更新状态显示
-    document.getElementById('basicStatus').textContent = 
-        `正在启动第${currentBatch}批分析 (${batchTask.photoIds.length}张照片)...`;
-    
-    try {
-        // 启动单批分析
-        const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
-                method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                photo_ids: batchTask.photoIds,
-                analysis_types: ['quality']
-                })
-            });
-
-            if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`第${currentBatch}批启动失败: ${errorData.detail || response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        // 更新批次信息
-        batchTask.taskId = data.task_id;
-        batchTask.status = 'active';
-        
-        // 添加到活跃任务列表
-        activeTasks.set(data.task_id, {
-            batchIndex: currentBatch,
-            photoCount: batchTask.photoIds.length,
-            startTime: Date.now()
-        });
-        
-        console.log(`第${currentBatch}批分析任务已启动，任务ID: ${data.task_id}`);
-        
-    } catch (error) {
-        console.error(`第${currentBatch}批启动失败:`, error);
-        batchTask.status = 'failed';
-        throw error;
-    }
-}
-
-/**
- * 🔥 新增：监控活跃批次并动态扩容
- * @param {Array} allBatchTasks - 所有批次任务信息
- * @param {Map} activeTasks - 当前活跃任务
- * @param {number} maxConcurrentBatches - 最大并发批次数
- * @param {number} totalPhotos - 总照片数
- */
-async function monitorAndScaleConcurrentBatches(allBatchTasks, activeTasks, maxConcurrentBatches, totalPhotos) {
-    let nextBatchIndex = maxConcurrentBatches; // 从已启动的批次后开始
-    let completedBatches = 0;
-    
-    return new Promise((resolve) => {
-        const checkInterval = setInterval(async () => {
-            try {
-                // 1. 检查已完成的批次
-                const completedTaskIds = await checkCompletedBatches(activeTasks);
-                
-                // 2. 从活跃列表中移除已完成的批次
-                completedTaskIds.forEach(taskId => {
-                    const batchInfo = activeTasks.get(taskId);
-                    if (batchInfo) {
-                        completedBatches++;
-                        console.log(`第${batchInfo.batchIndex}批分析完成`);
-                    }
-                    activeTasks.delete(taskId);
-                });
-                
-                // 3. 启动新的批次补充到最大并发数
-                while (activeTasks.size < maxConcurrentBatches && nextBatchIndex < allBatchTasks.length) {
-                    await startNextBatch(allBatchTasks, activeTasks, nextBatchIndex++);
-                }
-                
-                // 4. 更新进度显示
-                const totalCompleted = completedBatches;
-                const progressPercentage = Math.round((totalCompleted / allBatchTasks.length) * 100);
-            document.getElementById('basicStatus').textContent =
-                    `已完成${totalCompleted}/${allBatchTasks.length}批，活跃批次: ${activeTasks.size}/${maxConcurrentBatches}`;
-                document.getElementById('basicProgressBar').style.width = `${progressPercentage}%`;
-                document.getElementById('basicProgressBar').setAttribute('aria-valuenow', progressPercentage);
-                
-                // 5. 检查是否全部完成
-                if (activeTasks.size === 0 && nextBatchIndex >= allBatchTasks.length) {
-                    clearInterval(checkInterval);
-                    console.log('所有批次分析完成');
-                    document.getElementById('basicStatus').textContent = 
-                        `所有${allBatchTasks.length}批分析任务已完成`;
-                document.getElementById('basicProgressBar').style.width = '100%';
-                    document.getElementById('basicProgressBar').setAttribute('aria-valuenow', 100);
-                    resolve();
-                }
-                
-                    } catch (error) {
-                console.error('批次监控失败:', error);
-                clearInterval(checkInterval);
-                resolve();
-            }
-        }, 2000); // 每2秒检查一次
-    });
-}
-
-/**
- * 🔥 新增：检查已完成的批次
- * @param {Map} activeTasks - 当前活跃任务
- * @returns {Array} 已完成的任务ID列表
- */
-async function checkCompletedBatches(activeTasks) {
-    const completedTaskIds = [];
-    
-    for (const [taskId, batchInfo] of activeTasks) {
-        try {
-            const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/task-status/${taskId}`);
-            if (response.ok) {
-                const statusData = await response.json();
-                if (statusData.status === 'completed' || statusData.status === 'failed') {
-                    completedTaskIds.push(taskId);
-                }
-            }
-        } catch (error) {
-            console.error(`检查任务${taskId}状态失败:`, error);
-        }
-    }
-    
-    return completedTaskIds;
-}
-
-
-/**
- * 显示基础分析批次结果
- * @param {Array<Object>} batchInfo - 批次信息数组
- * @param {Object} batchProgress - 批次进度信息
- * @param {number} totalPhotos - 总照片数
- */
-async function showBasicAnalysisBatchResults(batchInfo, batchProgress, totalPhotos) {
-    try {
-        // 收集所有批次的结果
-        const aggregatedResults = {
-            total_files: totalPhotos,
-            imported_photos: 0,
-            skipped_photos: 0,
-            failed_photos: 0,
-            failed_files: [],
-            batch_count: batchInfo.length,
-            completed_batches: 0,
-            failed_batches: 0,
-            batch_details: []
-        };
-
-        // 统计各批次结果
-        for (let i = 0; i < batchInfo.length; i++) {
-            const batch = batchInfo[i];
-            const progress = batchProgress[batch.taskId];
-
-            const batchDetail = {
-                batch_index: batch.batchIndex,
-                task_id: batch.taskId,
-                completed_photos: progress.completed_photos || 0,
-                total_photos: progress.total_photos || batch.photoCount || 0,
-                status: progress.status,
-                error: progress.error || null
-            };
-
-            aggregatedResults.batch_details.push(batchDetail);
-
-            // 根据批次状态进行统计
-            if (progress.status === 'completed') {
-                aggregatedResults.completed_batches++;
-                aggregatedResults.imported_photos += progress.completed_photos || 0;
-            } else if (progress.status === 'error') {
-                aggregatedResults.failed_batches++;
-            }
-            // 其他状态（processing, pending等）不计入已完成或失败
-        }
-
-        // 计算跳过和失败的数量（近似值）
-        // 注意：这里没有精确的统计，因为批次间可能有重复
-        // 理想情况下应该从服务端获取准确统计
-
-        console.log('基础分析批次结果:', aggregatedResults);
-
-        // 显示结果详情（复用现有的结果显示函数，但传入批次信息）
-        showBasicProcessDetails(aggregatedResults);
-
-    } catch (error) {
-        console.error('获取基础分析批次结果失败:', error);
-        showError('显示基础分析结果失败: ' + error.message);
-    }
-}
 
 /**
  * 开始AI分析
@@ -2231,70 +1776,6 @@ async function startAIAnalysis() {
 }
 
 /**
- * 执行基础分析处理
- */
-async function startBasicProcess() {
-    console.log('执行基础分析处理');
-
-    // 确保用户配置已加载
-    if (!window.userConfig) {
-        // 加载用户配置
-        await loadUserConfig();
-    }
-
-    // 显示进度
-    document.getElementById('basicProgress').classList.remove('d-none');
-    document.getElementById('startBasicBtn').disabled = true;
-    document.getElementById('basicProgressBar').style.width = '0%';
-    document.getElementById('basicStatus').textContent = '正在准备基础分析...';
-
-    try {
-        // 🔒 启用基础分析模态框保护
-        window.basicModalProtector.protect();
-        // 获取需要基础分析的照片ID
-        const pendingResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/basic-pending-photos`);
-        const pendingData = await pendingResponse.json();
-
-        if (!pendingResponse.ok) {
-            showError('获取待分析照片列表失败');
-            return;
-        }
-
-        const photoIds = pendingData.photo_ids || [];
-
-        if (photoIds.length === 0) {
-            showWarning('没有找到需要基础分析的照片');
-            document.getElementById('startBasicBtn').disabled = false;
-            return;
-        }
-
-        // 分批处理配置
-        const BATCH_THRESHOLD = CONFIG.analysisConfig?.batch_threshold || 200;  // 分批处理阈值
-        const BATCH_SIZE = CONFIG.analysisConfig?.batch_size || 100;  // 从配置读取
-        console.log(`使用配置的分批大小: ${BATCH_SIZE}`);  // 调试日志
-
-        if (photoIds.length > BATCH_THRESHOLD) {
-            // 分批处理
-            console.log(`基础分析分批处理：${photoIds.length}张照片超过阈值${BATCH_THRESHOLD}，启用分批处理`);
-            await processBasicAnalysisInBatches(photoIds, BATCH_SIZE);
-        } else {
-            // 单批处理（保持现有逻辑）
-            console.log(`基础分析单批处理：${photoIds.length}张照片，使用传统单批处理`);
-            await processBasicAnalysisSingleBatch(photoIds);
-        }
-
-    } catch (error) {
-        console.error('基础分析处理失败:', error);
-
-        // ❌ 出错时解除保护
-        window.basicModalProtector.unprotect();
-
-        showError('基础分析失败: ' + error.message);
-        document.getElementById('startBasicBtn').disabled = false;
-    }
-}
-
-/**
  * 执行AI分析处理
  */
 async function startAIProcess() {
@@ -2326,7 +1807,8 @@ async function startAIProcess() {
         if (modalFooter) modalFooter.style.display = 'none';
 
         // 总是使用分批处理模式
-        let batchCount = parseInt(document.getElementById('aiBatchCount').value) || 5;
+        const batchInput = document.getElementById('aiBatchCount');
+        let batchCount = parseInt(batchInput?.value?.trim()) || 5;
 
         // 验证批次数不能超过照片数量
         if (batchCount > photoIds.length) {
@@ -2336,6 +1818,11 @@ async function startAIProcess() {
 
         // 确保批次数至少为1
         batchCount = Math.max(1, batchCount);
+        
+        // 更新输入框的值，确保显示正确的批次数
+        if (batchInput) {
+            batchInput.value = batchCount;
+        }
 
         await processAIAnalysisInBatches(photoIds, batchCount);
 
@@ -2358,6 +1845,34 @@ async function startAIProcess() {
  * 计算批次分配（均匀分布策略）
  */
 function calculateBatchDistribution(photoIds, batchCount) {
+    const totalPhotos = photoIds.length;
+    const baseSize = Math.floor(totalPhotos / batchCount);
+    const remainder = totalPhotos % batchCount;
+
+    const batches = [];
+    let startIndex = 0;
+
+    for(let i = 0; i < batchCount; i++) {
+        // 前 remainder 批次多分配1张
+        const batchSize = baseSize + (i < remainder ? 1 : 0);
+        const endIndex = startIndex + batchSize;
+
+        batches.push({
+            index: i + 1,
+            photoIds: photoIds.slice(startIndex, endIndex),
+            size: batchSize
+        });
+
+        startIndex = endIndex;
+    }
+
+    return batches;
+}
+
+/**
+ * AI分析分批处理
+ */
+async function processAIAnalysisInBatches(photoIds, batchCount) {
     const totalPhotos = photoIds.length;
     const baseSize = Math.floor(totalPhotos / batchCount);
     const remainder = totalPhotos % batchCount;
@@ -2669,16 +2184,38 @@ async function processAISingleBatch(photoIds) {
 /**
  * 更新AI分析批次预览
  */
-function updateAIBatchPreview(totalCount) {
-    let batchCount = parseInt(document.getElementById('aiBatchCount').value) || 5;
+function updateAIBatchPreview(totalCount, allowEmpty = false) {
+    const inputElement = document.getElementById('aiBatchCount');
+    if (!inputElement) return;
+    
+    const inputValue = inputElement.value.trim();
+    
+    // 如果允许空值（输入过程中），且输入为空，则不强制设置值，只清空预览
+    if (allowEmpty && inputValue === '') {
+        const previewDiv = document.getElementById('aiBatchPreview');
+        if (previewDiv) {
+            previewDiv.innerHTML = '';
+        }
+        return;
+    }
+    
+    let batchCount = parseInt(inputValue);
+    
+    // 如果解析失败，使用默认值5
+    if (isNaN(batchCount) || batchCount < 1) {
+        batchCount = 5;
+    }
 
     // 确保批次数不超过照片数量，且至少为1
     batchCount = Math.min(Math.max(batchCount, 1), totalCount);
 
-    // 更新输入框的值
-    document.getElementById('aiBatchCount').value = batchCount;
+    // 只有在不允许空值的情况下才强制更新输入框的值（失去焦点时）
+    if (!allowEmpty) {
+        inputElement.value = batchCount;
+    }
 
     const previewDiv = document.getElementById('aiBatchPreview');
+    if (!previewDiv) return;
 
     // 计算批次分配
     const baseSize = Math.floor(totalCount / batchCount);
@@ -2947,97 +2484,6 @@ async function waitForAIBatchComplete(batchSize) {
 }
 
 /**
- * 监控基础分析进度
- */
-async function monitorBasicAnalysisProgress(taskId, totalPhotos, initialTotal) {
-    let checkCount = 0;
-    const maxChecks = 1800; // 最多检查1800次，每次1秒，总共30分钟
-
-    const statusCheckInterval = setInterval(async () => {
-        checkCount++;
-
-        try {
-            const statusResponse = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/task-status/${taskId}?initial_total=${initialTotal}`);
-            const statusData = await statusResponse.json();
-
-            // 移除频繁的状态日志以提升性能
-
-            // 更新进度条
-            const progress = Math.min(statusData.progress_percentage || 0, 95);
-            document.getElementById('basicProgressBar').style.width = `${progress}%`;
-            document.getElementById('basicStatus').textContent = `正在分析... ${Math.round(progress)}% (${statusData.completed_photos}/${statusData.total_photos})`;
-
-            // 检查是否完成
-            if (statusData.status === 'completed' || statusData.processing_photos === 0) {
-                clearInterval(statusCheckInterval);
-
-                // ✅ 完成时解除保护
-                window.basicModalProtector.unprotect();
-
-                document.getElementById('basicProgressBar').style.width = '100%';
-                document.getElementById('basicStatus').textContent = '基础分析完成！';
-
-                // 重置按钮状态
-                document.getElementById('startBasicBtn').disabled = false;
-
-                // 清除照片选择状态
-                if (window.clearSelection) {
-                    window.clearSelection();
-                }
-
-                // 关闭基础分析模态框
-                const modal = bootstrap.Modal.getInstance(document.getElementById('basicModal'));
-                if (modal) {
-                    modal.hide();
-
-                    // 监听模态框关闭事件
-                    document.getElementById('basicModal').addEventListener('hidden.bs.modal', function onModalHidden() {
-                        document.getElementById('basicModal').removeEventListener('hidden.bs.modal', onModalHidden);
-
-                        try {
-                            showBasicProcessDetails(statusData);
-                        } catch (error) {
-                            console.error('显示基础分析结果详情失败:', error);
-                            showError('显示处理结果失败: ' + error.message);
-                        }
-                    }, { once: true });
-                } else {
-                    // 如果无法获取模态框实例，直接显示结果详情
-                    try {
-                        showBasicProcessDetails(statusData);
-                    } catch (error) {
-                        console.error('显示基础分析结果详情失败:', error);
-                        showError('显示处理结果失败: ' + error.message);
-                    }
-                }
-
-                // 刷新数据
-                try {
-                    if (window.loadPhotos) await window.loadPhotos();
-                    if (window.loadStats) await window.loadStats();
-                } catch (error) {
-                    console.error('刷新数据失败:', error);
-                }
-            }
-
-        } catch (error) {
-            console.error('检查基础分析状态失败:', error);
-        }
-
-        // 超时检查
-        if (checkCount >= maxChecks) {
-            clearInterval(statusCheckInterval);
-
-            // ❌ 超时/出错时解除保护
-            window.basicModalProtector.unprotect();
-
-            showError('基础分析超时，请稍后重试');
-            document.getElementById('startBasicBtn').disabled = false;
-        }
-    }, 1000);
-}
-
-/**
  * 监控AI分析进度
  */
 async function monitorAIAnalysisProgress(taskId, totalPhotos, initialTotal) {
@@ -3129,47 +2575,6 @@ async function monitorAIAnalysisProgress(taskId, totalPhotos, initialTotal) {
         }
     }, 1000);
 }
-// 处理选中的照片 - 基础分析
-window.processSelectedPhotosBasic = async (photoIds) => {
-    console.log('开始处理选中照片的基础分析:', photoIds);
-
-    const modalHtml = `
-        <div class="modal fade" id="selectedBasicProcessModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">基础分析确认</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            基础分析将对选中的 ${photoIds.length} 张照片进行质量评估，生成时间、EXIF等基础标签<br>
-                            此功能是照片基础信息采集的必要步骤，它无需AI，处理速度快
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                            取消
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="startSelectedBasicProcessing(${JSON.stringify(photoIds).replace(/"/g, '&quot;')})">
-                            <i class="bi bi-play-fill me-1"></i> 开始基础分析
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    const modal = new bootstrap.Modal(document.getElementById('selectedBasicProcessModal'));
-    modal.show();
-
-    document.getElementById('selectedBasicProcessModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
-    });
-};
-
 // 处理选中的照片 - AI分析
 window.processSelectedPhotosAI = async (photoIds) => {
     console.log('开始处理选中照片的AI分析:', photoIds);
@@ -3211,25 +2616,6 @@ window.processSelectedPhotosAI = async (photoIds) => {
     });
 };
 
-// 开始处理选中的照片 - 基础分析
-window.startSelectedBasicProcessing = async (photoIds) => {
-    console.log('开始处理选中照片的基础分析:', photoIds);
-
-    // 关闭确认模态框
-    const confirmModal = bootstrap.Modal.getInstance(document.getElementById('selectedBasicProcessModal'));
-    if (confirmModal) {
-        confirmModal.hide();
-    }
-
-    // 显示基础分析模态框
-    resetBasicModal();
-    const modal = new bootstrap.Modal(document.getElementById('basicModal'));
-    modal.show();
-
-    // 直接开始处理选中的照片
-    await startSelectedBasicAnalysis(photoIds);
-};
-
 // 开始处理选中的照片 - AI分析
 window.startSelectedAIProcessing = async (photoIds) => {
     console.log('开始处理选中照片的AI分析:', photoIds);
@@ -3253,56 +2639,6 @@ window.startSelectedAIProcessing = async (photoIds) => {
     // 直接开始处理选中的照片
     await startSelectedAIAnalysis(photoIds);
 };
-
-// 处理选中的照片 - 基础分析（直接使用选中的照片ID）
-async function startSelectedBasicAnalysis(selectedPhotoIds) {
-    console.log('执行选中照片的基础分析处理:', selectedPhotoIds);
-
-    // 显示进度
-    document.getElementById('basicProgress').classList.remove('d-none');
-    document.getElementById('startBasicBtn').disabled = true;
-    document.getElementById('basicProgressBar').style.width = '0%';
-    document.getElementById('basicStatus').textContent = '正在准备基础分析...';
-
-    try {
-        // 直接使用选中的照片ID
-        const photoIds = selectedPhotoIds;
-
-        if (photoIds.length === 0) {
-            showWarning('没有选中需要基础分析的照片');
-            document.getElementById('startBasicBtn').disabled = false;
-            return;
-        }
-
-        // 开始基础分析
-        const response = await fetch(`${window.CONFIG.API_BASE_URL}/analysis/start-analysis`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                photo_ids: photoIds,
-                analysis_types: ['quality'],
-                force_reprocess: true
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('基础分析请求失败');
-        }
-
-        const result = await response.json();
-        // 基础分析任务已启动
-
-        // 监控处理进度
-        await monitorBasicAnalysisProgress(result.task_id, photoIds.length, photoIds.length);
-
-    } catch (error) {
-        console.error('基础分析启动失败:', error);
-        showError('基础分析启动失败: ' + error.message);
-        document.getElementById('startBasicBtn').disabled = false;
-    }
-}
 
 // 处理选中的照片 - AI分析（直接使用选中的照片ID）
 async function startSelectedAIAnalysis(selectedPhotoIds) {
@@ -3362,26 +2698,6 @@ async function startSelectedAIAnalysis(selectedPhotoIds) {
 
 
 /**
- * 重置基础分析模态框到初始状态
- */
-function resetBasicModal() {
-    // 隐藏进度条
-    document.getElementById('basicProgress').classList.add('d-none');
-
-    // 重置进度条
-    document.getElementById('basicProgressBar').style.width = '0%';
-
-    // 重置状态文本
-    document.getElementById('basicStatus').textContent = '正在处理...';
-
-    // 启用开始按钮
-    document.getElementById('startBasicBtn').disabled = false;
-
-    // 隐藏照片数量统计（会根据API响应重新显示）
-    document.getElementById('basicPhotoCountInfo').style.display = 'none';
-}
-
-/**
  * 重置AI分析模态框到初始状态
  */
 function resetAIModal() {
@@ -3421,7 +2737,6 @@ function resetAIModal() {
 // 导出函数到全局作用域
 window.monitorImportProgress = monitorImportProgress;
 window.monitorBatchProgress = monitorBatchProgress;
-window.resetBasicModal = resetBasicModal;
 window.resetAIModal = resetAIModal;
 
 /**
@@ -3552,10 +2867,19 @@ function showConfirmDialog(title, message) {
 document.addEventListener('DOMContentLoaded', function() {
     const aiBatchCountInput = document.getElementById('aiBatchCount');
     if (aiBatchCountInput) {
+        // input事件：允许空值，不强制设置值（允许用户删除最后一位数字）
         aiBatchCountInput.addEventListener('input', function() {
             const totalCount = parseInt(document.getElementById('aiPhotoCountText')?.textContent?.match(/\d+/)?.[0]) || 0;
             if (totalCount > 0) {
-                updateAIBatchPreview(totalCount);
+                updateAIBatchPreview(totalCount, true); // allowEmpty = true
+            }
+        });
+        
+        // blur事件：失去焦点时进行验证和修正
+        aiBatchCountInput.addEventListener('blur', function() {
+            const totalCount = parseInt(document.getElementById('aiPhotoCountText')?.textContent?.match(/\d+/)?.[0]) || 0;
+            if (totalCount > 0) {
+                updateAIBatchPreview(totalCount, false); // allowEmpty = false
             }
         });
     }

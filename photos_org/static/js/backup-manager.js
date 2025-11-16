@@ -289,7 +289,7 @@ class BackupManager {
      * 轮询备份任务状态
      */
     pollBackupStatus(taskId) {
-        const maxAttempts = 7200; // 最多轮询7200次（4小时，每次2秒）
+        const maxAttempts = 14400; // 最多轮询14400次（8小时，每次2秒）
         let attempts = 0;
         
         // 阶段名称映射

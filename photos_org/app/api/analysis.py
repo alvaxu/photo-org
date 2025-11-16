@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.session import get_db
 from app.services.analysis_service import AnalysisService
-from app.models.photo import Photo, PhotoQuality, PhotoAnalysis
+from app.models.photo import Photo, PhotoAnalysis
 
 logger = get_logger(__name__)
 
@@ -29,7 +29,7 @@ TASK_STATUS_CLEANUP_HOURS = 1  # 任务完成后1小时清理状态
 class AnalysisRequest(BaseModel):
     """分析请求"""
     photo_ids: List[int] = Field(..., description="要分析的照片ID列表")
-    analysis_types: List[str] = Field(["content", "quality", "duplicate"], description="分析类型")
+    analysis_types: List[str] = Field(["content"], description="分析类型")
     force_reprocess: bool = Field(False, description="是否强制重新处理已分析的照片")
 
 
@@ -38,7 +38,6 @@ class AnalysisResponse(BaseModel):
     photo_id: int = Field(..., description="照片ID")
     status: str = Field(..., description="分析状态")
     content_analysis: Optional[Dict[str, Any]] = Field(None, description="内容分析结果")
-    quality_analysis: Optional[Dict[str, Any]] = Field(None, description="质量分析结果")
     perceptual_hash: Optional[str] = Field(None, description="感知哈希")
     analyzed_at: str = Field(..., description="分析时间")
 
@@ -64,15 +63,6 @@ class CaptionResponse(BaseModel):
     photo_id: int = Field(..., description="照片ID")
     caption: str = Field(..., description="生成的标题")
     style: str = Field(..., description="生成风格")
-
-
-class DuplicateDetectionResponse(BaseModel):
-    """重复检测响应"""
-    target_photo_id: int = Field(..., description="目标照片ID")
-    target_filename: str = Field(..., description="目标照片文件名")
-    duplicate_count: int = Field(..., description="重复照片数量")
-    duplicates: List[Dict[str, Any]] = Field(default_factory=list, description="重复照片列表")
-    similarity_threshold: int = Field(..., description="相似度阈值")
 
 
 @router.post("/analyze", response_model=AnalysisResponse)
@@ -103,7 +93,6 @@ async def analyze_photo(
             status="analyzing",
             analyzed_at=datetime.now().isoformat(),
             content_analysis=None,
-            quality_analysis=None,
             perceptual_hash=None
         )
 
@@ -255,31 +244,6 @@ async def generate_caption(request: CaptionRequest):
     except Exception as e:
         logger.error(f"生成照片标题失败 {request.photo_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"生成标题失败: {str(e)}")
-
-
-@router.get("/duplicates/{photo_id}", response_model=DuplicateDetectionResponse)
-async def detect_duplicates(photo_id: int, db: Session = Depends(get_db)):
-    """
-    检测照片重复项
-
-    - **photo_id**: 要检测的照片ID
-    """
-    try:
-        # 验证照片存在
-        photo = db.query(Photo).filter(Photo.id == photo_id).first()
-        if not photo:
-            raise HTTPException(status_code=404, detail="照片不存在")
-
-        analysis_service = AnalysisService()
-        result = analysis_service.detect_duplicates_for_photo(photo_id, db)
-
-        return DuplicateDetectionResponse(**result)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"重复检测失败 {photo_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"重复检测失败: {str(e)}")
 
 
 @router.get("/pending-photos")
@@ -441,27 +405,6 @@ async def perform_batch_analysis(photo_ids: List[int]):
         logger.error(f"详细错误信息: {traceback.format_exc()}")
 
 
-@router.get("/basic-pending-count")
-async def get_basic_pending_count(db: Session = Depends(get_db)):
-    """
-    获取需要基础分析的照片数量统计
-    基础分析：只包含质量评估，不包含AI内容分析
-    """
-    try:
-        # 统计需要基础分析的照片：没有质量评估结果的照片
-        pending_count = db.query(Photo).filter(
-            ~db.query(PhotoQuality).filter(PhotoQuality.photo_id == Photo.id).exists()
-        ).count()
-
-        return {
-            "count": pending_count,
-            "message": f"发现 {pending_count} 张照片需要基础分析"
-        }
-    except Exception as e:
-        logger.error(f"获取基础分析统计失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"获取基础分析统计失败: {str(e)}")
-
-
 @router.get("/ai-pending-count")
 async def get_ai_pending_count(db: Session = Depends(get_db)):
     """
@@ -484,28 +427,6 @@ async def get_ai_pending_count(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"获取AI分析统计失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取AI分析统计失败: {str(e)}")
-
-
-@router.get("/basic-pending-photos")
-async def get_basic_pending_photos(db: Session = Depends(get_db)):
-    """
-    获取需要基础分析的照片ID列表
-    返回没有质量评估结果的照片ID
-    """
-    try:
-        pending_photos = db.query(Photo.id).filter(
-            ~db.query(PhotoQuality).filter(PhotoQuality.photo_id == Photo.id).exists()
-        ).all()
-
-        photo_ids = [photo.id for photo in pending_photos]
-        return {
-            "photo_ids": photo_ids,
-            "total_count": len(photo_ids),
-            "message": f"找到 {len(photo_ids)} 张需要基础分析的照片"
-        }
-    except Exception as e:
-        logger.error(f"获取基础分析照片列表失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"获取基础分析照片列表失败: {str(e)}")
 
 
 @router.get("/ai-pending-photos")
@@ -535,50 +456,6 @@ async def get_ai_pending_photos(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"获取AI分析照片列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取AI分析照片列表失败: {str(e)}")
-
-
-@router.post("/photos/{photo_id}/analyze-quality")
-async def analyze_photo_quality_sync(
-    photo_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    同步分析单张照片的质量
-    
-    - **photo_id**: 要分析的照片ID
-    """
-    try:
-        # 验证照片存在
-        photo = db.query(Photo).filter(Photo.id == photo_id).first()
-        if not photo:
-            raise HTTPException(status_code=404, detail="照片不存在")
-
-        # 获取分析服务
-        analysis_service = AnalysisService()
-        
-        # 同步执行质量分析
-        logger.info(f"开始同步质量分析照片: {photo_id}")
-        result = await analysis_service.analyze_photo(
-            photo_id=photo_id,
-            analysis_types=['quality'],
-            db=db,
-            original_status=photo.status
-        )
-        
-        logger.info(f"照片 {photo_id} 质量分析完成")
-        
-        return {
-            "success": True,
-            "photo_id": photo_id,
-            "result": result,
-            "message": "质量分析完成"
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"同步质量分析失败 {photo_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"质量分析失败: {str(e)}")
 
 
 @router.post("/photos/{photo_id}/analyze-ai")
@@ -637,8 +514,8 @@ async def start_analysis(request: AnalysisRequest, background_tasks: BackgroundT
         logger.info(f"照片数量: {len(request.photo_ids)}")
         logger.info(f"强制重新处理: {request.force_reprocess}")
 
-        # 验证分析类型
-        valid_types = ['content', 'quality']
+        # 验证分析类型（只支持AI内容分析）
+        valid_types = ['content']
         invalid_types = [t for t in request.analysis_types if t not in valid_types]
         if invalid_types:
             raise HTTPException(status_code=400, detail=f"无效的分析类型: {invalid_types}，支持的类型: {valid_types}")
@@ -655,12 +532,6 @@ async def start_analysis(request: AnalysisRequest, background_tasks: BackgroundT
             photos_to_analyze = []
             for photo_id in request.photo_ids:
                 needs_analysis = False
-
-                if 'quality' in request.analysis_types:
-                    # 检查是否有质量分析结果
-                    has_quality = db.query(PhotoQuality).filter(PhotoQuality.photo_id == photo_id).first() is not None
-                    if not has_quality:
-                        needs_analysis = True
 
                 if 'content' in request.analysis_types:
                     # 检查是否有内容分析结果

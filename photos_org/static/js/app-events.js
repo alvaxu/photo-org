@@ -110,23 +110,6 @@ function bindBasicEvents() {
         });
     }
 
-    // 基础分析按钮事件 - 使用PhotoManager
-    console.log('查找基础分析按钮:', !!window.elements.basicProcessSelectedBtn);
-    if (window.elements.basicProcessSelectedBtn) {
-        console.log('为基础分析按钮添加点击事件监听器');
-        window.elements.basicProcessSelectedBtn.addEventListener('click', () => {
-            console.log('基础分析按钮被点击');
-            if (window.PhotoManager && window.PhotoManager.selectedPhotos.size > 0) {
-                const selectedIds = Array.from(window.PhotoManager.selectedPhotos);
-                console.log('选中的照片ID:', selectedIds);
-                processSelectedPhotosBasic(selectedIds);
-            } else {
-                console.log('没有选中的照片');
-                showWarning('请先选择要处理的照片');
-            }
-        });
-    }
-
     // AI分析按钮事件 - 使用PhotoManager
     console.log('查找AI分析按钮:', !!window.elements.aiProcessSelectedBtn);
     if (window.elements.aiProcessSelectedBtn) {

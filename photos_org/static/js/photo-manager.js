@@ -214,34 +214,6 @@ class PhotoManager {
     }
 
     // 智能处理照片
-    async batchProcessPhotos(options) {
-        try {
-            const params = new URLSearchParams({
-                enable_ai: options.enableAIAnalysis,
-                enable_quality: options.enableQualityAssessment,
-                enable_classification: options.enableClassification
-            });
-
-            const response = await fetch(`${CONFIG.API_BASE_URL}/photos/batch-process?${params}`, {
-                method: 'POST'
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                // 刷新照片列表
-                window.PhotoApp.loadPhotos(1);
-                window.PhotoApp.loadStats();
-
-                // 已删除智能处理完成通知，避免冗余（模态框已有状态显示）
-            } else {
-                throw new Error(result.message || '智能处理失败');
-            }
-        } catch (error) {
-            console.error('智能处理失败:', error);
-            this.showToast(`智能处理失败: ${error.message}`, 'error');
-        }
-    }
 
     // 删除照片
     async deletePhotos(photoIds) {
@@ -425,20 +397,8 @@ class PhotoManager {
         if (batchEditBtn) {
             batchEditBtn.disabled = selectedCount === 0;
             batchEditBtn.innerHTML = selectedCount > 0 ?
-                `<i class="bi bi-pencil-square"></i> 批量编辑 (${selectedCount})` :
-                `<i class="bi bi-pencil-square"></i> 批量编辑`;
-        }
-
-        // 更新基础分析按钮状态
-        const basicBtn = document.getElementById('basicProcessSelectedBtn');
-        if (basicBtn) {
-            basicBtn.disabled = selectedCount === 0;
-            basicBtn.innerHTML = selectedCount > 0 ?
-                `<i class="bi bi-graph-up"></i> 基础分析 (${selectedCount})` :
-                `<i class="bi bi-graph-up"></i> 基础分析`;
-            console.log('基础分析按钮状态更新 - disabled:', basicBtn.disabled, 'text:', basicBtn.innerHTML);
-        } else {
-            console.log('未找到基础分析按钮');
+                `<i class="bi bi-pencil-square"></i> 编辑选中 (${selectedCount})` :
+                `<i class="bi bi-pencil-square"></i> 编辑选中`;
         }
 
         // 更新AI分析按钮状态

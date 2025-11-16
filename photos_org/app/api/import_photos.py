@@ -376,10 +376,29 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                             )
 
                             if success and photo_data:
-                                # 🔥 异步执行：保存到数据库
+                                # 阶段一：从返回值中提取质量分析和标签信息
+                                quality_result = None
+                                exif_tags = []
+                                time_tags = []
+                                
+                                # duplicate_info可能是重复信息，也可能是additional_data（包含质量分析和标签）
+                                if duplicate_info and isinstance(duplicate_info, dict):
+                                    # 检查是否是additional_data（包含质量分析和标签信息）
+                                    if 'quality_result' in duplicate_info or 'exif_tags' in duplicate_info or 'time_tags' in duplicate_info:
+                                        quality_result = duplicate_info.get('quality_result')
+                                        exif_tags = duplicate_info.get('exif_tags', [])
+                                        time_tags = duplicate_info.get('time_tags', [])
+                                
+                                # 🔥 异步执行：保存到数据库（包括质量分析和标签）
                                 # 简化逻辑：直接调用 create_photo，它内部已经处理了并发检查
                                 def create_photo_record():
-                                    return photo_service.create_photo(task_db, photo_data)
+                                    return photo_service.create_photo(
+                                        task_db, 
+                                        photo_data,
+                                        quality_result=quality_result,
+                                        exif_tags=exif_tags,
+                                        time_tags=time_tags
+                                    )
                                 
                                 photo, is_new = await asyncio.to_thread(create_photo_record)
                                 

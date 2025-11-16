@@ -408,13 +408,27 @@ async def update_photo(
         if update_request.is_favorite is not None:
             update_data["is_favorite"] = update_request.is_favorite
 
+        # 阶段二：检查是否更新了taken_at，如果更新了，自动更新时间标签
+        taken_at_updated = False
+        new_taken_at = None
+        old_taken_at = photo.taken_at  # 保存原始值用于比较
+        
+        if 'taken_at' in update_data:
+            new_taken_at = update_data.get('taken_at')
+            # 判断值是否实际变化（考虑None的情况）
+            if old_taken_at != new_taken_at:
+                taken_at_updated = True
+        
         # 更新照片基本信息
         if update_data:
             success = photo_service.update_photo(db, photo_id, update_data)
             if not success:
                 raise HTTPException(status_code=500, detail="更新照片信息失败")
-
-        # 更新标签
+        
+        # 🔥 修复bug：调整执行顺序，先处理tags更新，再处理taken_at更新
+        # 这样可以确保新生成的时间标签不会被tags更新删除
+        
+        # 更新标签（先执行）
         if update_request.tags is not None:
             # 🔥 修复：保存现有标签的source信息，以便在重新添加时保留
             existing_tags_source = {}
@@ -427,6 +441,51 @@ async def update_photo(
             # 添加新标签，传入原有标签的source信息
             if update_request.tags:
                 photo_service.add_tags_to_photo(db, photo_id, update_request.tags, tags_with_source=existing_tags_source)
+
+        # 阶段二：如果taken_at已更新，自动更新时间标签（后执行，确保新生成的时间标签不会被tags更新删除）
+        if taken_at_updated:
+            try:
+                from app.services.classification_service import ClassificationService
+                from app.models.photo import Tag, PhotoTag
+                from sqlalchemy import and_
+                
+                classification_service = ClassificationService()
+                
+                # 1. 删除旧的时间标签（type='time'的标签）
+                # 获取所有时间标签
+                time_tags = db.query(Tag).filter(Tag.category == 'time').all()
+                time_tag_ids = [tag.id for tag in time_tags]
+                
+                if time_tag_ids:
+                    # 删除该照片的所有时间标签关联
+                    db.query(PhotoTag).filter(
+                        and_(
+                            PhotoTag.photo_id == photo_id,
+                            PhotoTag.tag_id.in_(time_tag_ids)
+                        )
+                    ).delete(synchronize_session=False)
+                
+                # 2. 生成新的时间标签（如果new_taken_at不为None）
+                if new_taken_at:
+                    logger.debug(f"开始生成新时间标签 photo_id={photo_id}, new_taken_at={new_taken_at}")
+                    new_time_tags = classification_service.generate_time_tags_from_datetime(new_taken_at)
+                    logger.debug(f"生成的时间标签数量: {len(new_time_tags) if new_time_tags else 0}, tags={[tag.get('name') for tag in new_time_tags] if new_time_tags else []}")
+                    if new_time_tags:
+                        # 使用ClassificationService的_save_auto_tags方法保存新标签
+                        saved_tags = classification_service._save_auto_tags(photo_id, new_time_tags, db)
+                        logger.info(f"为照片添加时间标签成功 photo_id={photo_id}, tags={saved_tags}")
+                    else:
+                        logger.warning(f"生成的时间标签为空 photo_id={photo_id}, new_taken_at={new_taken_at}")
+                else:
+                    logger.debug(f"new_taken_at为None，不生成新时间标签 photo_id={photo_id}")
+                
+                # 提交时间标签更新
+                db.commit()
+                logger.info(f"照片taken_at更新，已自动更新时间标签 photo_id={photo_id}")
+            except Exception as e:
+                logger.warning(f"自动更新时间标签失败 photo_id={photo_id}: {str(e)}")
+                # 时间标签更新失败不影响照片更新，只记录日志并回滚标签相关操作
+                db.rollback()
 
         # 更新分类
         if update_request.categories is not None:
@@ -531,66 +590,6 @@ async def delete_photo(photo_id: int, delete_file: bool = True, db: Session = De
     except Exception as e:
         logger.error(f"删除照片失败 photo_id={photo_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"删除照片失败: {str(e)}")
-
-
-@router.post("/batch-process")
-async def batch_process_photos(
-    enable_ai: bool = Query(True, description="启用AI分析"),
-    enable_quality: bool = Query(True, description="启用质量评估"),
-    enable_classification: bool = Query(True, description="启用智能分类"),
-    background_tasks: BackgroundTasks = None,
-    db: Session = Depends(get_db)
-):
-    """
-    智能处理照片
-
-    对所有照片进行AI分析、质量评估和智能分类
-    """
-    try:
-        photo_service = PhotoService()
-
-        # 获取状态为imported和error的照片
-        photos = db.query(Photo).filter(Photo.status.in_(['imported', 'error'])).all()
-        total = len(photos)
-
-        if not photos:
-            return {
-                "success": True,
-                "message": "没有找到需要处理的照片（只有imported和error状态的照片才会被处理）",
-                "data": {
-                    "total_photos": 0,
-                    "processed": 0
-                }
-            }
-
-        # 如果照片数量较多，放到后台处理
-        if len(photos) > 10:
-            background_tasks.add_task(process_photos_background, photos, enable_ai, enable_quality, enable_classification, db)
-
-            return {
-                "success": True,
-                "message": f"已提交 {len(photos)} 张照片到后台处理",
-                "data": {
-                    "total_photos": len(photos),
-                    "status": "processing"
-                }
-            }
-
-        # 小批量直接处理
-        processed_count = await process_photos_background(photos, enable_ai, enable_quality, enable_classification, db)
-
-        return {
-            "success": True,
-            "message": f"成功处理 {processed_count}/{len(photos)} 张照片",
-            "data": {
-                "total_photos": len(photos),
-                "processed": processed_count
-            }
-        }
-
-    except Exception as e:
-        logger.error(f"智能处理照片失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"智能处理失败: {str(e)}")
 
 
 @router.post("/batch-delete", response_model=BatchDeleteResponse)
@@ -767,87 +766,6 @@ async def get_photos_by_tag(
     except Exception as e:
         logger.error(f"获取标签照片失败 tag_name='{tag_name}': {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取标签照片失败: {str(e)}")
-
-
-async def process_photos_background(photos, enable_ai, enable_quality, enable_classification, db):
-    """
-    后台智能处理照片
-
-    :param photos: 照片列表
-    :param enable_ai: 是否启用AI分析
-    :param enable_quality: 是否启用质量评估
-    :param enable_classification: 是否启用智能分类
-    :param db: 数据库会话
-    :return: 处理成功的照片数量
-    """
-    from app.services.analysis_service import AnalysisService
-    from app.services.photo_quality_service import PhotoQualityService
-    from app.services.classification_service import ClassificationService
-    from app.db.session import get_db
-
-    processed_count = 0
-
-    try:
-        analysis_service = AnalysisService()
-        quality_service = PhotoQualityService()
-        classification_service = ClassificationService()
-        
-        # 重新获取数据库会话，避免会话过期问题
-        fresh_db = next(get_db())
-
-        for photo in photos:
-            try:
-                logger.info(f"正在处理照片: {photo.filename}")
-
-                # 重新查询照片，使用新的数据库会话
-                current_photo = fresh_db.query(Photo).filter(Photo.id == photo.id).first()
-                if not current_photo:
-                    logger.warning(f"照片不存在: {photo.id}")
-                    continue
-                
-                # 记录原始状态并更新为分析中
-                original_status = current_photo.status
-                current_photo.status = 'analyzing'
-                fresh_db.commit()
-                
-                # 执行智能分析
-                try:
-                    # 使用新的分析服务，支持状态管理
-                    analysis_types = []
-                    if enable_ai:
-                        analysis_types.append('content')
-                    if enable_quality:
-                        analysis_types.append('quality')
-                    
-                    if analysis_types:
-                        await analysis_service.analyze_photo(current_photo.id, analysis_types, fresh_db, original_status)
-                    
-                    # 如果只启用分类而不启用AI分析，单独调用分类服务
-                    if enable_classification and not enable_ai:
-                        classification_service.classify_photo(current_photo.id, fresh_db)
-                    
-                    # 状态更新由analysis_service.analyze_photo自动处理
-                    
-                except Exception as analysis_error:
-                    logger.error(f"照片 {current_photo.filename} 智能分析失败: {str(analysis_error)}")
-                    # 恢复到原始状态
-                    current_photo.status = original_status
-                    fresh_db.commit()
-                    continue
-                
-                processed_count += 1
-                logger.info(f"照片 {photo.filename} 处理完成")
-
-            except Exception as e:
-                logger.error(f"处理照片 {photo.filename} 失败: {str(e)}")
-                continue
-
-        logger.info(f"智能处理完成，共处理 {processed_count}/{len(photos)} 张照片")
-
-    except Exception as e:
-        logger.error(f"智能处理过程中发生错误: {str(e)}")
-
-    return processed_count
 
 
 @router.get("/{photo_id}/download")

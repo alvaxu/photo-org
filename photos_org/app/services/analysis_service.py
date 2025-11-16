@@ -15,7 +15,6 @@ from app.db.session import get_db
 from app.models.photo import Photo, PhotoAnalysis, PhotoQuality
 from app.services.dashscope_service import DashScopeService
 from app.services.photo_quality_service import PhotoQualityService
-from app.services.duplicate_detection_service import DuplicateDetectionService
 
 
 class AnalysisService:
@@ -30,7 +29,6 @@ class AnalysisService:
         # 懒加载：不立即实例化服务，首次使用时才创建
         self._dashscope_service = None
         self._quality_service = None
-        self._duplicate_service = None
         
         # 线程池用于并发处理
         self.executor = ThreadPoolExecutor(max_workers=2)
@@ -49,20 +47,13 @@ class AnalysisService:
             self._quality_service = PhotoQualityService()
         return self._quality_service
     
-    @property
-    def duplicate_service(self):
-        """获取重复检测服务实例（懒加载）"""
-        if self._duplicate_service is None:
-            self._duplicate_service = DuplicateDetectionService()
-        return self._duplicate_service
-
     async def analyze_photo(self, photo_id: int, analysis_types: List[str] = None, db: Session = None, original_status: str = None) -> Dict[str, Any]:
         """
         分析单张照片
 
         Args:
             photo_id: 照片ID
-            analysis_types: 分析类型列表 ['content', 'quality', 'duplicate']，如果为None则执行所有分析
+            analysis_types: 分析类型列表 ['content']，如果为None则执行所有分析
             db: 数据库会话，如果为None则创建新的
 
         Returns:
@@ -105,9 +96,6 @@ class AnalysisService:
                 tasks.append(self._analyze_content_async(str(full_path)))
                 task_indices['content'] = len(tasks) - 1
 
-            if analysis_types is None or 'quality' in analysis_types:
-                tasks.append(self._analyze_quality_async(str(full_path)))
-                task_indices['quality'] = len(tasks) - 1
 
             # 注意：duplicate分析已被移除，因为感知哈希在导入时已计算
 
@@ -120,7 +108,6 @@ class AnalysisService:
 
             # 根据任务索引处理结果
             content_result = None
-            quality_result = None
 
             if 'content' in task_indices:
                 content_idx = task_indices['content']
@@ -129,18 +116,11 @@ class AnalysisService:
                     raise results[content_idx]
                 content_result = results[content_idx]
 
-            if 'quality' in task_indices:
-                quality_idx = task_indices['quality']
-                if isinstance(results[quality_idx], Exception):
-                    # 质量分析失败，抛出异常
-                    raise results[quality_idx]
-                quality_result = results[quality_idx]
-
             hash_result = None  # 感知哈希已在导入时计算，不再重复计算
 
-            # 保存分析结果到数据库
+            # 保存分析结果到数据库（只保存AI内容分析结果）
             analysis_result = self._save_analysis_results(
-                photo_id, content_result, quality_result, hash_result, db, original_status
+                photo_id, content_result, hash_result, db, original_status
             )
 
             # self.logger.info(f"照片 {photo_id} 分析完成")
@@ -171,26 +151,8 @@ class AnalysisService:
             image_path
         )
 
-    async def _analyze_quality_async(self, image_path: str) -> Dict[str, Any]:
-        """
-        异步分析照片质量
-
-        Args:
-            image_path: 照片文件路径
-
-        Returns:
-            质量分析结果
-        """
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            self.executor,
-            self.quality_service.assess_quality,
-            image_path
-        )
-
-
     def _save_analysis_results(self, photo_id: int, content_result: Optional[Dict],
-                            quality_result: Optional[Dict], hash_result: Optional[str],
+                            hash_result: Optional[str],
                             db, original_status: str = None) -> Dict[str, Any]:
         """
         保存分析结果到数据库
@@ -198,7 +160,6 @@ class AnalysisService:
         Args:
             photo_id: 照片ID
             content_result: 内容分析结果
-            quality_result: 质量分析结果
             hash_result: 哈希结果
             db: 数据库会话
 
@@ -228,71 +189,18 @@ class AnalysisService:
                     )
                     db.add(analysis_record)
 
-            # 保存质量分析结果 - 检查是否存在，存在则更新，否则创建
-            if quality_result:
-                existing_quality_analysis = db.query(PhotoQuality).filter(
-                    PhotoQuality.photo_id == photo_id
-                ).first()
-
-                if existing_quality_analysis:
-                    # 更新现有记录
-                    existing_quality_analysis.quality_score = quality_result.get("quality_score")
-                    existing_quality_analysis.sharpness_score = quality_result.get("sharpness_score")
-                    existing_quality_analysis.brightness_score = quality_result.get("brightness_score")
-                    existing_quality_analysis.contrast_score = quality_result.get("contrast_score")
-                    existing_quality_analysis.color_score = quality_result.get("color_score")
-                    existing_quality_analysis.composition_score = quality_result.get("composition_score")
-                    existing_quality_analysis.quality_level = quality_result.get("quality_level")
-                    # 将list转换为dict格式存储（兼容ChineseFriendlyJSON）
-                    technical_issues = quality_result.get("technical_issues", [])
-                    if isinstance(technical_issues, list):
-                        existing_quality_analysis.technical_issues = {"issues": technical_issues, "count": len(technical_issues), "has_issues": len(technical_issues) > 0}
-                    else:
-                        existing_quality_analysis.technical_issues = technical_issues
-                    existing_quality_analysis.assessed_at = datetime.now()
-                else:
-                    # 创建新记录
-                    technical_issues = quality_result.get("technical_issues", [])
-                    if isinstance(technical_issues, list):
-                        technical_issues_data = {"issues": technical_issues, "count": len(technical_issues), "has_issues": len(technical_issues) > 0}
-                    else:
-                        technical_issues_data = technical_issues
-
-                    quality_record = PhotoQuality(
-                        photo_id=photo_id,
-                        quality_score=quality_result.get("quality_score"),
-                        sharpness_score=quality_result.get("sharpness_score"),
-                        brightness_score=quality_result.get("brightness_score"),
-                        contrast_score=quality_result.get("contrast_score"),
-                        color_score=quality_result.get("color_score"),
-                        composition_score=quality_result.get("composition_score"),
-                        quality_level=quality_result.get("quality_level"),
-                        technical_issues=technical_issues_data
-                    )
-                    db.add(quality_record)
-
-            # 智能状态更新：根据分析结果和原始状态决定最终状态
+            # 智能状态更新：根据分析结果和原始状态决定最终状态（只处理AI内容分析）
             photo = db.query(Photo).filter(Photo.id == photo_id).first()
             if photo:
                 # 使用原始状态而不是当前状态（当前状态是analyzing）
                 base_status = original_status if original_status else photo.status
                 new_status = base_status  # 默认保持原始状态
                 
-                # 根据分析结果决定新状态
-                if quality_result and content_result:
-                    new_status = 'completed'  # 两种分析都成功
-                elif quality_result:
-                    # 基础分析成功
-                    if base_status == 'content_completed':
-                        new_status = 'completed'  # 之前AI分析已成功，现在基础分析也成功
-                    elif base_status == 'completed':
-                        new_status = 'completed'  # 之前已完成，现在基础分析也成功，保持completed
-                    else:
-                        new_status = 'quality_completed'  # 仅基础分析成功
-                elif content_result:
+                # 根据分析结果决定新状态（只处理AI内容分析）
+                if content_result:
                     # AI分析成功
                     if base_status == 'quality_completed':
-                        new_status = 'completed'  # 之前基础分析已成功，现在AI分析也成功
+                        new_status = 'completed'  # 之前质量分析已成功，现在AI分析也成功
                     elif base_status == 'completed':
                         new_status = 'completed'  # 之前已完成，现在AI分析也成功，保持completed
                     else:
@@ -310,31 +218,6 @@ class AnalysisService:
             try:
                 from app.services.classification_service import ClassificationService
                 classification_service = ClassificationService()
-
-                # 如果有质量分析结果，生成基础标签和设备分类
-                if quality_result:
-                    # 清理现有的基础标签（避免标签累积）- 使用子查询避免join+delete问题
-                    # 注意：不再清理'device'标签，因为相机品牌和型号已存储在photo表中
-                    from app.models.photo import PhotoTag, Tag
-                    from sqlalchemy import select
-                    tag_ids_to_delete = db.query(PhotoTag.id).join(Tag).filter(
-                        PhotoTag.photo_id == photo_id,
-                        PhotoTag.source == 'auto',
-                        Tag.category.in_(['time', 'lens', 'aperture', 'focal_length'])
-                    ).subquery()
-                    # 使用 select() 显式包装子查询，避免 SQLAlchemy 警告
-                    db.query(PhotoTag).filter(PhotoTag.id.in_(select(tag_ids_to_delete.c.id))).delete(synchronize_session=False)
-
-                    basic_tags = classification_service.generate_basic_tags(photo, quality_result, db)
-                    basic_classifications = classification_service.generate_basic_classifications(photo)
-
-                    # 保存基础标签
-                    if basic_tags:
-                        saved_basic_tags = classification_service._save_auto_tags(photo_id, basic_tags, db)
-
-                    # 保存基础分类
-                    if basic_classifications:
-                        saved_basic_categories = classification_service._save_classifications(photo_id, basic_classifications, db)
 
                 # 如果有内容分析结果，生成AI标签和内容分类
                 if content_result:
@@ -377,7 +260,6 @@ class AnalysisService:
             return {
                 "photo_id": photo_id,
                 "content_analysis": content_result,
-                "quality_analysis": quality_result,
                 "perceptual_hash_calculated_at_import": True,  # 标记哈希在导入时已计算
                 "analyzed_at": datetime.now().isoformat()
             }
@@ -413,13 +295,7 @@ class AnalysisService:
                 else:
                     # 没有原始状态，根据分析类型智能恢复
                     current_status = photo.status
-                    if analysis_type == 'quality':
-                        # 基础分析失败，如果当前是analyzing，恢复为imported
-                        if current_status == 'analyzing':
-                            photo.status = 'imported'
-                            photo.updated_at = datetime.now()
-                            self.logger.info(f"照片 {photo_id} 基础分析失败，状态从 {current_status} 恢复为: imported")
-                    elif analysis_type == 'content':
+                    if analysis_type == 'content':
                         # AI分析失败，如果当前是analyzing，恢复为imported
                         if current_status == 'analyzing':
                             photo.status = 'imported'
@@ -644,15 +520,3 @@ class AnalysisService:
             self.logger.error(f"生成照片标题失败 {photo_id}: {str(e)}")
             raise Exception(f"生成标题失败: {str(e)}")
 
-    def detect_duplicates_for_photo(self, photo_id: int, db_session) -> Dict[str, Any]:
-        """
-        检测指定照片的重复项
-
-        Args:
-            photo_id: 照片ID
-            db_session: 数据库会话
-
-        Returns:
-            重复检测结果
-        """
-        return self.duplicate_service.detect_duplicates_for_photo(photo_id, db_session)

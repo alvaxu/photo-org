@@ -448,14 +448,15 @@ class ImportService:
             print(f"修复图片方向失败: {str(e)}")
             return img
 
-    def generate_thumbnail(self, source_path: str, max_size: int = None, file_hash: str = None) -> Optional[str]:
+    def generate_thumbnail(self, source_path: str, max_size: int = None, file_hash: str = None, return_image: bool = False) -> Optional[Any]:
         """
         生成缩略图
 
         :param source_path: 源文件路径
         :param max_size: 缩略图最大尺寸
         :param file_hash: 文件哈希值（用于生成基于哈希的文件名）
-        :return: 缩略图路径
+        :param return_image: 是否返回PIL Image对象（用于质量分析，避免重复读取文件）
+        :return: 缩略图路径（如果return_image=True，返回(缩略图路径, PIL Image)元组）
         """
         # 延迟导入PIL
         _lazy_import_pil()
@@ -468,12 +469,25 @@ class ImportService:
             existing_thumbnail = self._check_thumbnail_by_hash(file_hash)
             if existing_thumbnail:
                 # 缩略图已存在，直接返回，避免重复I/O
+                if return_image:
+                    # 如果要求返回Image，需要重新读取（因为缩略图可能已存在）
+                    try:
+                        with Image.open(existing_thumbnail) as img:
+                            # 复制Image对象（因为with语句会关闭文件）
+                            img_copy = img.copy()
+                            return (str(existing_thumbnail), img_copy)
+                    except Exception as e:
+                        print(f"读取已存在的缩略图失败: {str(e)}")
+                        return None
                 return existing_thumbnail
 
         try:
             with Image.open(source_path) as img:
                 # 🔥 修复：根据EXIF方向信息旋转图片
                 img = self._fix_image_orientation(img)
+                
+                # 保存原始Image对象（用于质量分析）
+                original_img = img.copy() if return_image else None
                 
                 # 计算缩略图尺寸
                 img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
@@ -493,7 +507,11 @@ class ImportService:
 
                 img.save(thumbnail_path, 'JPEG', quality=settings.storage.thumbnail_quality)
 
-                return str(thumbnail_path)
+                if return_image:
+                    # 返回缩略图路径和原始Image对象（用于质量分析）
+                    return (str(thumbnail_path), original_img)
+                else:
+                    return str(thumbnail_path)
 
         except Exception as e:
             print(f"缩略图生成失败: {str(e)}")
@@ -987,8 +1005,51 @@ class ImportService:
                 # 提取元数据（从原始文件）
                 exif_data = self.extract_exif_metadata(str(storage_full_path))
             
-            # 生成缩略图（使用完整路径）
-            thumbnail_path = self.generate_thumbnail(str(storage_full_path), file_hash=file_hash)
+            # 生成缩略图（使用完整路径，同时返回PIL Image用于质量分析）
+            thumbnail_result = self.generate_thumbnail(str(storage_full_path), file_hash=file_hash, return_image=True)
+            
+            if thumbnail_result is None:
+                return False, "缩略图生成失败", None, None
+            
+            # 处理返回值：可能是字符串（旧逻辑）或元组（新逻辑）
+            if isinstance(thumbnail_result, tuple):
+                thumbnail_path, pil_image = thumbnail_result
+            else:
+                thumbnail_path = thumbnail_result
+                # 如果缩略图已存在，需要重新读取原始文件进行质量分析
+                try:
+                    _lazy_import_pil()
+                    with Image.open(str(storage_full_path)) as img:
+                        pil_image = self._fix_image_orientation(img)
+                        pil_image = pil_image.copy()
+                except Exception as e:
+                    print(f"读取原始文件进行质量分析失败: {str(e)}")
+                    pil_image = None
+            
+            # 阶段一：整合质量分析和标签生成到导入流程
+            quality_result = None
+            exif_tags = []
+            time_tags = []
+            
+            try:
+                # 1. 质量分析（使用PIL Image，避免重复读取文件）
+                if pil_image:
+                    from app.services.photo_quality_service import PhotoQualityService
+                    quality_service = PhotoQualityService()
+                    quality_result = quality_service.assess_quality_from_pil_image(pil_image)
+                
+                # 2. 生成EXIF标签（从metadata）
+                from app.services.classification_service import ClassificationService
+                classification_service = ClassificationService()
+                exif_tags = classification_service.generate_exif_tags_from_metadata(exif_data)
+                
+                # 3. 生成时间标签（从taken_at）
+                taken_at = exif_data.get('taken_at')
+                if taken_at:
+                    time_tags = classification_service.generate_time_tags_from_datetime(taken_at)
+            except Exception as e:
+                print(f"质量分析或标签生成失败: {str(e)}")
+                # 即使质量分析或标签生成失败，也不影响导入流程
             
             # 如果是HEIC格式，在metadata中传递原始format（用于数据库记录）
             # 因为storage_path已经是JPEG了，create_photo_record会读取为JPEG
@@ -1009,7 +1070,15 @@ class ImportService:
             # create_photo_record需要完整路径用于读取文件信息
             photo_data = self.create_photo_record(str(storage_full_path), metadata_for_record, record_filename=record_filename)
             
-            return True, "文件导入成功", photo_data, None
+            # 将质量分析和标签信息添加到返回值中（通过metadata传递）
+            # 注意：这里不直接保存到数据库，而是在API层通过PhotoService保存
+            additional_data = {
+                'quality_result': quality_result,
+                'exif_tags': exif_tags,
+                'time_tags': time_tags
+            }
+            
+            return True, "文件导入成功", photo_data, additional_data
             
         except Exception as e:
             print(f"处理全新文件失败: {e}")

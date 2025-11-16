@@ -844,6 +844,44 @@ class SearchService:
                 Photo.location_name.isnot(None)
             ).scalar()
 
+            # 筛选结果的GPS转地址统计（有GPS但无地址）
+            stats["photos_gps_without_address"] = db.query(func.count(Photo.id)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.location_lat.isnot(None),
+                Photo.location_lng.isnot(None),
+                Photo.location_name.is_(None)
+            ).scalar()
+
+            # 筛选结果的特征提取统计
+            stats["photos_features_extracted"] = db.query(func.count(Photo.id)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.image_features_extracted == True
+            ).scalar()
+
+            stats["photos_features_pending"] = db.query(func.count(Photo.id)).filter(
+                Photo.id.in_(base_query.with_entities(Photo.id)),
+                Photo.image_features_extracted == False
+            ).scalar()
+
+            # 筛选结果的人脸识别统计
+            try:
+                from app.models.face import FaceDetection
+                photos_with_faces_subquery = db.query(FaceDetection.photo_id).distinct().subquery()
+                
+                stats["photos_face_detected"] = db.query(func.count(Photo.id)).filter(
+                    Photo.id.in_(base_query.with_entities(Photo.id)),
+                    Photo.id.in_(db.query(photos_with_faces_subquery.c.photo_id))
+                ).scalar()
+
+                stats["photos_face_pending"] = db.query(func.count(Photo.id)).filter(
+                    Photo.id.in_(base_query.with_entities(Photo.id)),
+                    ~Photo.id.in_(db.query(photos_with_faces_subquery.c.photo_id))
+                ).scalar()
+            except Exception as e:
+                self.logger.warning(f"获取人脸识别统计失败: {e}")
+                stats["photos_face_detected"] = 0
+                stats["photos_face_pending"] = 0
+
             # 质量分布图表数据（基于筛选结果）
             quality_stats = db.query(
                 PhotoQuality.quality_level,
@@ -1047,6 +1085,42 @@ class SearchService:
                 "colors": colors
             }
 
+            # 全量待处理数量（不受筛选条件影响，用于导航栏徽章）
+            pending_counts = {}
+            
+            # 1. 相似照识别（特征提取）- 全量
+            pending_counts["similar_photos"] = db.query(func.count(Photo.id)).filter(
+                Photo.image_features_extracted == False
+            ).scalar()
+            
+            # 2. 人脸识别 - 全量
+            try:
+                from app.models.face import FaceDetection
+                all_photos_with_faces = db.query(FaceDetection.photo_id).distinct().subquery()
+                pending_counts["face_recognition"] = db.query(func.count(Photo.id)).filter(
+                    ~Photo.id.in_(db.query(all_photos_with_faces.c.photo_id))
+                ).scalar()
+            except Exception as e:
+                self.logger.warning(f"获取全量人脸识别待处理数量失败: {e}")
+                pending_counts["face_recognition"] = 0
+            
+            # 3. GPS转地址 - 全量
+            pending_counts["gps_to_address"] = db.query(func.count(Photo.id)).filter(
+                Photo.location_lat.isnot(None),
+                Photo.location_lng.isnot(None),
+                Photo.location_name.is_(None)
+            ).scalar()
+            
+            # 4. AI分析 - 全量
+            pending_counts["ai_analysis"] = db.query(func.count(Photo.id)).filter(
+                ~db.query(PhotoAnalysis).filter(
+                    PhotoAnalysis.photo_id == Photo.id,
+                    PhotoAnalysis.analysis_type == 'content'
+                ).exists()
+            ).scalar()
+            
+            stats["pending_counts"] = pending_counts
+
         except Exception as e:
             self.logger.error(f"获取搜索统计失败: {e}")
             # 返回基本统计作为fallback
@@ -1063,6 +1137,17 @@ class SearchService:
                 "photos_fully_analyzed": 0,
                 "photos_with_gps": 0,
                 "photos_geocoded": 0,
+                "photos_gps_without_address": 0,
+                "photos_features_extracted": 0,
+                "photos_features_pending": 0,
+                "photos_face_detected": 0,
+                "photos_face_pending": 0,
+                "pending_counts": {
+                    "similar_photos": 0,
+                    "face_recognition": 0,
+                    "gps_to_address": 0,
+                    "ai_analysis": 0
+                },
                 "charts": {
                     "quality": {"labels": [], "data": [], "colors": []},
                     "year": {"labels": [], "data": [], "colors": []},
