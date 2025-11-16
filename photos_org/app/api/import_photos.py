@@ -363,110 +363,100 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                     
                     temp_path = await asyncio.to_thread(save_temp_file)
 
-                    try:
-                        # 🔥 为每个任务创建独立的数据库会话（避免共享会话的并发问题）
-                        task_db = next(get_db())
-                        
-                        try:
-                            # 🔥 异步执行：处理单个照片（文件IO和图像处理都是阻塞操作）
-                            # 传递清理后的文件名（只包含文件名，不包含路径），用于保存到数据库
-                            success, message, photo_data, duplicate_info = await asyncio.to_thread(
-                                import_service.process_single_photo,
-                                temp_path, False, task_db, clean_filename  # move_file=False, db_session=task_db, original_filename=clean_filename
-                            )
+                    # 🔥 使用上下文管理器管理数据库会话（Python 最佳实践）
+                    from app.db.session import get_db_context
+                    with get_db_context() as task_db:
+                        # 🔥 异步执行：处理单个照片（文件IO和图像处理都是阻塞操作）
+                        # 传递清理后的文件名（只包含文件名，不包含路径），用于保存到数据库
+                        success, message, photo_data, duplicate_info = await asyncio.to_thread(
+                            import_service.process_single_photo,
+                            temp_path, False, task_db, clean_filename  # move_file=False, db_session=task_db, original_filename=clean_filename
+                        )
 
-                            if success and photo_data:
-                                # 阶段一：从返回值中提取质量分析和标签信息
-                                quality_result = None
-                                exif_tags = []
-                                time_tags = []
-                                
-                                # duplicate_info可能是重复信息，也可能是additional_data（包含质量分析和标签）
-                                if duplicate_info and isinstance(duplicate_info, dict):
-                                    # 检查是否是additional_data（包含质量分析和标签信息）
-                                    if 'quality_result' in duplicate_info or 'exif_tags' in duplicate_info or 'time_tags' in duplicate_info:
-                                        quality_result = duplicate_info.get('quality_result')
-                                        exif_tags = duplicate_info.get('exif_tags', [])
-                                        time_tags = duplicate_info.get('time_tags', [])
-                                
-                                # 🔥 异步执行：保存到数据库（包括质量分析和标签）
-                                # 简化逻辑：直接调用 create_photo，它内部已经处理了并发检查
-                                def create_photo_record():
-                                    return photo_service.create_photo(
-                                        task_db, 
-                                        photo_data,
-                                        quality_result=quality_result,
-                                        exif_tags=exif_tags,
-                                        time_tags=time_tags
-                                    )
-                                
-                                photo, is_new = await asyncio.to_thread(create_photo_record)
-                                
-                                # 提交当前任务的事务
-                                task_db.commit()
-                                
-                                if photo:
-                                    if is_new:
-                                        # 新创建的文件
-                                        print(f"成功导入: {clean_filename}")
-                                        return {
-                                            "file_index": file_index,
-                                            "filename": clean_filename,
-                                            "status": "imported",
-                                            "message": "导入成功"
-                                        }
-                                    else:
-                                        # 已存在的文件（并发情况）
-                                        return {
-                                            "file_index": file_index,
-                                            "filename": clean_filename,
-                                            "status": "skipped",
-                                            "message": "文件已存在，跳过导入"
-                                        }
-                                else:
+                        if success and photo_data:
+                            # 阶段一：从返回值中提取质量分析和标签信息
+                            quality_result = None
+                            exif_tags = []
+                            time_tags = []
+                            
+                            # duplicate_info可能是重复信息，也可能是additional_data（包含质量分析和标签）
+                            if duplicate_info and isinstance(duplicate_info, dict):
+                                # 检查是否是additional_data（包含质量分析和标签信息）
+                                if 'quality_result' in duplicate_info or 'exif_tags' in duplicate_info or 'time_tags' in duplicate_info:
+                                    quality_result = duplicate_info.get('quality_result')
+                                    exif_tags = duplicate_info.get('exif_tags', [])
+                                    time_tags = duplicate_info.get('time_tags', [])
+                            
+                            # 🔥 异步执行：保存到数据库（包括质量分析和标签）
+                            # 简化逻辑：直接调用 create_photo，它内部已经处理了并发检查
+                            def create_photo_record():
+                                return photo_service.create_photo(
+                                    task_db, 
+                                    photo_data,
+                                    quality_result=quality_result,
+                                    exif_tags=exif_tags,
+                                    time_tags=time_tags
+                                )
+                            
+                            photo, is_new = await asyncio.to_thread(create_photo_record)
+                            
+                            # 注意：上下文管理器会在退出时自动 commit，这里不需要手动 commit
+                            
+                            if photo:
+                                if is_new:
+                                    # 新创建的文件
+                                    print(f"成功导入: {clean_filename}")
                                     return {
                                         "file_index": file_index,
                                         "filename": clean_filename,
-                                        "status": "failed",
-                                        "message": "数据库保存失败"
+                                        "status": "imported",
+                                        "message": "导入成功"
                                     }
-                            elif duplicate_info:
-                                # 处理重复文件 - 使用完整的重复检测逻辑
-                                duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
-                                message = duplicate_info.get('message', '文件重复')
-                                
-                                # 根据重复类型生成更详细的提示
-                                if duplicate_type == 'full_duplicate':
-                                    status_text = f"文件已存在，跳过导入"
+                                else:
+                                    # 已存在的文件（并发情况）
                                     return {
                                         "file_index": file_index,
                                         "filename": clean_filename,
                                         "status": "skipped",
-                                        "message": status_text
+                                        "message": "文件已存在，跳过导入"
                                     }
-                                elif duplicate_type == 'physical_only':
-                                    status_text = f"文件已存在（物理重复）"
-                                    return {
-                                        "file_index": file_index,
-                                        "filename": clean_filename,
-                                        "status": "imported",
-                                        "message": status_text
-                                    }
-                                elif duplicate_type == 'orphan_cleaned':
-                                    status_text = f"孤儿记录已清理，继续处理"
-                                    return {
-                                        "file_index": file_index,
-                                        "filename": clean_filename,
-                                        "status": "imported",
-                                        "message": status_text
-                                    }
-                                else:
-                                    return {
-                                        "file_index": file_index,
-                                        "filename": clean_filename,
-                                        "status": "failed",
-                                        "message": message
-                                    }
+                            else:
+                                return {
+                                    "file_index": file_index,
+                                    "filename": clean_filename,
+                                    "status": "failed",
+                                    "message": "数据库保存失败"
+                                }
+                        elif duplicate_info:
+                            # 处理重复文件 - 使用完整的重复检测逻辑
+                            duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
+                            message = duplicate_info.get('message', '文件重复')
+                            
+                            # 根据重复类型生成更详细的提示
+                            if duplicate_type == 'full_duplicate':
+                                status_text = f"文件已存在，跳过导入"
+                                return {
+                                    "file_index": file_index,
+                                    "filename": clean_filename,
+                                    "status": "skipped",
+                                    "message": status_text
+                                }
+                            elif duplicate_type == 'physical_only':
+                                status_text = f"文件已存在（物理重复）"
+                                return {
+                                    "file_index": file_index,
+                                    "filename": clean_filename,
+                                    "status": "imported",
+                                    "message": status_text
+                                }
+                            elif duplicate_type == 'orphan_cleaned':
+                                status_text = f"孤儿记录已清理，继续处理"
+                                return {
+                                    "file_index": file_index,
+                                    "filename": clean_filename,
+                                    "status": "imported",
+                                    "message": status_text
+                                }
                             else:
                                 return {
                                     "file_index": file_index,
@@ -474,18 +464,17 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
                                     "status": "failed",
                                     "message": message
                                 }
-                        except Exception as db_error:
-                            # 数据库操作异常，回滚
-                            task_db.rollback()
-                            raise db_error
-                        finally:
-                            # 关闭数据库会话
-                            task_db.close()
-
-                    finally:
-                        # 清理临时文件
-                        if 'temp_path' in locals() and os.path.exists(temp_path):
-                            os.unlink(temp_path)
+                        else:
+                            return {
+                                "file_index": file_index,
+                                "filename": clean_filename,
+                                "status": "failed",
+                                "message": message
+                            }
+                    
+                    # 清理临时文件
+                    if 'temp_path' in locals() and os.path.exists(temp_path):
+                        os.unlink(temp_path)
 
                 except Exception as e:
                     # 如果发生异常，尝试获取清理后的文件名，如果失败则使用原始文件名

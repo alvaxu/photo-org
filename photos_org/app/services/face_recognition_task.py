@@ -22,12 +22,10 @@ from typing import List, Dict, Optional
 from pathlib import Path
 
 from app.core.config import settings
-from app.db.session import get_db
 from app.models.face import FaceDetection, FaceCluster, FaceClusterMember, Person
 from app.models.photo import Photo
 from app.services.face_recognition_service import face_service
 from app.services.face_cluster_service import cluster_service
-from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -192,119 +190,109 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
     results = []
     total_faces_detected = 0
     
-    try:
-        # 🔥 优化：使用共享数据库连接进行批量操作
-        db = next(get_db())
+    # 🔥 使用上下文管理器管理数据库会话（Python 最佳实践）
+    from app.db.session import get_db_context
+    with get_db_context() as db:
+        # 🔥 性能优化：批量预查询所有照片信息（避免并发时创建过多数据库会话）
+        logger.info(f"批量预查询 {len(photo_ids)} 张照片信息...")
+        def batch_query_photos():
+            photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
+            return {photo.id: photo for photo in photos}
         
-        try:
-            # 🔥 性能优化：批量预查询所有照片信息（避免并发时创建过多数据库会话）
-            logger.info(f"批量预查询 {len(photo_ids)} 张照片信息...")
-            def batch_query_photos():
-                photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
-                return {photo.id: photo for photo in photos}
-            
-            photo_cache = await asyncio.to_thread(batch_query_photos)
-            logger.info(f"成功预查询 {len(photo_cache)} 张照片信息")
-            
-            # 使用信号量控制单批次内的并发数
-            max_concurrent_photos = settings.face_recognition.max_concurrent_photos
-            semaphore = asyncio.Semaphore(max_concurrent_photos)
-            logger.info(f"单批次内最大并发照片数: {max_concurrent_photos}")
-            
-            async def process_single_photo_with_semaphore(photo_id: int):
-                """使用信号量控制并发处理单张照片（只控制人脸检测部分）"""
-                try:
-                    # 🔥 从缓存获取照片信息（不再为每个任务创建数据库会话）
-                    photo = photo_cache.get(photo_id)
-                    
-                    if not photo:
-                        return {"photo_id": photo_id, "status": "skipped", "reason": "photo_not_found"}
-                    
-                    # 构建完整路径（使用最新配置）
-                    from app.core.config import get_settings
-                    from app.core.path_utils import resolve_resource_path
-                    current_settings = get_settings()
-                    storage_base = resolve_resource_path(current_settings.storage.base_path)
-                    full_path = storage_base / photo.original_path
-                    
-                    # 🔥 异步执行：文件检查（避免阻塞事件循环）
-                    file_exists = await asyncio.to_thread(full_path.exists)
-                    
-                    if not file_exists:
-                        logger.warning(f"照片文件不存在: {full_path}")
-                        return {"photo_id": photo_id, "status": "skipped", "reason": "file_not_found"}
-                    
-                    # 🔥 关键：只有人脸检测部分使用信号量控制并发
-                    async with semaphore:
-                        detection_result = await face_service.detect_faces_in_photo(str(full_path), photo_id)
-                    
-                    # 🔥 检查是否因为格式问题跳过（如GIF格式）
-                    if detection_result.get('skipped', False):
-                        skip_reason = detection_result.get('skip_reason', 'unknown')
-                        return {
-                            "photo_id": photo_id,
-                            "status": "skipped",
-                            "reason": skip_reason,
-                            "detections": detection_result.get('detections', []),
-                            "real_face_count": detection_result.get('real_face_count', 0)
-                        }
-                    
-                    return {
-                        "photo_id": photo_id, 
-                        "status": "success", 
-                        "detections": detection_result['detections'],
-                        "real_face_count": detection_result['real_face_count']
-                    }
-                    
-                except Exception as e:
-                    logger.error(f"处理照片 {photo_id} 失败: {str(e)}")
-                    return {"photo_id": photo_id, "status": "error", "error": str(e)}
-            
-            # 🔥 关键改进：并发执行所有人脸识别任务（不涉及数据库）
-            logger.info(f"开始并发处理 {len(photo_ids)} 张照片，最大并发数: {max_concurrent_photos}")
-            tasks = [process_single_photo_with_semaphore(photo_id) for photo_id in photo_ids]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # 🔥 新增：批量数据库操作（变量已在函数开头初始化）
-            for result in results:
-                if isinstance(result, Exception):
-                    logger.error(f"任务执行异常: {str(result)}")
-                    continue
-                    
-                photo_id = result["photo_id"]
-                all_processed_photos.add(photo_id)  # 所有照片都标记为已处理
+        photo_cache = await asyncio.to_thread(batch_query_photos)
+        logger.info(f"成功预查询 {len(photo_cache)} 张照片信息")
+        
+        # 使用信号量控制单批次内的并发数
+        max_concurrent_photos = settings.face_recognition.max_concurrent_photos
+        semaphore = asyncio.Semaphore(max_concurrent_photos)
+        logger.info(f"单批次内最大并发照片数: {max_concurrent_photos}")
+        
+        async def process_single_photo_with_semaphore(photo_id: int):
+            """使用信号量控制并发处理单张照片（只控制人脸检测部分）"""
+            try:
+                # 🔥 从缓存获取照片信息（不再为每个任务创建数据库会话）
+                photo = photo_cache.get(photo_id)
                 
-                if result["status"] == "success" and "detections" in result:
-                    # 构建包含人数信息的检测结果
-                    detection_result = {
-                        'photo_id': photo_id,
-                        'detections': result["detections"],
-                        'real_face_count': result["real_face_count"]
+                if not photo:
+                    return {"photo_id": photo_id, "status": "skipped", "reason": "photo_not_found"}
+                
+                # 构建完整路径（使用最新配置）
+                from app.core.config import get_settings
+                from app.core.path_utils import resolve_resource_path
+                current_settings = get_settings()
+                storage_base = resolve_resource_path(current_settings.storage.base_path)
+                full_path = storage_base / photo.original_path
+                
+                # 🔥 异步执行：文件检查（避免阻塞事件循环）
+                file_exists = await asyncio.to_thread(full_path.exists)
+                
+                if not file_exists:
+                    logger.warning(f"照片文件不存在: {full_path}")
+                    return {"photo_id": photo_id, "status": "skipped", "reason": "file_not_found"}
+                
+                # 🔥 关键：只有人脸检测部分使用信号量控制并发
+                async with semaphore:
+                    detection_result = await face_service.detect_faces_in_photo(str(full_path), photo_id)
+                
+                # 🔥 检查是否因为格式问题跳过（如GIF格式）
+                if detection_result.get('skipped', False):
+                    skip_reason = detection_result.get('skip_reason', 'unknown')
+                    return {
+                        "photo_id": photo_id,
+                        "status": "skipped",
+                        "reason": skip_reason,
+                        "detections": detection_result.get('detections', []),
+                        "real_face_count": detection_result.get('real_face_count', 0)
                     }
-                    all_detection_results.append(detection_result)
+                
+                return {
+                    "photo_id": photo_id, 
+                    "status": "success", 
+                    "detections": detection_result['detections'],
+                    "real_face_count": detection_result['real_face_count']
+                }
+                
+            except Exception as e:
+                logger.error(f"处理照片 {photo_id} 失败: {str(e)}")
+                return {"photo_id": photo_id, "status": "error", "error": str(e)}
+        
+        # 🔥 关键改进：并发执行所有人脸识别任务（不涉及数据库）
+        logger.info(f"开始并发处理 {len(photo_ids)} 张照片，最大并发数: {max_concurrent_photos}")
+        tasks = [process_single_photo_with_semaphore(photo_id) for photo_id in photo_ids]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 🔥 新增：批量数据库操作（变量已在函数开头初始化）
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"任务执行异常: {str(result)}")
+                continue
+                
+            photo_id = result["photo_id"]
+            all_processed_photos.add(photo_id)  # 所有照片都标记为已处理
             
-            # 🔥 批量保存到数据库（包含人数信息）
-            if all_detection_results:
-                await face_service.batch_save_face_detections(all_detection_results, db)
-            
-            if all_processed_photos:
-                await face_service.batch_mark_photos_as_processed(all_processed_photos, db)
-            
-            # 🔥 关键：批量提交事务
-            db.commit()
-            
-            # 统计人脸数量（已在函数开头初始化total_faces_detected）
-            if all_detection_results:
-                total_faces_detected = sum(result['real_face_count'] for result in all_detection_results)
-                total_faces_processed = sum(len(result['detections']) for result in all_detection_results)
-                logger.info(f"✅ 批次 {batch_idx + 1} 批量提交成功: 检测到 {total_faces_detected} 个人脸，处理了 {total_faces_processed} 个，{len(all_processed_photos)} 张照片")
-            
-        except Exception as e:
-            logger.error(f"批次 {batch_idx + 1} 数据库操作失败: {str(e)}")
-            db.rollback()
-            raise e
-        finally:
-            db.close()
+            if result["status"] == "success" and "detections" in result:
+                # 构建包含人数信息的检测结果
+                detection_result = {
+                    'photo_id': photo_id,
+                    'detections': result["detections"],
+                    'real_face_count': result["real_face_count"]
+                }
+                all_detection_results.append(detection_result)
+        
+        # 🔥 批量保存到数据库（包含人数信息）
+        if all_detection_results:
+            await face_service.batch_save_face_detections(all_detection_results, db)
+        
+        if all_processed_photos:
+            await face_service.batch_mark_photos_as_processed(all_processed_photos, db)
+        
+        # 注意：上下文管理器会在退出时自动 commit，这里不需要手动 commit
+        
+        # 统计人脸数量（已在函数开头初始化total_faces_detected）
+        if all_detection_results:
+            total_faces_detected = sum(result['real_face_count'] for result in all_detection_results)
+            total_faces_processed = sum(len(result['detections']) for result in all_detection_results)
+            logger.info(f"✅ 批次 {batch_idx + 1} 批量提交成功: 检测到 {total_faces_detected} 个人脸，处理了 {total_faces_processed} 个，{len(all_processed_photos)} 张照片")
         
         # 处理结果和更新状态
         successful_analyses = 0
@@ -366,32 +354,19 @@ async def process_face_recognition_batch(task_id: str, photo_ids: List[int], bat
             batch_details[batch_idx]["skipped_photos"] = skipped_analyses  # 🔥 新增：批次的跳过统计
         
         logger.info(f"✅ 批次 {batch_idx + 1} 完成: 成功 {successful_analyses}, 失败 {failed_analyses}, 跳过 {skipped_analyses}, 检测到 {total_faces_detected} 个人脸")
-        
-    except Exception as e:
-        logger.error(f"处理人脸识别批次失败: {str(e)}")
-        # 🔥 修复：不在这里添加批次详情，避免重复
-        # 失败状态由 process_face_recognition_task 统一管理
-        raise
 
 async def perform_face_clustering(task_id: str):
     """
     执行人脸聚类（参考基础分析的perform_clustering）
     :param task_id: 任务ID（用于增量聚类识别新人脸）
     """
-    try:
-        # 获取数据库会话
-        db = next(get_db())
-        
+    # 🔥 使用上下文管理器管理数据库会话（Python 最佳实践）
+    from app.db.session import get_db_context
+    with get_db_context() as db:
         # 执行聚类（传入task_id以支持增量聚类）
         await cluster_service.cluster_faces(db, task_id=task_id)
         
         logger.info(f"人脸聚类完成")
-        
-    except Exception as e:
-        logger.error(f"人脸聚类失败: {str(e)}")
-        raise
-    finally:
-        db.close()
 
 async def cleanup_task_status(task_id: str):
     """

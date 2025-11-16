@@ -198,149 +198,136 @@ async def process_image_feature_extraction_batch(task_id: str, photo_ids: List[i
     successful_extractions = 0
     failed_extractions = 0
     
-    try:
-        # 使用共享数据库连接进行批量操作
-        db = next(get_db())
+    # 🔥 使用上下文管理器管理数据库会话（Python 最佳实践）
+    from app.db.session import get_db_context
+    with get_db_context() as db:
+        # 批量预查询所有照片信息
+        logger.info(f"批量预查询 {len(photo_ids)} 张照片信息...")
+        def batch_query_photos():
+            photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
+            return {photo.id: photo for photo in photos}
         
-        try:
-            # 批量预查询所有照片信息
-            logger.info(f"批量预查询 {len(photo_ids)} 张照片信息...")
-            def batch_query_photos():
-                photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
-                return {photo.id: photo for photo in photos}
-            
-            photo_cache = await asyncio.to_thread(batch_query_photos)
-            logger.info(f"成功预查询 {len(photo_cache)} 张照片信息")
-            
-            # 使用信号量控制单批次内的并发数（使用最新配置）
-            from app.core.config import get_settings
-            current_settings = get_settings()
-            max_concurrent_photos = current_settings.image_features.max_concurrent_photos
-            semaphore = asyncio.Semaphore(max_concurrent_photos)
-            logger.info(f"单批次内最大并发照片数: {max_concurrent_photos}")
-            
-            async def process_single_photo_with_semaphore(photo_id: int):
-                """使用信号量控制并发处理单张照片（只提取特征，不保存数据库）"""
-                try:
-                    # 从缓存获取照片信息
-                    photo = photo_cache.get(photo_id)
-                    
-                    if not photo:
-                        return {"photo_id": photo_id, "status": "skipped", "reason": "photo_not_found"}
-                    
-                    # 构建完整路径（使用最新配置）
-                    from app.core.config import get_settings
-                    from app.core.path_utils import resolve_resource_path
-                    current_settings = get_settings()
-                    storage_base = resolve_resource_path(current_settings.storage.base_path)
-                    if Path(photo.original_path).is_absolute():
-                        full_path = Path(photo.original_path)
-                    else:
-                        full_path = storage_base / photo.original_path
-                    
-                    # 异步执行：文件检查
-                    file_exists = await asyncio.to_thread(full_path.exists)
-                    
-                    if not file_exists:
-                        logger.warning(f"照片文件不存在: {full_path}")
-                        return {"photo_id": photo_id, "status": "skipped", "reason": "file_not_found"}
-                    
-                    # 使用信号量控制并发提取特征（CPU密集型任务）
-                    async with semaphore:
-                        # 异步执行特征提取（不涉及数据库操作）
-                        features = await asyncio.to_thread(
-                            image_feature_service.extract_features,
-                            photo.original_path
-                        )
-                    
-                    if features is None:
-                        return {"photo_id": photo_id, "status": "error", "error": "特征提取失败"}
-                    
-                    # 返回特征数据（不在这里保存到数据库）
-                    return {
-                        "photo_id": photo_id,
-                        "status": "success",
-                        "features": features
-                    }
-                        
-                except Exception as e:
-                    logger.error(f"处理照片 {photo_id} 失败: {str(e)}")
-                    return {"photo_id": photo_id, "status": "error", "error": str(e)}
-            
-            # 并发处理所有照片特征提取（不涉及数据库）
-            logger.info(f"开始并发处理 {len(photo_ids)} 张照片，最大并发数: {max_concurrent_photos}")
-            tasks = [process_single_photo_with_semaphore(photo_id) for photo_id in photo_ids]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # 收集提取成功的特征数据
-            for result in results:
-                if isinstance(result, Exception):
-                    logger.error(f"任务执行异常: {str(result)}")
-                    failed_extractions += 1
-                    continue
+        photo_cache = await asyncio.to_thread(batch_query_photos)
+        logger.info(f"成功预查询 {len(photo_cache)} 张照片信息")
+        
+        # 使用信号量控制单批次内的并发数（使用最新配置）
+        from app.core.config import get_settings
+        current_settings = get_settings()
+        max_concurrent_photos = current_settings.image_features.max_concurrent_photos
+        semaphore = asyncio.Semaphore(max_concurrent_photos)
+        logger.info(f"单批次内最大并发照片数: {max_concurrent_photos}")
+        
+        async def process_single_photo_with_semaphore(photo_id: int):
+            """使用信号量控制并发处理单张照片（只提取特征，不保存数据库）"""
+            try:
+                # 从缓存获取照片信息
+                photo = photo_cache.get(photo_id)
                 
-                photo_id = result["photo_id"]
-                all_processed_photos.add(photo_id)
+                if not photo:
+                    return {"photo_id": photo_id, "status": "skipped", "reason": "photo_not_found"}
                 
-                if result["status"] == "success" and "features" in result:
-                    # 收集特征数据，用于批量保存
-                    all_features_data.append({
-                        "photo_id": photo_id,
-                        "features": result["features"]
-                    })
-                    successful_extractions += 1
-                elif result["status"] == "error":
-                    failed_extractions += 1
-                    image_feature_task_status[task_id]["error_details"].append({
-                        "photo_id": photo_id,
-                        "error": result.get("error", "未知错误")
-                    })
-                elif result["status"] == "skipped":
-                    # 跳过的照片不计入失败
-                    pass
+                # 构建完整路径（使用最新配置）
+                from app.core.config import get_settings
+                from app.core.path_utils import resolve_resource_path
+                current_settings = get_settings()
+                storage_base = resolve_resource_path(current_settings.storage.base_path)
+                if Path(photo.original_path).is_absolute():
+                    full_path = Path(photo.original_path)
+                else:
+                    full_path = storage_base / photo.original_path
+                
+                # 异步执行：文件检查
+                file_exists = await asyncio.to_thread(full_path.exists)
+                
+                if not file_exists:
+                    logger.warning(f"照片文件不存在: {full_path}")
+                    return {"photo_id": photo_id, "status": "skipped", "reason": "file_not_found"}
+                
+                # 使用信号量控制并发提取特征（CPU密集型任务）
+                async with semaphore:
+                    # 异步执行特征提取（不涉及数据库操作）
+                    features = await asyncio.to_thread(
+                        image_feature_service.extract_features,
+                        photo.original_path
+                    )
+                
+                if features is None:
+                    return {"photo_id": photo_id, "status": "error", "error": "特征提取失败"}
+                
+                # 返回特征数据（不在这里保存到数据库）
+                return {
+                    "photo_id": photo_id,
+                    "status": "success",
+                    "features": features
+                }
+                    
+            except Exception as e:
+                logger.error(f"处理照片 {photo_id} 失败: {str(e)}")
+                return {"photo_id": photo_id, "status": "error", "error": str(e)}
+        
+        # 并发处理所有照片特征提取（不涉及数据库）
+        logger.info(f"开始并发处理 {len(photo_ids)} 张照片，最大并发数: {max_concurrent_photos}")
+        tasks = [process_single_photo_with_semaphore(photo_id) for photo_id in photo_ids]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 收集提取成功的特征数据
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"任务执行异常: {str(result)}")
+                failed_extractions += 1
+                continue
             
-            # 🔥 批量保存所有特征到数据库（避免并发冲突）
-            if all_features_data:
-                saved_count = await asyncio.to_thread(
-                    image_feature_service.batch_save_features_to_db,
-                    all_features_data,
-                    db
-                )
-                logger.info(f"✅ 批量保存 {saved_count}/{len(all_features_data)} 个特征向量到数据库")
+            photo_id = result["photo_id"]
+            all_processed_photos.add(photo_id)
             
-            # 更新任务状态
-            image_feature_task_status[task_id]["completed_photos"] += successful_extractions
-            image_feature_task_status[task_id]["failed_photos"] += failed_extractions
-            image_feature_task_status[task_id]["processing_photos"] = (
-                image_feature_task_status[task_id]["total_photos"] - 
-                image_feature_task_status[task_id]["completed_photos"] - 
-                image_feature_task_status[task_id]["failed_photos"]
+            if result["status"] == "success" and "features" in result:
+                # 收集特征数据，用于批量保存
+                all_features_data.append({
+                    "photo_id": photo_id,
+                    "features": result["features"]
+                })
+                successful_extractions += 1
+            elif result["status"] == "error":
+                failed_extractions += 1
+                image_feature_task_status[task_id]["error_details"].append({
+                    "photo_id": photo_id,
+                    "error": result.get("error", "未知错误")
+                })
+            elif result["status"] == "skipped":
+                # 跳过的照片不计入失败
+                pass
+        
+        # 🔥 批量保存所有特征到数据库（避免并发冲突）
+        if all_features_data:
+            saved_count = await asyncio.to_thread(
+                image_feature_service.batch_save_features_to_db,
+                all_features_data,
+                db
             )
-            image_feature_task_status[task_id]["progress_percentage"] = round(
-                (image_feature_task_status[task_id]["completed_photos"] / 
-                 image_feature_task_status[task_id]["total_photos"]) * 100, 2
-            )
-            
-            # 更新批次详情
-            batch_details = image_feature_task_status[task_id]["batch_details"]
-            if batch_idx < len(batch_details):
-                batch_details[batch_idx]["completed_photos"] = successful_extractions
-                batch_details[batch_idx]["failed_photos"] = failed_extractions
-            
-            logger.info(f"✅ 批次 {batch_idx + 1} 完成: 成功 {successful_extractions}, 失败 {failed_extractions}")
-            
-        except Exception as e:
-            logger.error(f"批次 {batch_idx + 1} 数据库操作失败: {str(e)}")
-            db.rollback()
-            raise
-        finally:
-            db.close()
-            
-    except Exception as e:
-        logger.error(f"处理图像特征提取批次失败: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise
+            logger.info(f"✅ 批量保存 {saved_count}/{len(all_features_data)} 个特征向量到数据库")
+        
+        # 注意：上下文管理器会在退出时自动 commit，这里不需要手动 commit
+    
+    # 更新任务状态（在上下文管理器外，不涉及数据库操作）
+    image_feature_task_status[task_id]["completed_photos"] += successful_extractions
+    image_feature_task_status[task_id]["failed_photos"] += failed_extractions
+    image_feature_task_status[task_id]["processing_photos"] = (
+        image_feature_task_status[task_id]["total_photos"] - 
+        image_feature_task_status[task_id]["completed_photos"] - 
+        image_feature_task_status[task_id]["failed_photos"]
+    )
+    image_feature_task_status[task_id]["progress_percentage"] = round(
+        (image_feature_task_status[task_id]["completed_photos"] / 
+         image_feature_task_status[task_id]["total_photos"]) * 100, 2
+    )
+    
+    # 更新批次详情
+    batch_details = image_feature_task_status[task_id]["batch_details"]
+    if batch_idx < len(batch_details):
+        batch_details[batch_idx]["completed_photos"] = successful_extractions
+        batch_details[batch_idx]["failed_photos"] = failed_extractions
+    
+    logger.info(f"✅ 批次 {batch_idx + 1} 完成: 成功 {successful_extractions}, 失败 {failed_extractions}")
 
 
 def get_image_feature_extraction_task_status(task_id: str) -> Dict:

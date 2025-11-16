@@ -369,35 +369,18 @@ async def perform_batch_analysis(photo_ids: List[int]):
         analysis_service = AnalysisService()
         logger.info("AnalysisService 创建成功")
         
-        # 创建新的数据库会话用于后台任务
+        # 🔥 使用上下文管理器管理数据库会话（Python 最佳实践）
+        from app.db.session import get_db_context
         logger.info("开始创建数据库会话...")
-        try:
-            db = next(get_db())
+        with get_db_context() as db:
             logger.info("数据库会话创建成功")
-        except Exception as e:
-            logger.error(f"创建数据库会话失败: {str(e)}")
-            import traceback
-            logger.error(f"数据库会话创建详细错误: {traceback.format_exc()}")
-            raise
-            
-        try:
             logger.info("开始调用 batch_analyze_photos...")
             result = await analysis_service.batch_analyze_photos(photo_ids, db)
             logger.info(f"=== 后台批量分析完成: {result['successful_analyses']}/{result['total_photos']} ===")
             logger.info(f"成功分析的照片: {[r['photo_id'] for r in result.get('results', [])]}")
             if result.get('errors'):
                 logger.error(f"分析失败的照片: {[e['photo_id'] for e in result['errors']]}")
-        except Exception as e:
-            logger.error(f"batch_analyze_photos 调用失败: {str(e)}")
-            import traceback
-            logger.error(f"batch_analyze_photos 详细错误: {traceback.format_exc()}")
-            raise
-        finally:
-            try:
-                db.close()
-                logger.info("数据库会话已关闭")
-            except Exception as e:
-                logger.error(f"关闭数据库会话失败: {str(e)}")
+            # 注意：上下文管理器会在退出时自动 commit 和 close
 
     except Exception as e:
         logger.error(f"后台批量分析失败: {str(e)}")
@@ -794,131 +777,127 @@ async def process_analysis_task(task_id: str, photo_ids: List[int], analysis_typ
     logger.info(f"=== 开始处理分析任务 {task_id} ===")
     logger.info(f"照片数量: {len(photo_ids)}, 分析类型: {analysis_types}")
 
-    # 创建数据库会话
-    db = next(get_db())
+    # 🔥 使用上下文管理器管理数据库会话（Python 最佳实践）
+    from app.db.session import get_db_context
+    with get_db_context() as db:
+        # 使用传入的原始状态，如果没有则从数据库获取
+        if original_statuses is None:
+            original_statuses = {}
+            for photo_id in photo_ids:
+                photo = db.query(Photo).filter(Photo.id == photo_id).first()
+                if photo:
+                    original_statuses[photo_id] = photo.status
 
-    # 使用传入的原始状态，如果没有则从数据库获取
-    if original_statuses is None:
-        original_statuses = {}
-        for photo_id in photo_ids:
-            photo = db.query(Photo).filter(Photo.id == photo_id).first()
-            if photo:
-                original_statuses[photo_id] = photo.status
+        # 初始化任务状态
+        analysis_task_status[task_id] = {
+            "status": "processing",
+            "total_photos": len(photo_ids),
+            "completed_photos": 0,
+            "failed_photos": 0,
+            "progress_percentage": 0.0,
+            "start_time": datetime.now().isoformat(),
+            "analysis_types": analysis_types,
+            "error_details": [],  # 新增：记录具体错误信息
+            "original_statuses": original_statuses  # 新增：记录原始状态
+        }
 
-    # 初始化任务状态
-    analysis_task_status[task_id] = {
-        "status": "processing",
-        "total_photos": len(photo_ids),
-        "completed_photos": 0,
-        "failed_photos": 0,
-        "progress_percentage": 0.0,
-        "start_time": datetime.now().isoformat(),
-        "analysis_types": analysis_types,
-        "error_details": [],  # 新增：记录具体错误信息
-        "original_statuses": original_statuses  # 新增：记录原始状态
-    }
-
-    try:
-        analysis_service = AnalysisService()
-        
-        # 🔥 关键改进：使用现有配置的并发数
-        from app.core.config import settings
-        max_concurrent = settings.analysis.concurrent  # 使用现有的concurrent配置
-        semaphore = asyncio.Semaphore(max_concurrent)
-        
-        async def analyze_single_photo_with_semaphore(photo_id: int):
-            """使用信号量控制并发处理单张照片"""
-            async with semaphore:
-                try:
-                    # logger.info(f"开始分析照片 {photo_id}")
-                    original_status = original_statuses.get(photo_id, 'imported')
-                    result = await analysis_service.analyze_photo(
-                        photo_id, analysis_types, db, original_status
-                    )
-                    # logger.info(f"照片 {photo_id} 分析完成")
-                    return {"photo_id": photo_id, "status": "success", "result": result}
-                    
-                except Exception as e:
-                    logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
-                    
-                    # 保存错误信息并恢复原始状态
-                    error_info = {
-                        "error": str(e),
-                        "error_type": "analysis_error",
-                        "failed_at": datetime.now().isoformat()
-                    }
-                    original_status = original_statuses.get(photo_id, 'imported')
-                    analysis_service._save_error_result(
-                        photo_id, error_info, db, original_status, 
-                        analysis_types[0] if analysis_types else None
-                    )
-                    
-                    return {"photo_id": photo_id, "status": "error", "error": str(e)}
-        
-        # 🔥 关键改进：并发执行所有分析任务
-        logger.info(f"开始并发分析 {len(photo_ids)} 张照片，最大并发数: {max_concurrent}")
-        tasks = [analyze_single_photo_with_semaphore(photo_id) for photo_id in photo_ids]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # 处理结果和更新状态
-        successful_analyses = 0
-        failed_analyses = 0
-        
-        for result in results:
-            if isinstance(result, Exception):
-                failed_analyses += 1
-                logger.error(f"任务执行异常: {str(result)}")
-                continue
-                
-            if result["status"] == "success":
-                successful_analyses += 1
-            else:
-                failed_analyses += 1
-                analysis_task_status[task_id]["error_details"].append({
-                    "photo_id": result["photo_id"],
-                    "error": result["error"],
-                    "error_type": "analysis_error",
-                    "timestamp": datetime.now().isoformat()
-                })
-
-        # 更新最终状态
-        analysis_task_status[task_id].update({
-            "status": "completed",
-            "completed_photos": successful_analyses,
-            "failed_photos": failed_analyses,
-            "end_time": datetime.now().isoformat(),
-            "progress_percentage": 100.0
-        })
-
-        logger.info(f"=== 分析任务 {task_id} 完成 ===")
-        logger.info(f"成功: {successful_analyses}, 失败: {failed_analyses}")
-
-        # 延迟清理任务状态，避免内存泄漏
-        async def cleanup_task_status():
-            await asyncio.sleep(TASK_STATUS_CLEANUP_HOURS * 3600)  # 延迟清理
-            if task_id in analysis_task_status:
-                del analysis_task_status[task_id]
-                logger.info(f"清理已完成的任务状态: {task_id}")
-
-        # 启动后台清理任务
-        asyncio.create_task(cleanup_task_status())
-
-    except Exception as e:
-        logger.error(f"处理分析任务失败: {str(e)}")
-        import traceback
-        logger.error(f"详细错误信息: {traceback.format_exc()}")
-
-        # 标记任务失败
-        analysis_task_status[task_id].update({
-            "status": "failed",
-            "error": str(e),
-            "end_time": datetime.now().isoformat()
-        })
-    finally:
         try:
-            db.close()
-        except:
-            pass
+            analysis_service = AnalysisService()
+            
+            # 🔥 关键改进：使用现有配置的并发数
+            from app.core.config import settings
+            max_concurrent = settings.analysis.concurrent  # 使用现有的concurrent配置
+            semaphore = asyncio.Semaphore(max_concurrent)
+            
+            async def analyze_single_photo_with_semaphore(photo_id: int):
+                """使用信号量控制并发处理单张照片"""
+                async with semaphore:
+                    try:
+                        # logger.info(f"开始分析照片 {photo_id}")
+                        original_status = original_statuses.get(photo_id, 'imported')
+                        result = await analysis_service.analyze_photo(
+                            photo_id, analysis_types, db, original_status
+                        )
+                        # logger.info(f"照片 {photo_id} 分析完成")
+                        return {"photo_id": photo_id, "status": "success", "result": result}
+                        
+                    except Exception as e:
+                        logger.error(f"照片 {photo_id} 分析失败: {str(e)}")
+                        
+                        # 保存错误信息并恢复原始状态
+                        error_info = {
+                            "error": str(e),
+                            "error_type": "analysis_error",
+                            "failed_at": datetime.now().isoformat()
+                        }
+                        original_status = original_statuses.get(photo_id, 'imported')
+                        analysis_service._save_error_result(
+                            photo_id, error_info, db, original_status, 
+                            analysis_types[0] if analysis_types else None
+                        )
+                        
+                        return {"photo_id": photo_id, "status": "error", "error": str(e)}
+            
+            # 🔥 关键改进：并发执行所有分析任务
+            logger.info(f"开始并发分析 {len(photo_ids)} 张照片，最大并发数: {max_concurrent}")
+            tasks = [analyze_single_photo_with_semaphore(photo_id) for photo_id in photo_ids]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # 处理结果和更新状态
+            successful_analyses = 0
+            failed_analyses = 0
+            
+            for result in results:
+                if isinstance(result, Exception):
+                    failed_analyses += 1
+                    logger.error(f"任务执行异常: {str(result)}")
+                    continue
+                    
+                if result["status"] == "success":
+                    successful_analyses += 1
+                else:
+                    failed_analyses += 1
+                    analysis_task_status[task_id]["error_details"].append({
+                        "photo_id": result["photo_id"],
+                        "error": result["error"],
+                        "error_type": "analysis_error",
+                        "timestamp": datetime.now().isoformat()
+                    })
+
+            # 更新最终状态
+            analysis_task_status[task_id].update({
+                "status": "completed",
+                "completed_photos": successful_analyses,
+                "failed_photos": failed_analyses,
+                "end_time": datetime.now().isoformat(),
+                "progress_percentage": 100.0
+            })
+
+            logger.info(f"=== 分析任务 {task_id} 完成 ===")
+            logger.info(f"成功: {successful_analyses}, 失败: {failed_analyses}")
+
+            # 延迟清理任务状态，避免内存泄漏
+            async def cleanup_task_status():
+                await asyncio.sleep(TASK_STATUS_CLEANUP_HOURS * 3600)  # 延迟清理
+                if task_id in analysis_task_status:
+                    del analysis_task_status[task_id]
+                    logger.info(f"清理已完成的任务状态: {task_id}")
+
+            # 启动后台清理任务
+            asyncio.create_task(cleanup_task_status())
+
+        except Exception as e:
+            logger.error(f"处理分析任务失败: {str(e)}")
+            import traceback
+            logger.error(f"详细错误信息: {traceback.format_exc()}")
+
+            # 标记任务失败
+            analysis_task_status[task_id].update({
+                "status": "failed",
+                "error": str(e),
+                "end_time": datetime.now().isoformat()
+            })
+        # 注意：上下文管理器会在退出时自动 commit 和 close
 
 
 

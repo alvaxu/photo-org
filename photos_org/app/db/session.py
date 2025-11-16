@@ -14,6 +14,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
+from contextlib import contextmanager
 
 def optimize_database_connection(db: Session):
     """优化数据库连接设置"""
@@ -63,8 +64,8 @@ def get_engine():
         "timeout": 30,  # 🔥 连接超时30秒
     },
     poolclass=QueuePool,  # 🔥 使用队列连接池
-    pool_size=10,         # 🔥 基础连接池大小
-    max_overflow=20,      # 🔥 最大溢出连接
+    pool_size=20,         # 🔥 基础连接池大小（从10增加到20）
+    max_overflow=30,      # 🔥 最大溢出连接（从20增加到30，总连接数最多50）
     pool_timeout=30,      # 🔥 获取连接超时
     pool_pre_ping=True,   # 🔥 连接前检查
             echo=getattr(settings, 'debug', False),  # 调试模式下显示SQL语句
@@ -157,6 +158,41 @@ def get_db() -> Session:
 def get_db_session() -> Session:
     """获取数据库会话（同步方法）"""
     return get_session_local()()
+
+
+@contextmanager
+def get_db_context():
+    """
+    数据库会话上下文管理器（Python 最佳实践）
+    
+    使用示例：
+        with get_db_context() as db:
+            # 使用数据库
+            db.query(...)
+            # 自动提交和关闭
+    """
+    db = get_session_local()()
+    try:
+        # 自动优化数据库连接
+        optimize_database_connection(db)
+        yield db
+        # 正常退出时提交
+        db.commit()
+    except Exception:
+        # 出错时回滚
+        try:
+            db.rollback()
+        except Exception:
+            # 忽略 rollback 异常，避免掩盖原始异常
+            pass
+        raise
+    finally:
+        # 总是关闭连接
+        try:
+            db.close()
+        except Exception:
+            # 忽略 close 异常，确保不会阻止异常传播
+            pass
 
 
 def create_database():
