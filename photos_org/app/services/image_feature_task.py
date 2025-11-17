@@ -174,8 +174,15 @@ async def process_image_feature_extraction_task(task_id: str, photo_ids: List[in
         
         logger.info(f"=== 图像特征提取任务 {task_id} 完成 ===")
         
-        # 延迟清理任务状态（可选）
-        # asyncio.create_task(cleanup_task_status(task_id))
+        # 延迟清理任务状态，避免内存泄漏
+        async def cleanup_task_status():
+            await asyncio.sleep(8 * 3600)  # 延迟8小时清理
+            if task_id in image_feature_task_status:
+                del image_feature_task_status[task_id]
+                logger.info(f"清理已完成的任务状态: {task_id}")
+        
+        # 启动后台清理任务
+        asyncio.create_task(cleanup_task_status())
         
     except Exception as e:
         logger.error(f"处理图像特征提取任务失败: {str(e)}")

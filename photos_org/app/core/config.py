@@ -146,6 +146,8 @@ class ImportConfig(BaseSettings):
     max_upload_files: int = Field(default=50, description="单次最大上传文件数")
     scan_batch_size: int = Field(default=100, description="文件夹扫描批次大小")
     batch_threshold: int = Field(default=200, description="导入分批阈值")
+    max_concurrent_batches: int = Field(default=2, description="最大并发批次数")
+    max_concurrent_photos: int = Field(default=3, description="单批次内最大并发照片数")
 
 
 class QualityConfig(BaseSettings):
@@ -458,6 +460,8 @@ class Settings(BaseSettings):
                 "max_upload_files": self.import_config.max_upload_files,
                 "scan_batch_size": self.import_config.scan_batch_size,
                 "batch_threshold": self.import_config.batch_threshold,
+                "max_concurrent_batches": self.import_config.max_concurrent_batches,
+                "max_concurrent_photos": self.import_config.max_concurrent_photos,
                 "supported_formats": self.import_config.supported_formats
             },
             "maps": {

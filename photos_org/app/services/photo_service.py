@@ -113,7 +113,8 @@ class PhotoService:
     def create_photo(self, db: Session, photo_data: PhotoCreate, 
                      quality_result: Optional[Dict[str, Any]] = None,
                      exif_tags: Optional[List[Dict[str, Any]]] = None,
-                     time_tags: Optional[List[Dict[str, Any]]] = None) -> Tuple[Optional[Photo], bool]:
+                     time_tags: Optional[List[Dict[str, Any]]] = None,
+                     auto_commit: bool = True) -> Tuple[Optional[Photo], bool]:
         """
         创建照片记录
 
@@ -205,13 +206,16 @@ class PhotoService:
                 # 如果质量分析失败，保持status为'imported'
             
             # 提交所有更改（照片 + 质量分析 + 标签 + status更新）
-            db.commit()
+            if auto_commit:
+                db.commit()
             
             self.logger.info(f"照片创建成功: {photo.filename}")
             return photo, True  # 返回新创建的记录，is_new=True
             
         except Exception as e:
-            db.rollback()
+            # 批次模式下不自动回滚，由调用方处理
+            if auto_commit:
+                db.rollback()
             # 检查是否是唯一约束冲突（file_hash重复）
             from sqlalchemy.exc import IntegrityError
             if isinstance(e, IntegrityError):

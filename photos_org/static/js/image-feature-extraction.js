@@ -203,7 +203,7 @@ async function startImageFeatureExtraction() {
  */
 async function pollFeatureExtractionStatus(taskId) {
     const pollInterval = 2000; // 每2秒轮询一次
-    const maxPollTime = 3 * 60 * 60 * 1000; // 最多轮询3小时
+    const maxPollTime = 8 * 60 * 60 * 1000; // 最多轮询8小时
     const startTime = Date.now();
     
     let lastProgress = 0;

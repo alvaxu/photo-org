@@ -272,7 +272,6 @@ function setupAutoRefresh() {
 
 // 注意：startFolderImport 函数已移至 app-import.js
 
-// 注意：monitorScanProgress 函数已移至 app-import.js
 
 
 // 注意：selectAllPhotos, clearSelection, deleteSelectedPhotos 函数已移至 app-photos.js

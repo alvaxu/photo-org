@@ -374,8 +374,8 @@ async def cleanup_task_status(task_id: str):
     :param task_id: 任务ID
     """
     try:
-        # 延迟5分钟后清理任务状态
-        await asyncio.sleep(300)  # 5分钟
+        # 延迟8小时后清理任务状态
+        await asyncio.sleep(8 * 3600)  # 8小时
         
         if task_id in face_recognition_task_status:
             del face_recognition_task_status[task_id]

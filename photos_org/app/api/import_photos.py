@@ -11,6 +11,7 @@ import os
 import shutil
 import tempfile
 import asyncio
+import logging
 from pathlib import Path
 from typing import List, Optional, Tuple
 from datetime import datetime
@@ -25,9 +26,42 @@ from app.services.import_service import ImportService
 from app.services.photo_service import PhotoService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # 任务状态存储（生产环境建议使用Redis）
 task_status = {}
+
+# 🔥 全局批次信号量：限制所有批次的总并发数（解决多批次并发导致资源耗尽问题）
+# 在模块加载时初始化，使用配置的默认值（会在函数中动态更新）
+_global_batch_semaphore: Optional[asyncio.Semaphore] = None
+_global_batch_semaphore_initial_value: Optional[int] = None  # 保存信号量的初始值，用于判断是否需要重新创建
+
+
+def get_global_batch_semaphore() -> asyncio.Semaphore:
+    """
+    获取全局批次信号量（懒加载，使用最新配置）
+    
+    每次调用时都会读取最新配置，确保配置更新后能立即生效。
+    参考人脸识别的实现方式：使用 get_settings() 获取配置（如果调用了 reload_settings() 会重新加载）。
+    
+    :return: 全局批次信号量
+    """
+    global _global_batch_semaphore, _global_batch_semaphore_initial_value
+    from app.core.config import get_settings
+    # 🔥 每次调用都获取最新配置（如果调用了 reload_settings()，get_settings() 会返回重新加载的配置）
+    current_settings = get_settings()
+    max_concurrent_batches = current_settings.import_config.max_concurrent_batches
+    
+    # 🔥 修复：使用保存的初始值来判断，而不是使用 _value（_value 会随着使用而变化）
+    # 如果信号量不存在或配置已更改，重新创建
+    # 注意：如果用户修改了 config.json 但没有调用 reload_settings()，这里不会检测到更改
+    # 但这是预期的行为，因为配置更新需要通过 API 或调用 reload_settings() 才能生效
+    if _global_batch_semaphore is None or _global_batch_semaphore_initial_value != max_concurrent_batches:
+        _global_batch_semaphore = asyncio.Semaphore(max_concurrent_batches)
+        _global_batch_semaphore_initial_value = max_concurrent_batches  # 保存初始值
+        logger.info(f"全局批次信号量已初始化/更新: 最多 {max_concurrent_batches} 个批次同时运行")
+    
+    return _global_batch_semaphore
 
 
 
@@ -312,235 +346,289 @@ async def process_photos_batch_with_status_from_upload(files: List[UploadFile], 
     :param db: 数据库会话
     :param task_id: 任务ID
     """
-    try:
-        # 初始化任务状态
-        task_status[task_id] = {
-            "status": "processing",
-            "total_files": len(files),
-            "processed_files": 0,
-            "imported_count": 0,
-            "skipped_count": 0,
-            "failed_count": 0,
-            "failed_files": [],
-            "progress_percentage": 0,
-            "start_time": datetime.now().isoformat(),
-            "end_time": None,
-            "error": None
-        }
+    # 🔥 全局批次信号量：限制所有批次的总并发数
+    global_batch_semaphore = get_global_batch_semaphore()
+    
+    # 获取批次内文件并发数配置和临时文件目录
+    from app.core.config import get_settings
+    from app.core.path_utils import resolve_resource_path
+    current_settings = get_settings()
+    max_concurrent_photos = current_settings.import_config.max_concurrent_photos
+    
+    # 🔥 获取配置的临时文件目录（使用 resolve_resource_path 解析路径）
+    storage_base = resolve_resource_path(current_settings.storage.base_path)
+    temp_dir = storage_base / current_settings.storage.temp_path / "uploads"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 先获取全局批次信号量，确保不会超过总并发批次限制
+    async with global_batch_semaphore:
+        logger.info(f"批次 {task_id} 已获取全局批次信号量，开始处理 {len(files)} 个文件")
         
-        import_service = ImportService()
-        photo_service = PhotoService()
-        
-        # 限制并发数量，避免资源耗尽
-        semaphore = asyncio.Semaphore(3)  # 最多同时处理3个文件
-        
-        async def process_single_file_with_semaphore(file: UploadFile, file_index: int):
-            """使用信号量控制并发处理单个文件"""
-            async with semaphore:
-                try:
-                    # 清理文件名：移除可能包含的路径前缀（文件夹导入时可能有相对路径）
-                    # 例如：file.filename 可能是 "heic_all/南京2023001.heic"，需要提取为 "南京2023001.heic"
-                    clean_filename = Path(file.filename).name
-                    file_ext = Path(clean_filename).suffix.lower()
-                    
-                    # 特殊处理HEIC格式
-                    if file_ext in ['.heic', '.heif']:
-                        # HEIC格式的content_type可能为空，需要特殊处理
-                        pass
-                    elif not file.content_type or not file.content_type.startswith('image/'):
-                        return {
-                            "file_index": file_index,
-                            "filename": clean_filename,
-                            "status": "failed",
-                            "message": "不支持的文件类型"
-                        }
-
-                    # 🔥 异步执行：保存临时文件（避免阻塞事件循环）
-                    def save_temp_file():
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
-                            shutil.copyfileobj(file.file, temp_file)
-                            return temp_file.name
-                    
-                    temp_path = await asyncio.to_thread(save_temp_file)
-
-                    # 🔥 使用上下文管理器管理数据库会话（Python 最佳实践）
-                    from app.db.session import get_db_context
-                    with get_db_context() as task_db:
-                        # 🔥 异步执行：处理单个照片（文件IO和图像处理都是阻塞操作）
-                        # 传递清理后的文件名（只包含文件名，不包含路径），用于保存到数据库
-                        success, message, photo_data, duplicate_info = await asyncio.to_thread(
-                            import_service.process_single_photo,
-                            temp_path, False, task_db, clean_filename  # move_file=False, db_session=task_db, original_filename=clean_filename
-                        )
-
-                        if success and photo_data:
-                            # 阶段一：从返回值中提取质量分析和标签信息
-                            quality_result = None
-                            exif_tags = []
-                            time_tags = []
-                            
-                            # duplicate_info可能是重复信息，也可能是additional_data（包含质量分析和标签）
-                            if duplicate_info and isinstance(duplicate_info, dict):
-                                # 检查是否是additional_data（包含质量分析和标签信息）
-                                if 'quality_result' in duplicate_info or 'exif_tags' in duplicate_info or 'time_tags' in duplicate_info:
-                                    quality_result = duplicate_info.get('quality_result')
-                                    exif_tags = duplicate_info.get('exif_tags', [])
-                                    time_tags = duplicate_info.get('time_tags', [])
-                            
-                            # 🔥 异步执行：保存到数据库（包括质量分析和标签）
-                            # 简化逻辑：直接调用 create_photo，它内部已经处理了并发检查
-                            def create_photo_record():
-                                return photo_service.create_photo(
-                                    task_db, 
-                                    photo_data,
-                                    quality_result=quality_result,
-                                    exif_tags=exif_tags,
-                                    time_tags=time_tags
-                                )
-                            
-                            photo, is_new = await asyncio.to_thread(create_photo_record)
-                            
-                            # 注意：上下文管理器会在退出时自动 commit，这里不需要手动 commit
-                            
-                            if photo:
-                                if is_new:
-                                    # 新创建的文件
-                                    print(f"成功导入: {clean_filename}")
-                                    return {
-                                        "file_index": file_index,
-                                        "filename": clean_filename,
-                                        "status": "imported",
-                                        "message": "导入成功"
-                                    }
-                                else:
-                                    # 已存在的文件（并发情况）
-                                    return {
-                                        "file_index": file_index,
-                                        "filename": clean_filename,
-                                        "status": "skipped",
-                                        "message": "文件已存在，跳过导入"
-                                    }
-                            else:
-                                return {
-                                    "file_index": file_index,
-                                    "filename": clean_filename,
-                                    "status": "failed",
-                                    "message": "数据库保存失败"
-                                }
-                        elif duplicate_info:
-                            # 处理重复文件 - 使用完整的重复检测逻辑
-                            duplicate_type = duplicate_info.get('duplicate_type', 'unknown')
-                            message = duplicate_info.get('message', '文件重复')
-                            
-                            # 根据重复类型生成更详细的提示
-                            if duplicate_type == 'full_duplicate':
-                                status_text = f"文件已存在，跳过导入"
-                                return {
-                                    "file_index": file_index,
-                                    "filename": clean_filename,
-                                    "status": "skipped",
-                                    "message": status_text
-                                }
-                            elif duplicate_type == 'physical_only':
-                                status_text = f"文件已存在（物理重复）"
-                                return {
-                                    "file_index": file_index,
-                                    "filename": clean_filename,
-                                    "status": "imported",
-                                    "message": status_text
-                                }
-                            elif duplicate_type == 'orphan_cleaned':
-                                status_text = f"孤儿记录已清理，继续处理"
-                                return {
-                                    "file_index": file_index,
-                                    "filename": clean_filename,
-                                    "status": "imported",
-                                    "message": status_text
-                                }
-                            else:
-                                return {
-                                    "file_index": file_index,
-                                    "filename": clean_filename,
-                                    "status": "failed",
-                                    "message": message
-                                }
-                        else:
+        try:
+            # 初始化任务状态
+            task_status[task_id] = {
+                "status": "processing",
+                "total_files": len(files),
+                "processed_files": 0,
+                "imported_count": 0,
+                "skipped_count": 0,
+                "failed_count": 0,
+                "failed_files": [],
+                "progress_percentage": 0,
+                "start_time": datetime.now().isoformat(),
+                "end_time": None,
+                "error": None
+            }
+            
+            import_service = ImportService()
+            photo_service = PhotoService()
+            
+            # 🔥 批次内文件信号量：限制单个批次内的文件并发数
+            batch_photo_semaphore = asyncio.Semaphore(max_concurrent_photos)
+            logger.info(f"批次 {task_id} 内最大并发文件数: {max_concurrent_photos}")
+            
+            async def process_single_file_with_semaphore(file: UploadFile, file_index: int):
+                """
+                使用信号量控制并发处理单个文件（不占用数据库连接）
+                只处理文件，不涉及数据库操作
+                """
+                async with batch_photo_semaphore:
+                    try:
+                        # 清理文件名：移除可能包含的路径前缀（文件夹导入时可能有相对路径）
+                        # 例如：file.filename 可能是 "heic_all/南京2023001.heic"，需要提取为 "南京2023001.heic"
+                        clean_filename = Path(file.filename).name
+                        file_ext = Path(clean_filename).suffix.lower()
+                        
+                        # 特殊处理HEIC格式
+                        if file_ext in ['.heic', '.heif']:
+                            # HEIC格式的content_type可能为空，需要特殊处理
+                            pass
+                        elif not file.content_type or not file.content_type.startswith('image/'):
                             return {
                                 "file_index": file_index,
                                 "filename": clean_filename,
                                 "status": "failed",
-                                "message": message
+                                "message": "不支持的文件类型",
+                                "temp_path": None
                             }
-                    
-                    # 清理临时文件
-                    if 'temp_path' in locals() and os.path.exists(temp_path):
-                        os.unlink(temp_path)
 
-                except Exception as e:
-                    # 如果发生异常，尝试获取清理后的文件名，如果失败则使用原始文件名
-                    clean_filename = Path(file.filename).name if hasattr(file, 'filename') and file.filename else "unknown"
-                    return {
-                        "file_index": file_index,
-                        "filename": clean_filename,
-                        "status": "failed",
-                        "message": f"处理异常 - {str(e)}"
-                    }
-        
-        # 并发执行所有文件处理任务
-        try:
-            tasks = [process_single_file_with_semaphore(file, i) for i, file in enumerate(files)]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+                        # 🔥 异步执行：保存临时文件到配置的临时目录（避免阻塞事件循环）
+                        def save_temp_file():
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext, dir=str(temp_dir)) as temp_file:
+                                shutil.copyfileobj(file.file, temp_file)
+                                return temp_file.name
+                        
+                        temp_path = await asyncio.to_thread(save_temp_file)
+
+                        # 🔥 关键改进：处理文件时不占用数据库连接（参考人脸识别和特征提取的模式）
+                        # 传递 db_session=None，跳过重复检查（在批量阶段统一检查）
+                        success, message, photo_data, additional_data = await asyncio.to_thread(
+                            import_service.process_single_photo,
+                            temp_path, False, None, clean_filename  # move_file=False, db_session=None, original_filename=clean_filename
+                        )
+
+                        # 返回处理结果，包含所有需要的信息
+                        return {
+                            "file_index": file_index,
+                            "filename": clean_filename,
+                            "temp_path": temp_path,  # 保存临时文件路径，用于后续清理
+                            "success": success,
+                            "message": message,
+                            "photo_data": photo_data,
+                            "additional_data": additional_data  # 包含 quality_result, exif_tags, time_tags
+                        }
+
+                    except Exception as e:
+                        # 如果发生异常，尝试获取清理后的文件名，如果失败则使用原始文件名
+                        clean_filename = Path(file.filename).name if hasattr(file, 'filename') and file.filename else "unknown"
+                        return {
+                            "file_index": file_index,
+                            "filename": clean_filename,
+                            "temp_path": None,
+                            "success": False,
+                            "message": f"处理异常 - {str(e)}",
+                            "photo_data": None,
+                            "additional_data": None
+                        }
             
-            # 统计结果
-            imported_count = 0
-            skipped_count = 0
-            failed_count = 0
-            failed_files = []
-            
-            for result in results:
-                if isinstance(result, Exception):
-                    failed_count += 1
-                    failed_files.append(f"处理异常: {str(result)}")
-                    continue
+            # 🔥 批次提交模式：参考人脸识别和特征提取的实现
+            # 阶段1：并发处理所有文件（不占用数据库连接）
+            try:
+                logger.info(f"开始并发处理 {len(files)} 个文件，最大并发数: {max_concurrent_photos}")
+                tasks = [process_single_file_with_semaphore(file, i) for i, file in enumerate(files)]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # 阶段2：批量检查重复和批量保存到数据库（需要数据库，但很快）
+                from app.db.session import get_db_context
+                from app.models.photo import Photo
+                
+                # 收集所有成功处理的文件数据
+                all_photo_data = []  # 存储待保存的照片数据
+                all_temp_paths = []  # 存储临时文件路径，用于后续清理
+                failed_results = []  # 存储失败的结果
+                
+                for result in results:
+                    if isinstance(result, Exception):
+                        failed_results.append({
+                            "file_index": -1,
+                            "filename": "unknown",
+                            "status": "failed",
+                            "message": f"处理异常: {str(result)}",
+                            "temp_path": None
+                        })
+                        continue
                     
-                if result["status"] == "imported":
-                    imported_count += 1
-                elif result["status"] == "skipped":
-                    skipped_count += 1
-                elif result["status"] == "failed":
-                    failed_count += 1
-                    failed_files.append(f"{result['filename']}: {result['message']}")
-            
-            # 🔥 注意：每个任务已经使用独立的数据库会话并提交，这里不需要再次提交
-            
-            # 更新最终状态
-            task_status[task_id].update({
-                "status": "completed",
-                "end_time": datetime.now().isoformat(),
-                "processed_files": len(files),
-                "imported_count": imported_count,
-                "skipped_count": skipped_count,
-                "failed_count": failed_count,
-                "failed_files": failed_files,
-                "progress_percentage": 100
-            })
-            
-            print(f"并发处理完成: 导入{imported_count}个，跳过{skipped_count}个，失败{failed_count}个")
+                    if not result.get("success"):
+                        # 处理失败的文件
+                        failed_results.append({
+                            "file_index": result.get("file_index"),
+                            "filename": result.get("filename"),
+                            "status": "failed",
+                            "message": result.get("message", "处理失败"),
+                            "temp_path": result.get("temp_path")
+                        })
+                        continue
+                    
+                    photo_data = result.get("photo_data")
+                    if not photo_data:
+                        failed_results.append({
+                            "file_index": result.get("file_index"),
+                            "filename": result.get("filename"),
+                            "status": "failed",
+                            "message": "照片数据为空",
+                            "temp_path": result.get("temp_path")
+                        })
+                        continue
+                    
+                    # 收集成功处理的文件数据
+                    all_photo_data.append({
+                        "file_index": result.get("file_index"),
+                        "filename": result.get("filename"),
+                        "photo_data": photo_data,
+                        "additional_data": result.get("additional_data"),
+                        "temp_path": result.get("temp_path")
+                    })
+                
+                # 🔥 批量检查重复（需要数据库，但很快）
+                logger.info(f"批量检查 {len(all_photo_data)} 个文件的重复情况...")
+                with get_db_context() as check_db:
+                    # 批量查询所有文件哈希
+                    file_hashes = [data["photo_data"].file_hash for data in all_photo_data]
+                    existing_photos = check_db.query(Photo).filter(Photo.file_hash.in_(file_hashes)).all()
+                    existing_hashes = {photo.file_hash for photo in existing_photos}
+                
+                # 分离重复和新文件
+                duplicate_data = []
+                new_photo_data = []
+                
+                for data in all_photo_data:
+                    if data["photo_data"].file_hash in existing_hashes:
+                        duplicate_data.append(data)
+                    else:
+                        new_photo_data.append(data)
+                
+                logger.info(f"重复文件: {len(duplicate_data)} 个，新文件: {len(new_photo_data)} 个")
+                
+                # 阶段3：批量保存新文件到数据库（需要数据库，但很快）
+                imported_count = 0
+                skipped_count = len(duplicate_data)
+                failed_count = len(failed_results)
+                failed_files = []
+                
+                if new_photo_data:
+                    logger.info(f"批量保存 {len(new_photo_data)} 个新文件到数据库...")
+                    with get_db_context() as save_db:
+                        for data in new_photo_data:
+                            try:
+                                # 提取质量分析和标签信息
+                                additional_data = data.get("additional_data", {})
+                                quality_result = additional_data.get('quality_result') if isinstance(additional_data, dict) else None
+                                exif_tags = additional_data.get('exif_tags', []) if isinstance(additional_data, dict) else []
+                                time_tags = additional_data.get('time_tags', []) if isinstance(additional_data, dict) else []
+                                
+                                # 保存到数据库（批次模式，不自动提交）
+                                photo, is_new = photo_service.create_photo(
+                                    save_db,
+                                    data["photo_data"],
+                                    quality_result=quality_result,
+                                    exif_tags=exif_tags,
+                                    time_tags=time_tags,
+                                    auto_commit=False  # 批次模式，由上下文管理器统一提交
+                                )
+                                
+                                if photo and is_new:
+                                    imported_count += 1
+                                    logger.debug(f"成功导入: {data['filename']}")
+                                else:
+                                    # 并发情况下可能已存在
+                                    skipped_count += 1
+                                    logger.debug(f"文件已存在（并发情况）: {data['filename']}")
+                                    
+                            except Exception as e:
+                                failed_count += 1
+                                error_msg = f"{data['filename']}: {str(e)}"
+                                failed_files.append(error_msg)
+                                logger.error(f"保存文件失败 {error_msg}")
+                        
+                        # 注意：上下文管理器会在退出时自动 commit，这里不需要手动 commit
+                        logger.info(f"✅ 批量提交成功: 导入 {imported_count} 个，跳过 {skipped_count} 个，失败 {failed_count} 个")
+                
+                # 处理重复文件（标记为跳过，不是失败）
+                for data in duplicate_data:
+                    # 重复文件不计入失败，只记录到 failed_files 用于日志
+                    failed_files.append(f"{data['filename']}: 文件已存在，跳过导入")
+                
+                # 处理失败的文件
+                for result in failed_results:
+                    failed_files.append(f"{result.get('filename', 'unknown')}: {result.get('message', '处理失败')}")
+                
+                # 清理临时文件
+                all_temp_paths = [data.get("temp_path") for data in all_photo_data + failed_results if data.get("temp_path")]
+                for temp_path in all_temp_paths:
+                    try:
+                        if temp_path and os.path.exists(temp_path):
+                            os.unlink(temp_path)
+                    except Exception as e:
+                        logger.warning(f"清理临时文件失败 {temp_path}: {str(e)}")
+                
+                # 更新最终状态
+                task_status[task_id].update({
+                    "status": "completed",
+                    "end_time": datetime.now().isoformat(),
+                    "processed_files": len(files),
+                    "imported_count": imported_count,
+                    "skipped_count": skipped_count,
+                    "failed_count": failed_count,
+                    "failed_files": failed_files,
+                    "progress_percentage": 100
+                })
+                
+                logger.info(f"批次处理完成: 导入 {imported_count} 个，跳过 {skipped_count} 个，失败 {failed_count} 个")
+                
+                # 延迟清理任务状态，避免内存泄漏
+                async def cleanup_task_status():
+                    await asyncio.sleep(8 * 3600)  # 延迟8小时清理
+                    if task_id in task_status:
+                        del task_status[task_id]
+                        logger.info(f"清理已完成的任务状态: {task_id}")
+                
+                # 启动后台清理任务
+                asyncio.create_task(cleanup_task_status())
+
+            except Exception as e:
+                # 🔥 批次提交模式：异常会在上下文管理器中自动回滚
+                logger.error(f"批次处理失败: {str(e)}", exc_info=True)
+                task_status[task_id].update({
+                    "status": "failed",
+                    "end_time": datetime.now().isoformat(),
+                    "error": str(e)
+                })
 
         except Exception as e:
-            # 🔥 注意：每个任务已经使用独立的数据库会话，不需要共享会话的回滚
-            task_status[task_id].update({
+            # 处理整个函数级别的异常（包括获取全局信号量失败等）
+            logger.error(f"批次任务初始化失败: {str(e)}", exc_info=True)
+            task_status[task_id] = {
                 "status": "failed",
-                "end_time": datetime.now().isoformat(),
-                "error": str(e)
-            })
-            print(f"并发处理失败: {str(e)}")
-
-    except Exception as e:
-        # 处理整个函数级别的异常
-        task_status[task_id] = {
-            "status": "failed",
-            "error": str(e),
-            "end_time": datetime.now().isoformat()
-        }
-        print(f"任务初始化失败: {str(e)}")
+                "error": str(e),
+                "end_time": datetime.now().isoformat()
+            }

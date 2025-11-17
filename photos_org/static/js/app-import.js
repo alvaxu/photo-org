@@ -1259,85 +1259,6 @@ async function startFolderImport() {
     }
 }
 
-/**
- * 监控扫描任务进度
- * 
- * @param {string} taskId - 任务ID
- * @param {number} totalFiles - 总文件数
- */
-async function monitorScanProgress(taskId, totalFiles) {
-    /**
-     * 监控扫描任务进度
-     * 
-     * @param {string} taskId - 任务ID
-     * @param {number} totalFiles - 总文件数
-     */
-    let checkCount = 0;
-    const maxChecks = 300; // 最多检查300次，每次2秒，总共10分钟
-    
-    const progressInterval = setInterval(async () => {
-        checkCount++;
-        
-        try {
-            const response = await fetch(`${CONFIG.API_BASE_URL}/import/scan-status/${taskId}`);
-            const statusData = await response.json();
-            
-            if (response.ok) {
-                const progress = statusData.progress_percentage || 0;
-                const processed = statusData.processed_files || 0;
-                const imported = statusData.imported_count || 0;
-                const skipped = statusData.skipped_count || 0;
-                const failed = statusData.failed_count || 0;
-                
-                // 更新进度条
-                elements.importProgressBar.style.width = `${progress}%`;
-                elements.importStatus.textContent = `正在处理: ${processed}/${totalFiles} (${progress}%) - 已导入: ${imported}, 跳过: ${skipped}, 失败: ${failed}`;
-                
-                // 检查是否完成
-                if (statusData.status === 'completed') {
-                    clearInterval(progressInterval);
-                    
-                    // 直接显示导入结果详情模态框
-                    showImportDetails(statusData);
-
-                    // 重新加载照片列表
-                    await loadPhotos();
-                    await loadStats();
-                    
-                    // 关闭导入模态框
-                    const modal = bootstrap.Modal.getInstance(elements.importModal);
-                    if (modal) {
-                        modal.hide();
-                    }
-                } else if (statusData.status === 'failed') {
-                    clearInterval(progressInterval);
-                    showError(`扫描失败：${statusData.error || '未知错误'}`);
-                }
-            } else {
-                console.error('获取扫描状态失败:', statusData);
-                if (checkCount >= maxChecks) {
-                    clearInterval(progressInterval);
-                    showError('扫描超时，请检查服务器状态');
-                }
-            }
-        } catch (error) {
-            console.error('监控扫描进度失败:', error);
-            if (checkCount >= maxChecks) {
-                clearInterval(progressInterval);
-                showError('监控扫描进度失败，请检查网络连接');
-            }
-        }
-    }, 2000); // 每2秒检查一次
-    
-    // 设置超时
-    setTimeout(() => {
-        clearInterval(progressInterval);
-        showError('扫描超时，请检查服务器状态');
-    }, 600000); // 10分钟超时
-}
-
-
-
 // ============ 全局导出 ============
 
 // 将函数导出到全局作用域
@@ -1375,7 +1296,6 @@ document.addEventListener('DOMContentLoaded', function() {
 window.startImport = startImport;
 window.startFileImport = startFileImport;
 window.startFolderImport = startFolderImport;
-window.monitorScanProgress = monitorScanProgress;
 window.previewFolderContents = previewFolderContents;
 window.analyzeFiles = analyzeFiles;
 window.isSupportedFormat = isSupportedFormat;
@@ -2488,7 +2408,7 @@ async function waitForAIBatchComplete(batchSize) {
  */
 async function monitorAIAnalysisProgress(taskId, totalPhotos, initialTotal) {
     let checkCount = 0;
-    const maxChecks = 600; // 最多检查600次，每次1秒，总共10分钟
+    const maxChecks = 14400; // 最多检查14400次，每次2秒，总共8小时
 
     const statusCheckInterval = setInterval(async () => {
         checkCount++;
@@ -2573,7 +2493,7 @@ async function monitorAIAnalysisProgress(taskId, totalPhotos, initialTotal) {
             // ❌ 超时也解除AI分析模态框保护
             window.aiModalProtector.unprotect();
         }
-    }, 1000);
+    }, 2000); // 每2秒检查一次
 }
 // 处理选中的照片 - AI分析
 window.processSelectedPhotosAI = async (photoIds) => {

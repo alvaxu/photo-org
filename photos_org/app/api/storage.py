@@ -25,7 +25,7 @@ router = APIRouter()
 backup_task_status = {}
 
 # 任务状态清理配置
-BACKUP_TASK_STATUS_CLEANUP_HOURS = 1  # 任务完成后1小时清理状态
+BACKUP_TASK_STATUS_CLEANUP_HOURS = 8  # 任务完成后8小时清理状态
 
 
 # 请求/响应模型
